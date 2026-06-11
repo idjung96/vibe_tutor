@@ -1,0 +1,28 @@
+---
+name: logging-rule
+description: 코드에 로그를 넣는 규칙
+---
+# 로깅 규칙
+
+레벨은 3개만 쓴다:
+- INFO: 상태가 바뀔 때. 시작, 완료, 저장.
+- WARN: 실패했지만 계속 진행할 때. 재시도, 기본값 사용.
+- ERROR: 예외가 발생할 때.
+
+로그를 넣는 위치는 3곳이다. 이 3곳에는 반드시 넣는다:
+1. 외부 입출력: 파일, DB, API 호출의 직전과 직후.
+2. 분기 결정: if로 동작이 갈릴 때, 어느 쪽으로 갔는지.
+3. 예외 처리: except 블록 안. 입력값을 함께 적는다.
+
+메시지 형식: 동작 | key=value
+좋은 예: logger.info("회원 저장 완료 | user_id=%s", user_id)
+나쁜 예: logger.info("done")
+
+logger는 이렇게 만든다:
+from common.logger import get_logger
+logger = get_logger(__name__)
+
+금지:
+- print를 쓰지 않는다. logger만 쓴다.
+- 비밀번호, 토큰, 주민번호를 로그에 적지 않는다. 대신 "***"를 적는다.
+- 반복문 안에 INFO를 넣지 않는다. 반복문은 시작과 끝에만 넣는다.

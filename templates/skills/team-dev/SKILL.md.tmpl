@@ -1,0 +1,77 @@
+---
+name: team-dev
+description: 요구사항을 받아 단계별로 자동 개발한다.
+---
+# 팀 개발 절차
+
+순서대로 한다. 건너뛰지 않는다.
+
+## 0단계: 인터뷰 (REQUIREMENTS.md가 없을 때)
+1. Owner에게 차례로 묻는다. 한 번에 하나씩.
+   - 누가 쓰는 프로그램인가?
+   - 꼭 필요한 기능 3가지는?
+   - 이게 안 되면 곤란하다 하는 상황은?
+   - 외부에 배포하는가? (네/아니오)
+2. 답을 REQUIREMENTS.md로 정리한다. 항목마다 R1, R2 번호를 붙인다.
+3. Owner에게 보여주고 "맞나요? 1.네 2.수정"으로 확인받는다. (Gate 0)
+
+## 계획
+4. planner를 호출한다. PLAN.json과 PLAN.md를 받는다.
+5. PLAN.md를 Owner에게 보여준다. 이렇게 묻는다:
+   "이대로 진행할까요? 1. 네, 시작 (추천)  2. 수정하고 싶다"
+   1을 받으면 진행한다. (Gate 1)
+
+## 단계 반복 (PLAN.json의 단계마다)
+6. git checkout -b stage/{번호}-{이름}
+7. planner를 호출한다. 이 단계의 B등급 결정을 모두 내린다.
+   결과를 DECISIONS.md에 기록한다. C등급이 나오면 14번으로 간다. (Gate 2, 자동)
+{{#IF_SMALL}}
+8. tester를 호출한다. 새 라이브러리가 필요하면 lib-research 절차를 한다.
+{{/IF_SMALL}}
+{{#IF_LARGE}}
+8. tester와 lib-research(새 라이브러리가 있을 때)를 동시에 호출한다.
+   둘 다 끝나면 진행한다.
+{{/IF_LARGE}}
+9. 테스트를 커밋한다. 메시지: "[stage-N] 테스트 추가"
+10. coder를 호출한다. 현재 단계의 goal과 done_check만 준다.
+11. checker를 호출한다.
+12. 결과를 처리한다:
+    - PASS: 커밋한다. main으로 merge한다. TEST_LOG.md를 갱신한다. 13번으로.
+    - NEW_FAIL: coder에게 REASON과 LOG를 주고 다시 시킨다.
+      {{RETRY_LIMIT}}회 실패하면 C등급으로 올린다.
+    - REGRESSION: coder에게 이렇게 준다:
+      "이전 기능을 깨뜨렸다. 새 코드만 고쳐라. 테스트는 고치지 마라."
+    - coder가 "기존 테스트가 틀렸다"고 주장한다: C등급이다.
+    - 이 단계에서 checker 호출이 {{MAX_CHECKER_CALLS}}회를 넘었다: C등급이다.
+13. 단계가 끝났다. 컨텍스트를 정리한다.
+    CLAUDE.md와 PLAN.json을 다시 읽고 다음 단계를 시작한다.
+
+## 커밋 메시지 형식
+[stage-N] 한 줄 요약
+- tests: 통과 수 (신규 n, 회귀 n)
+- decision: 등급과 건수 (없으면 생략)
+
+## C등급 처리
+14. planner에게 질문 작성을 시킨다. OWNER_QUESTION.md에 쓴다.
+    선택지 2~3개. 각각 영향 표 5항목. 하나에 (추천) 표시.
+15. Owner에게 알리고 멈춘다.
+    Owner가 파일의 "답:"에 번호를 적으면 hook이 풀린다.
+16. 답을 DECISIONS.md에 기록한다.
+    OWNER_QUESTION.md를 answered/ 폴더로 옮긴다(mv). 작업을 계속한다.
+
+## 종료
+17. 모든 단계가 끝났다. R번호별 통과 표와 TEST_LOG.md 요약을
+    Owner에게 보여준다. "직접 실행해서 확인해 보세요"라고 안내한다. (Gate 4)
+{{#IF_SMALL}}
+
+## 형식 오류 처리
+에이전트 출력이 정한 형식과 다르다. "형식만 다시"라고 1회 재요청한다.
+또 틀리면 그 시도를 FAIL로 친다.
+{{/IF_SMALL}}
+
+## 금지
+- Owner 승인 없이 git push 하지 않는다.
+- 파일을 삭제하지 않는다.
+- 요구사항에 없는 기능을 만들지 않는다.
+- Owner가 이전 결정을 바꾸자고 한다: C등급으로 처리한다.
+  영향 표에 "이미 만든 것 중 버려지는 것"을 적는다.

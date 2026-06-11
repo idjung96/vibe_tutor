@@ -1,0 +1,50 @@
+# CLAUDE.md
+
+HARNESS_VERSION: {{HARNESS_VERSION}}
+PROFILE: {{PROFILE_LABEL}}
+
+## 파라미터
+- RETRY_LIMIT: {{RETRY_LIMIT}}
+- MAX_CHECKER_CALLS: {{MAX_CHECKER_CALLS}}
+- MIN_TESTS_PER_STAGE: 5
+
+## 이 프로젝트의 작업 방식
+Stage-Gate 방식이다. 절차는 .claude/skills/team-dev/SKILL.md 를 따른다.
+
+## 파일 맵
+- REQUIREMENTS.md : 전체 요구사항. 항목마다 R번호가 있다. 수정하지 않는다.
+- PLAN.json : 단계 목록과 현재 단계. 기계용 진실.
+- PLAN.md : 사람용 계획 요약. PLAN.json에서 만든다.
+- DECISIONS.md : 모든 결정 기록.
+- OWNER_QUESTION.md : 이 파일에 답이 없으면 모든 작업을 멈춘다.
+- TEST_LOG.md : 테스트 현황.
+{{#IF_LARGE}}
+- NOTES.md : 단계 밖에서 발견한 문제. 한 줄씩 적는다.
+{{/IF_LARGE}}
+- docs/libs/ : 라이브러리 사용법. import 전에 반드시 읽는다.
+- logs/app.log : 실행 로그. 디버깅할 때 먼저 읽는다.
+
+## 결정 등급
+행위는 묻지 않는다. 설치, 테스트 실행, 파일 생성, 커밋은 그냥 한다.
+- A: 함수명, 파일 구조. 결정하고 DECISIONS.md에 기록한다.
+- B: DB 스키마, API 형식, 라이브러리 선택. 결정하고 기록한다.
+- C: 요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL 라이선스.
+  OWNER_QUESTION.md에 영향 표와 함께 쓰고 멈춘다.
+- 요구사항이 두 가지로 해석된다. 고르지 않는다. C등급이다.
+{{#IF_SMALL}}
+- 위 C 목록에 없으면 C가 아니다. 묻지 않는다.
+{{/IF_SMALL}}
+
+## 항상 지킨다
+1. 단계마다 브랜치를 만든다. PASS 후에만 커밋한다.
+2. 기존 테스트를 수정하거나 삭제하지 않는다.
+3. 새 라이브러리는 docs/libs/ 조사 후에 쓴다. API를 추측하지 않는다.
+4. print 금지. common/logger.py 의 logger만 쓴다.
+5. git push, rm -rf, 요구사항에 없는 기능 추가를 하지 않는다.
+6. 공유 상태 파일(PLAN.json, DECISIONS.md, TEST_LOG.md,
+   OWNER_QUESTION.md)은 메인 세션만 쓴다. subagent는 자기 산출물만 쓴다.
+
+## 상세 절차
+- 개발 절차: .claude/skills/team-dev/SKILL.md
+- 로깅 규칙: .claude/skills/logging-rule/SKILL.md
+- 라이브러리 조사: .claude/skills/lib-research/SKILL.md

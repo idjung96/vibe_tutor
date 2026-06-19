@@ -107,25 +107,25 @@ Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -j
 
 # ── 4. 공통 파일 (모든 에이전트) ──────────────────────────────
 Render (Join-Path $Src 'templates\AGENTS.md.tmpl') (Join-Path $Target 'AGENTS.md')
-foreach ($d in 'common', 'tests', 'logs', 'team\libs', 'team\guides', 'team\answered', 'team\hooks') {
+foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks') {
     New-Item -ItemType Directory -Force -Path (Join-Path $Target $d) | Out-Null
 }
 Copy-Item (Join-Path $Src 'templates\common\logger.py') (Join-Path $Target 'common\logger.py') -Force
-Copy-Item (Join-Path $Src 'templates\hooks\*.sh')       (Join-Path $Target 'team\hooks\') -Force
-Copy-Item (Join-Path $Src 'templates\docs\OWNER_GUIDE.md') (Join-Path $Target 'team\guides\OWNER_GUIDE.md') -Force
-Copy-Item (Join-Path $Src 'templates\docs\DEBUG_GUIDE.md') (Join-Path $Target 'team\guides\DEBUG_GUIDE.md') -Force
+Copy-Item (Join-Path $Src 'templates\hooks\*.sh')       (Join-Path $Target 'dev-agent-team\hooks\') -Force
+Copy-Item (Join-Path $Src 'templates\docs\OWNER_GUIDE.md') (Join-Path $Target 'dev-agent-team\guides\OWNER_GUIDE.md') -Force
+Copy-Item (Join-Path $Src 'templates\docs\DEBUG_GUIDE.md') (Join-Path $Target 'dev-agent-team\guides\DEBUG_GUIDE.md') -Force
 foreach ($pair in @(
-        @('templates\project\DECISIONS.md', 'team\DECISIONS.md'),
-        @('templates\project\TEST_LOG.md', 'team\TEST_LOG.md'),
-        @('templates\project\docs-libs-INDEX.md', 'team\libs\INDEX.md'))) {
+        @('templates\project\DECISIONS.md', 'dev-agent-team\DECISIONS.md'),
+        @('templates\project\TEST_LOG.md', 'dev-agent-team\TEST_LOG.md'),
+        @('templates\project\docs-libs-INDEX.md', 'dev-agent-team\libs\INDEX.md'))) {
     $dst = Join-Path $Target $pair[1]
     if (-not (Test-Path $dst)) { Copy-Item (Join-Path $Src $pair[0]) $dst }
 }
-if ($Profile -eq 'large' -and -not (Test-Path (Join-Path $Target 'team\NOTES.md'))) {
-    [System.IO.File]::WriteAllLines((Join-Path $Target 'team\NOTES.md'),
+if ($Profile -eq 'large' -and -not (Test-Path (Join-Path $Target 'dev-agent-team\NOTES.md'))) {
+    [System.IO.File]::WriteAllLines((Join-Path $Target 'dev-agent-team\NOTES.md'),
         @('# 단계 밖 발견사항 (한 줄씩)', ''), $Utf8NoBom)
 }
-foreach ($k in 'logs\.gitkeep', 'team\answered\.gitkeep') {
+foreach ($k in 'logs\.gitkeep', 'dev-agent-team\answered\.gitkeep') {
     New-Item -ItemType File -Force -Path (Join-Path $Target $k) | Out-Null
 }
 
@@ -215,6 +215,6 @@ else {
 Write-Host ''
 Write-Host "설치 완료 (v$Version, $Profile, [$($Agents -join ' ')])."
 Write-Host "다음: $Target 에서 코딩 에이전트를 열고 '개발 시작'이라고 입력하세요."
-Write-Host "초보자 안내: $Target\team\guides\OWNER_GUIDE.md"
+Write-Host "초보자 안내: $Target\dev-agent-team\guides\OWNER_GUIDE.md"
 if (Has-Agent 'codex') { Write-Host "Codex 주의: ~/.codex/config.toml 에 이 프로젝트를 trusted로 등록해야 .codex 설정이 적용됩니다." }
 if (Has-Agent 'opencode') { Write-Host "opencode 주의: 가드레일 플러그인은 .opencode\plugins\guard.js 로 자동 로드됩니다(bun/node 필요)." }

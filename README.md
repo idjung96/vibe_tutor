@@ -48,7 +48,7 @@ Claude Code Windows 버전의 요구사항이기도 하다). 두 설치 스크�
   콤마로 조합하거나 `all`. 선택한 에이전트의 설정만 생성된다.
 
 설치가 끝나면 프로젝트 폴더에서 코딩 에이전트(Claude Code / Codex / opencode)를
-열고 `개발 시작` 이라고 입력한다. 초보자 안내는 생성된 `team/guides/OWNER_GUIDE.md` 참조.
+열고 `개발 시작` 이라고 입력한다. 초보자 안내는 생성된 `dev-agent-team/guides/OWNER_GUIDE.md` 참조.
 
 ## 저장소 구조
 
@@ -65,18 +65,18 @@ templates/
   settings.json.tmpl     # Claude 권한 allow/deny + hook 등록
   roles/                 # planner, tester, coder, checker 본문 (단일 소스)
   skills/                # team-dev(절차), logging-rule, lib-research
-  hooks/                 # Owner 질문 정지, 테스트 보호 (→ team/hooks/)
+  hooks/                 # Owner 질문 정지, 테스트 보호 (→ dev-agent-team/hooks/)
   codex/                 # config.toml, hooks.json (Codex 오버레이)
   opencode/              # opencode.json, plugins/guard.js (opencode 오버레이)
   common/logger.py       # 공통 로거 (고정 포맷)
-  docs/                  # OWNER_GUIDE, DEBUG_GUIDE → 설치 시 team/guides/
-  project/               # DECISIONS, TEST_LOG, libs INDEX → 설치 시 team/
+  docs/                  # OWNER_GUIDE, DEBUG_GUIDE → 설치 시 dev-agent-team/guides/
+  project/               # DECISIONS, TEST_LOG, libs INDEX → 설치 시 dev-agent-team/
 samples/sample-task-todo # 표본 과제 (모델 전환 테스트용)
 tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 ```
 
 설치 결과(에이전트별):
-- 공통: `AGENTS.md`(헌법), `team/`(작업/상태 + `team/hooks/` 가드 스크립트),
+- 공통: `AGENTS.md`(헌법), `dev-agent-team/`(작업/상태 + `dev-agent-team/hooks/` 가드 스크립트),
   `common/logger.py`, `tests/` `logs/`(제품 디렉터리).
 - `claude`: `CLAUDE.md`, `.claude/`(settings·agents·skills).
 - `codex`: `.codex/config.toml`·`.codex/hooks.json`, `.agents/skills/`(역할+절차 스킬).
@@ -92,18 +92,18 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
 | RETRY_LIMIT | 3 | 5 |
 | MAX_CHECKER_CALLS | 10 | 15 |
 | tester 추가 탐색 | 없음 (체크리스트 4종만) | "보이면 더 쓴다" |
-| team/NOTES.md (단계 밖 발견) | 없음 | 있음 |
+| dev-agent-team/NOTES.md (단계 밖 발견) | 없음 | 있음 |
 | coder 디버깅 절차 | 4단계 강제 | 로그 우선 1줄 |
 | 영향 표 파일 수 산정 | 추정 | grep 실측 |
 | 단계 시작 병렬 (tester ∥ lib-research) | 순차 | 병렬 |
 
 ## 호환성 계약 (프로파일과 무관하게 동일 — 변경 시 버전 올림)
 
-1. 파일 위치/형식: AGENTS.md(공통 헌법), team/ 레이아웃, team/PLAN.json 스키마,
-   team/DECISIONS.md / team/TEST_LOG.md / team/OWNER_QUESTION.md / team/libs/ 형식,
+1. 파일 위치/형식: AGENTS.md(공통 헌법), dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
+   dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md / dev-agent-team/libs/ 형식,
    커밋 메시지, 브랜치 이름
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL)과
-   정지 메커니즘 (team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
+   정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
 3. deny/차단 목록 (push, rm -rf, hard reset, python -c 우회 포함)
 4. append-only 테스트 원칙 (가드레일로 강제)
 5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
@@ -113,7 +113,7 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
 이 계약은 에이전트와 무관하게 동일하다. 가드레일 **강제 방식만** 에이전트별로
 다르다(Claude=hook, Codex=hook.json, opencode=플러그인). 이 덕분에 **모델 전환과
 에이전트 전환 인수인계**가 가능하다: small↔large, Claude↔Codex↔opencode 어느 쪽으로
-넘겨도 상태가 전부 team/ 파일에 있으므로 무손실로 계속된다.
+넘겨도 상태가 전부 dev-agent-team/ 파일에 있으므로 무손실로 계속된다.
 
 ## 배포 전 검증 (관리자용)
 
@@ -123,7 +123,7 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰
 3. 모델 전환 테스트: small로 3단계 진행 → 폴더를 large 환경으로 이동 →
-   4단계부터 이어서 진행 → team/TEST_LOG.md 누적이 끊기지 않는지 확인.
+   4단계부터 이어서 진행 → dev-agent-team/TEST_LOG.md 누적이 끊기지 않는지 확인.
 4. 파일럿: 소형 사용자 2명 + Claude Code 사용자 2명.
 
 ## 알려진 제약

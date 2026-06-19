@@ -99,23 +99,23 @@ esac; }
 echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
 
 # ── 4. 공통 파일 (모든 에이전트) ──────────────────────────────
-# AGENTS.md = 공통 헌법. team/ = 에이전트 작업/상태. tests/ logs/ common/ = 제품.
+# AGENTS.md = 공통 헌법. dev-agent-team/ = 에이전트 작업/상태. tests/ logs/ common/ = 제품.
 render "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md"
 mkdir -p "$TARGET/common" "$TARGET/tests" "$TARGET/logs" \
-         "$TARGET/team/libs" "$TARGET/team/guides" "$TARGET/team/answered" "$TARGET/team/hooks"
+         "$TARGET/dev-agent-team/libs" "$TARGET/dev-agent-team/guides" "$TARGET/dev-agent-team/answered" "$TARGET/dev-agent-team/hooks"
 cp "$SRC/templates/common/logger.py"        "$TARGET/common/logger.py"
-cp "$SRC/templates/hooks/block_on_owner_question.sh" "$TARGET/team/hooks/"
-cp "$SRC/templates/hooks/protect_tests.sh"           "$TARGET/team/hooks/"
-chmod +x "$TARGET/team/hooks/"*.sh
-cp "$SRC/templates/docs/OWNER_GUIDE.md"     "$TARGET/team/guides/OWNER_GUIDE.md"
-cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/team/guides/DEBUG_GUIDE.md"
-[ -f "$TARGET/team/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/team/DECISIONS.md"
-[ -f "$TARGET/team/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/team/TEST_LOG.md"
-[ -f "$TARGET/team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/team/libs/INDEX.md"
-if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/team/NOTES.md" ]; then
-  printf "# 단계 밖 발견사항 (한 줄씩)\n\n" > "$TARGET/team/NOTES.md"
+cp "$SRC/templates/hooks/block_on_owner_question.sh" "$TARGET/dev-agent-team/hooks/"
+cp "$SRC/templates/hooks/protect_tests.sh"           "$TARGET/dev-agent-team/hooks/"
+chmod +x "$TARGET/dev-agent-team/hooks/"*.sh
+cp "$SRC/templates/docs/OWNER_GUIDE.md"     "$TARGET/dev-agent-team/guides/OWNER_GUIDE.md"
+cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/dev-agent-team/guides/DEBUG_GUIDE.md"
+[ -f "$TARGET/dev-agent-team/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/dev-agent-team/DECISIONS.md"
+[ -f "$TARGET/dev-agent-team/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/dev-agent-team/TEST_LOG.md"
+[ -f "$TARGET/dev-agent-team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/dev-agent-team/libs/INDEX.md"
+if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/dev-agent-team/NOTES.md" ]; then
+  printf "# 단계 밖 발견사항 (한 줄씩)\n\n" > "$TARGET/dev-agent-team/NOTES.md"
 fi
-touch "$TARGET/logs/.gitkeep" "$TARGET/team/answered/.gitkeep"
+touch "$TARGET/logs/.gitkeep" "$TARGET/dev-agent-team/answered/.gitkeep"
 
 # ── 5. Claude Code 오버레이 ───────────────────────────────────
 if has_agent claude; then
@@ -168,12 +168,12 @@ if [ ! -d "$TARGET/.git" ]; then
          commit -qm "[harness] init (profile=$PROFILE, agents=$AGENTS, v$VERSION)" )
 fi
 
-# ── 9. hook 실동작 검증 (공통 team/hooks) ─────────────────────
+# ── 9. hook 실동작 검증 (공통 dev-agent-team/hooks) ─────────────────────
 if bash "$SRC/tests/verify_hooks.sh" "$TARGET"; then
   echo ""
   echo "설치 완료 (v$VERSION, $PROFILE, [$AGENTS])."
   echo "다음: $TARGET 에서 코딩 에이전트를 열고 '개발 시작'이라고 입력하세요."
-  echo "초보자 안내: $TARGET/team/guides/OWNER_GUIDE.md"
+  echo "초보자 안내: $TARGET/dev-agent-team/guides/OWNER_GUIDE.md"
   has_agent codex && echo "Codex 주의: ~/.codex/config.toml 의 [projects.\"$TARGET\"] trust_level=\"trusted\" 등록 후 .codex 설정이 적용됩니다."
   has_agent opencode && echo "opencode 주의: 가드레일 플러그인은 .opencode/plugins/guard.js 로 자동 로드됩니다(bun/node 필요)."
 else

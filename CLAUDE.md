@@ -36,7 +36,7 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh ~/projects/my-app                     # 자동 판별(온프레미스→small) + all
 
 # hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
-./tests/verify_hooks.sh /tmp/t1       # 공통 team/hooks 기준 6항목 PASS여야 함
+./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 6항목 PASS여야 함
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile small -Agent all -Target C:\projects\my-app
@@ -54,7 +54,7 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
    `{{HARNESS_VERSION}}`. 값은 `profiles/{small,large}.conf` 와 `HARNESS_VERSION` 에서 온다.
    새 변수를 추가하면 `init.sh` 와 `init.ps1` 의 sed/치환 목록 **양쪽 모두** 갱신해야 한다.
 
-`.tmpl` 파일은 렌더링되고, `templates/hooks/*`(→`team/hooks/`)·`templates/common/logger.py`·
+`.tmpl` 파일은 렌더링되고, `templates/hooks/*`(→`dev-agent-team/hooks/`)·`templates/common/logger.py`·
 `templates/docs/*`·`templates/project/*`·`templates/codex/hooks.json`·
 `templates/opencode/plugins/guard.js` 는 그대로 복사된다(`init.sh` §4–7 참조).
 
@@ -67,9 +67,9 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 
 ## 에이전트 오버레이 (어디에 무엇이 깔리나)
 
-- **공통**: `AGENTS.md`(헌법), `team/`(+`team/hooks/` 가드 스크립트), `common/`, `tests/` `logs/`.
+- **공통**: `AGENTS.md`(헌법), `dev-agent-team/`(+`dev-agent-team/hooks/` 가드 스크립트), `common/`, `tests/` `logs/`.
 - **claude**: `CLAUDE.md`(@AGENTS.md), `.claude/settings.json`·`agents/`·`skills/`.
-- **codex**: `.codex/config.toml`·`.codex/hooks.json`(→`team/hooks` 재사용), `.agents/skills/`.
+- **codex**: `.codex/config.toml`·`.codex/hooks.json`(→`dev-agent-team/hooks` 재사용), `.agents/skills/`.
 - **opencode**: `opencode.json`, `.opencode/agents/`·`.opencode/plugins/guard.js`,
   스킬은 `.agents/skills/`(호환 경로)로 보장.
 
@@ -80,20 +80,21 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
-차이 7종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, team/NOTES.md 유무,
+차이 7종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, dev-agent-team/NOTES.md 유무,
 coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성.
 
 ## 생성된 프로젝트의 디렉터리 규약
 
-에이전트 작업/상태 파일은 모두 **`team/`** 아래에 둔다(REQUIREMENTS, PLAN.json/PLAN.md,
-DECISIONS, TEST_LOG, OWNER_QUESTION, NOTES, `team/libs/`, `team/answered/`, `team/guides/`).
-`tests/` `logs/` `common/` 은 제품 디렉터리라 이름이 겹치지 않게 그대로 둔다. 경로를 옮기면
-호환성 계약이 바뀌므로 `HARNESS_VERSION` 을 올린다(이 규약 도입이 v1.2.0).
+에이전트 작업/상태 파일은 모두 **`dev-agent-team/`** 아래에 둔다(REQUIREMENTS, PLAN.json/PLAN.md,
+DECISIONS, TEST_LOG, OWNER_QUESTION, NOTES, `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
+`tests/` `logs/` `common/` 은 **제품 디렉터리**(만들고 있는 프로그램의 것 — pytest 표준 위치,
+앱 런타임 로그, 제품 공통 코드)라 이름이 겹쳐도 그대로 둔다. 경로를 옮기면 호환성 계약이
+바뀌므로 `HARNESS_VERSION` 을 올린다(team/ 도입 v1.2.0 → `dev-agent-team/` 개명 v1.3.0).
 
 ## 호환성 계약 — 변경 시 `HARNESS_VERSION` 을 올릴 것
 
-프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: team/ 레이아웃, team/PLAN.json 스키마,
-team/DECISIONS.md / team/TEST_LOG.md / team/OWNER_QUESTION.md 형식, 커밋 메시지, 브랜치명 /
+프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
+dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식, 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원칙 / 로그 형식 /
 4-에이전트 역할 경계 / 단일 작성자 원칙).
 이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).
@@ -101,20 +102,20 @@ C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원�
 
 ## 생성된 프로젝트의 안전장치 (= templates/ 에서 무엇을 깨면 안 되는가)
 
-- **공유 가드 스크립트 2개**(`team/hooks/`): `block_on_owner_question.sh`
-  (team/OWNER_QUESTION.md에 `^답: 숫자`가 없으면 exit 2 차단), `protect_tests.sh`
+- **공유 가드 스크립트 2개**(`dev-agent-team/hooks/`): `block_on_owner_question.sh`
+  (dev-agent-team/OWNER_QUESTION.md에 `^답: 숫자`가 없으면 exit 2 차단), `protect_tests.sh`
   (기존 `tests/*_test.py` 수정 시 exit 2). exit 2 + stderr 규약 — 바꾸면 `verify_hooks.sh` 도 함께.
-- **에이전트별 연결**: Claude=`.claude/settings.json` hooks가 `team/hooks/*.sh` 호출 +
+- **에이전트별 연결**: Claude=`.claude/settings.json` hooks가 `dev-agent-team/hooks/*.sh` 호출 +
   allow/deny(`git push`/`rm -rf`/`git reset --hard`/`python -c` 등 deny). Codex=
-  `.codex/hooks.json` 이 같은 `team/hooks/*.sh` 호출(단 apply_patch·MCP 훅 불안정·Windows 미지원).
+  `.codex/hooks.json` 이 같은 `dev-agent-team/hooks/*.sh` 호출(단 apply_patch·MCP 훅 불안정·Windows 미지원).
   opencode=`.opencode/plugins/guard.js` 가 동일 로직을 JS로 재현(`tool.execute.before` throw).
-- **C등급 정지 흐름**: planner가 team/OWNER_QUESTION.md 작성 → 가드레일이 도구 사용 차단 →
+- **C등급 정지 흐름**: planner가 dev-agent-team/OWNER_QUESTION.md 작성 → 가드레일이 도구 사용 차단 →
   Owner가 "답: 번호" 기입 → 자동 해제. 이 3박자는 계약이다(강제 방식만 에이전트별로 다름).
 - **세 경로 동기화**: 가드 로직을 바꾸면 `.sh` 2개와 `guard.js` 를 **함께** 고쳐야 동작이 일치한다.
 
 ## 에이전트 역할 경계 (단일 작성자 원칙)
 
-공유 상태 파일(team/PLAN.json, team/DECISIONS.md, team/TEST_LOG.md, team/OWNER_QUESTION.md)은 **메인 세션만**
+공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md)은 **메인 세션만**
 쓴다. subagent는 자기 산출물만 쓴다(planner=계획/질문, tester=tests/, coder=구현,
 checker=pytest 실행·판정). 절차 전체는 `templates/skills/team-dev/SKILL.md.tmpl` 가 정본이다.
 

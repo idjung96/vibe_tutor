@@ -21,25 +21,25 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
   순서대로 직접 수행한다.
 
 ## 파일 맵
-에이전트 작업/상태 파일은 모두 team/ 아래에 있다. tests/ logs/ common/ 은 제품 디렉터리다.
-- team/REQUIREMENTS.md : 전체 요구사항. 항목마다 R번호. 수정하지 않는다.
-- team/PLAN.json : 단계 목록과 현재 단계. 기계용 진실.
-- team/PLAN.md : 사람용 계획 요약. team/PLAN.json에서 만든다.
-- team/DECISIONS.md : 모든 결정 기록.
-- team/OWNER_QUESTION.md : 이 파일에 답이 없으면 모든 작업을 멈춘다.
-- team/TEST_LOG.md : 테스트 현황.
+에이전트 작업/상태 파일은 모두 dev-agent-team/ 아래에 있다. tests/ logs/ common/ 은 제품 디렉터리다.
+- dev-agent-team/REQUIREMENTS.md : 전체 요구사항. 항목마다 R번호. 수정하지 않는다.
+- dev-agent-team/PLAN.json : 단계 목록과 현재 단계. 기계용 진실.
+- dev-agent-team/PLAN.md : 사람용 계획 요약. dev-agent-team/PLAN.json에서 만든다.
+- dev-agent-team/DECISIONS.md : 모든 결정 기록.
+- dev-agent-team/OWNER_QUESTION.md : 이 파일에 답이 없으면 모든 작업을 멈춘다.
+- dev-agent-team/TEST_LOG.md : 테스트 현황.
 {{#IF_LARGE}}
-- team/NOTES.md : 단계 밖에서 발견한 문제. 한 줄씩 적는다.
+- dev-agent-team/NOTES.md : 단계 밖에서 발견한 문제. 한 줄씩 적는다.
 {{/IF_LARGE}}
-- team/libs/ : 라이브러리 사용법. import 전에 반드시 읽는다.
+- dev-agent-team/libs/ : 라이브러리 사용법. import 전에 반드시 읽는다.
 - logs/app.log : 실행 로그. 디버깅할 때 먼저 읽는다.
 
 ## 결정 등급
 행위는 묻지 않는다. 설치, 테스트 실행, 파일 생성, 커밋은 그냥 한다.
-- A: 함수명, 파일 구조. 결정하고 team/DECISIONS.md에 기록한다.
+- A: 함수명, 파일 구조. 결정하고 dev-agent-team/DECISIONS.md에 기록한다.
 - B: DB 스키마, API 형식, 라이브러리 선택. 결정하고 기록한다.
 - C: 요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL 라이선스.
-  team/OWNER_QUESTION.md에 영향 표와 함께 쓰고 멈춘다.
+  dev-agent-team/OWNER_QUESTION.md에 영향 표와 함께 쓰고 멈춘다.
 - 요구사항이 두 가지로 해석된다. 고르지 않는다. C등급이다.
 {{#IF_SMALL}}
 - 위 C 목록에 없으면 C가 아니다. 묻지 않는다.
@@ -48,14 +48,14 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 ## 항상 지킨다
 1. 단계마다 브랜치를 만든다. PASS 후에만 커밋한다.
 2. 기존 테스트를 수정하거나 삭제하지 않는다.
-3. 새 라이브러리는 team/libs/ 조사 후에 쓴다. API를 추측하지 않는다.
+3. 새 라이브러리는 dev-agent-team/libs/ 조사 후에 쓴다. API를 추측하지 않는다.
 4. print 금지. common/logger.py 의 logger만 쓴다.
 5. git push, rm -rf, 요구사항에 없는 기능 추가를 하지 않는다.
-6. 공유 상태 파일(team/PLAN.json, team/DECISIONS.md, team/TEST_LOG.md,
-   team/OWNER_QUESTION.md)은 메인 세션만 쓴다. subagent는 자기 산출물만 쓴다.
+6. 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md,
+   dev-agent-team/OWNER_QUESTION.md)은 메인 세션만 쓴다. subagent는 자기 산출물만 쓴다.
 
 ## 가드레일 (자동 강제)
-- team/OWNER_QUESTION.md에 "답: 번호"가 없으면 도구 사용이 차단된다.
+- dev-agent-team/OWNER_QUESTION.md에 "답: 번호"가 없으면 도구 사용이 차단된다.
 - 기존 tests/ 파일 수정이 차단된다.
 강제 방식은 에이전트마다 다르다(Claude=hook, Codex=hook.json, opencode=플러그인).
 일부 도구는 파일 편집 차단이 불완전하므로 위 두 규칙을 스스로도 반드시 지켜라.

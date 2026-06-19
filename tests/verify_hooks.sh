@@ -4,7 +4,7 @@
 set -u
 TARGET="${1:-$(pwd)}"
 export CLAUDE_PROJECT_DIR="$TARGET"
-H="$TARGET/team/hooks"
+H="$TARGET/dev-agent-team/hooks"
 PASS=0; FAIL=0
 
 check() { # 설명 기대코드 실제코드
@@ -18,16 +18,16 @@ check() { # 설명 기대코드 실제코드
 echo "[hook 검증] $TARGET"
 
 # 1. 답 없는 OWNER_QUESTION → 차단(2)
-mkdir -p "$TARGET/team"
-printf '질문: 테스트\n답: 번호를 적고 저장하세요.\n' > "$TARGET/team/OWNER_QUESTION.md"
+mkdir -p "$TARGET/dev-agent-team"
+printf '질문: 테스트\n답: 번호를 적고 저장하세요.\n' > "$TARGET/dev-agent-team/OWNER_QUESTION.md"
 echo '{}' | "$H/block_on_owner_question.sh" >/dev/null 2>&1
 check "미답변 질문이 있으면 차단" 2 $?
 
 # 2. 답이 적히면 → 허용(0)
-printf '질문: 테스트\n답: 2\n' > "$TARGET/team/OWNER_QUESTION.md"
+printf '질문: 테스트\n답: 2\n' > "$TARGET/dev-agent-team/OWNER_QUESTION.md"
 echo '{}' | "$H/block_on_owner_question.sh" >/dev/null 2>&1
 check "답이 적히면 허용" 0 $?
-rm -f "$TARGET/team/OWNER_QUESTION.md"
+rm -f "$TARGET/dev-agent-team/OWNER_QUESTION.md"
 
 # 3. 질문 파일이 없으면 → 허용(0)
 echo '{}' | "$H/block_on_owner_question.sh" >/dev/null 2>&1

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # team-dev-harness 설치 스크립트
-# 사용법: ./init.sh [--profile small|large] [대상디렉토리]
-# 프로파일을 생략하면 ANTHROPIC_BASE_URL로 자동 판별한다.
-#   온프레미스(사내 LLM) = small, 외부(Claude) = large
+# 사용법: ./init.sh [--profile small|large] [--agent claude|codex|opencode|all] [대상디렉토리]
+# 프로파일 생략 시: 온프레미스(ANTHROPIC_BASE_URL/OPENAI_BASE_URL이 내부망)면 small, 그 외 large.
+# 에이전트 생략 시: all (claude + codex + opencode).
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
 VERSION="$(cat "$SRC/HARNESS_VERSION")"
 
-PROFILE=""
-TARGET=""
+PROFILE=""; TARGET=""; AGENTS_SEL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --profile) PROFILE="$2"; shift 2 ;;
-    -h|--help) sed -n '2,5p' "$0"; exit 0 ;;
+    --agent)   AGENTS_SEL="$2"; shift 2 ;;
+    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
     *) TARGET="$1"; shift ;;
   esac
 done
@@ -26,94 +26,156 @@ if [ "$TARGET" = "$SRC" ]; then
   exit 1
 fi
 
-# ── 1. 프로파일 자동 판별 ──────────────────────────────────────
+# ── 1. 에이전트 선택 ──────────────────────────────────────────
+AGENTS_SEL="${AGENTS_SEL:-all}"
+case "$AGENTS_SEL" in
+  all) AGENTS="claude codex opencode" ;;
+  *)   AGENTS="$(echo "$AGENTS_SEL" | tr ',' ' ')" ;;
+esac
+for a in $AGENTS; do
+  case "$a" in claude|codex|opencode) ;; *) echo "알 수 없는 에이전트: $a (claude|codex|opencode|all)"; exit 1 ;; esac
+done
+has_agent() { case " $AGENTS " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+
+# ── 2. 프로파일 판별: 온프레미스면 small, 그 외 large ─────────
 if [ -z "$PROFILE" ]; then
-  BASE="${ANTHROPIC_BASE_URL:-}"
-  if [ -z "$BASE" ]; then
-    PROFILE=large   # 기본 엔드포인트 = api.anthropic.com = 외부 Claude
-  elif echo "$BASE" | grep -qiE '134\.75\.147\.|kims|litellm|localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.'; then
+  BASE="${ANTHROPIC_BASE_URL:-}${OPENAI_BASE_URL:-}"
+  if echo "$BASE" | grep -qiE '134\.75\.147\.|kims|litellm|localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.'; then
     PROFILE=small   # 사내/내부망 엔드포인트 = 온프레미스 LLM
   else
-    echo "어떤 AI에 연결하나요?"
-    echo "1. 사내 AI (온프레미스 LLM)"
-    echo "2. Claude (인터넷)"
-    printf "번호: "
-    read -r ans
-    if [ "$ans" = "1" ]; then PROFILE=small; else PROFILE=large; fi
+    PROFILE=large   # 비어 있거나 외부 = 외부 대형 모델
   fi
 fi
-
 case "$PROFILE" in small|large) ;; *) echo "프로파일은 small 또는 large 여야 합니다."; exit 1 ;; esac
 
 # shellcheck source=/dev/null
 . "$SRC/profiles/$PROFILE.conf"
 
-# ── 2. 템플릿 렌더링 ──────────────────────────────────────────
+# ── 3. 템플릿 렌더링 ──────────────────────────────────────────
 # {{#IF_SMALL}}/{{#IF_LARGE}} 블록은 마커가 한 줄을 통째로 차지해야 한다.
-render() {
-  src="$1"; dst="$2"
-  mkdir -p "$(dirname "$dst")"
+render_stdout() {
   awk -v profile="$PROFILE" '
     $0=="{{#IF_SMALL}}" { mode=(profile=="small")?"keep":"skip"; next }
     $0=="{{#IF_LARGE}}" { mode=(profile=="large")?"keep":"skip"; next }
     $0=="{{/IF_SMALL}}" || $0=="{{/IF_LARGE}}" { mode=""; next }
     mode=="skip" { next }
     { print }
-  ' "$src" \
+  ' "$1" \
   | sed -e "s|{{PROFILE_LABEL}}|$PROFILE_LABEL|g" \
         -e "s|{{RETRY_LIMIT}}|$RETRY_LIMIT|g" \
         -e "s|{{MAX_CHECKER_CALLS}}|$MAX_CHECKER_CALLS|g" \
-        -e "s|{{HARNESS_VERSION}}|$VERSION|g" \
-  > "$dst"
+        -e "s|{{HARNESS_VERSION}}|$VERSION|g"
+}
+render() {
+  mkdir -p "$(dirname "$2")"
+  render_stdout "$1" > "$2"
 }
 
-echo "프로파일: $PROFILE_LABEL → $TARGET"
+# 스킬 3종을 주어진 디렉터리에 렌더
+emit_skills() {
+  for s in team-dev logging-rule lib-research; do
+    render "$SRC/templates/skills/$s/SKILL.md.tmpl" "$TARGET/$1/$s/SKILL.md"
+  done
+}
 
-render "$SRC/templates/CLAUDE.md.tmpl"     "$TARGET/CLAUDE.md"
-render "$SRC/templates/settings.json.tmpl" "$TARGET/.claude/settings.json"
-for a in planner tester coder checker; do
-  render "$SRC/templates/agents/$a.md.tmpl" "$TARGET/.claude/agents/$a.md"
-done
-for s in team-dev logging-rule lib-research; do
-  render "$SRC/templates/skills/$s/SKILL.md.tmpl" "$TARGET/.claude/skills/$s/SKILL.md"
-done
+# 역할 메타데이터 (frontmatter 생성용)
+role_desc() { case "$1" in
+  planner) echo "요구사항을 단계로 나눈다. 결정을 내린다. Owner 질문을 만든다." ;;
+  tester)  echo "단계 목표를 받아 테스트케이스를 작성한다." ;;
+  coder)   echo "테스트를 통과시키는 코드를 작성한다." ;;
+  checker) echo "테스트 전체를 실행하고 PASS/FAIL을 판정한다." ;;
+esac; }
+claude_tools() { case "$1" in
+  planner|tester) echo "Read, Write" ;;
+  coder)          echo "Read, Write, Edit, Bash" ;;
+  checker)        echo "Bash, Read" ;;
+esac; }
+opencode_tools() { case "$1" in
+  planner|tester) printf '  write: true\n  edit: false\n  bash: false' ;;
+  coder)          printf '  write: true\n  edit: true\n  bash: true' ;;
+  checker)        printf '  write: false\n  edit: false\n  bash: true' ;;
+esac; }
 
-# ── 3. 공통 파일과 디렉토리 ───────────────────────────────────
-mkdir -p "$TARGET/.claude/hooks" "$TARGET/common" "$TARGET/tests" \
-         "$TARGET/logs" "$TARGET/docs/libs" "$TARGET/answered"
-cp "$SRC/templates/hooks/block_on_owner_question.sh" "$TARGET/.claude/hooks/"
-cp "$SRC/templates/hooks/protect_tests.sh"           "$TARGET/.claude/hooks/"
-chmod +x "$TARGET/.claude/hooks/"*.sh
+echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
+
+# ── 4. 공통 파일 (모든 에이전트) ──────────────────────────────
+# AGENTS.md = 공통 헌법. team/ = 에이전트 작업/상태. tests/ logs/ common/ = 제품.
+render "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md"
+mkdir -p "$TARGET/common" "$TARGET/tests" "$TARGET/logs" \
+         "$TARGET/team/libs" "$TARGET/team/guides" "$TARGET/team/answered" "$TARGET/team/hooks"
 cp "$SRC/templates/common/logger.py"        "$TARGET/common/logger.py"
-cp "$SRC/templates/docs/OWNER_GUIDE.md"     "$TARGET/OWNER_GUIDE.md"
-cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/DEBUG_GUIDE.md"
-[ -f "$TARGET/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/DECISIONS.md"
-[ -f "$TARGET/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/TEST_LOG.md"
-[ -f "$TARGET/docs/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/docs/libs/INDEX.md"
-if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/NOTES.md" ]; then
-  printf "# 단계 밖 발견사항 (한 줄씩)\n\n" > "$TARGET/NOTES.md"
+cp "$SRC/templates/hooks/block_on_owner_question.sh" "$TARGET/team/hooks/"
+cp "$SRC/templates/hooks/protect_tests.sh"           "$TARGET/team/hooks/"
+chmod +x "$TARGET/team/hooks/"*.sh
+cp "$SRC/templates/docs/OWNER_GUIDE.md"     "$TARGET/team/guides/OWNER_GUIDE.md"
+cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/team/guides/DEBUG_GUIDE.md"
+[ -f "$TARGET/team/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/team/DECISIONS.md"
+[ -f "$TARGET/team/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/team/TEST_LOG.md"
+[ -f "$TARGET/team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/team/libs/INDEX.md"
+if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/team/NOTES.md" ]; then
+  printf "# 단계 밖 발견사항 (한 줄씩)\n\n" > "$TARGET/team/NOTES.md"
 fi
-touch "$TARGET/logs/.gitkeep" "$TARGET/answered/.gitkeep"
+touch "$TARGET/logs/.gitkeep" "$TARGET/team/answered/.gitkeep"
 
-# ── 4. AGENTS.md 호환 링크 ────────────────────────────────────
-ln -sf CLAUDE.md "$TARGET/AGENTS.md"
+# ── 5. Claude Code 오버레이 ───────────────────────────────────
+if has_agent claude; then
+  render "$SRC/templates/CLAUDE.md.tmpl"     "$TARGET/CLAUDE.md"
+  render "$SRC/templates/settings.json.tmpl" "$TARGET/.claude/settings.json"
+  emit_skills ".claude/skills"
+  mkdir -p "$TARGET/.claude/agents"
+  for r in planner tester coder checker; do
+    body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
+    { printf -- "---\nname: %s\ndescription: %s\ntools: %s\n---\n" "$r" "$(role_desc "$r")" "$(claude_tools "$r")"
+      printf '%s\n' "$body"; } > "$TARGET/.claude/agents/$r.md"
+  done
+fi
 
-# ── 5. git 초기화 ─────────────────────────────────────────────
+# ── 6. Codex 오버레이 ─────────────────────────────────────────
+# Codex는 별도 서브에이전트가 없어 역할을 .agents/skills/ 로 둔다(단일 에이전트가 순차 수행).
+if has_agent codex; then
+  render "$SRC/templates/codex/config.toml.tmpl" "$TARGET/.codex/config.toml"
+  cp "$SRC/templates/codex/hooks.json"           "$TARGET/.codex/hooks.json"
+  emit_skills ".agents/skills"
+  for r in planner tester coder checker; do
+    body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
+    mkdir -p "$TARGET/.agents/skills/$r"
+    { printf -- "---\nname: %s\ndescription: %s\n---\n" "$r" "$(role_desc "$r")"
+      printf '%s\n' "$body"; } > "$TARGET/.agents/skills/$r/SKILL.md"
+  done
+fi
+
+# ── 7. opencode 오버레이 ──────────────────────────────────────
+if has_agent opencode; then
+  render "$SRC/templates/opencode/opencode.json.tmpl" "$TARGET/opencode.json"
+  mkdir -p "$TARGET/.opencode/plugins" "$TARGET/.opencode/agents"
+  cp "$SRC/templates/opencode/plugins/guard.js" "$TARGET/.opencode/plugins/guard.js"
+  # opencode는 .agents/skills/ 를 호환 경로로 읽는다. codex가 안 깔렸으면 여기서 보장.
+  [ -d "$TARGET/.agents/skills/team-dev" ] || emit_skills ".agents/skills"
+  for r in planner tester coder checker; do
+    body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
+    { printf -- "---\ndescription: %s\nmode: subagent\ntools:\n%s\n---\n" "$(role_desc "$r")" "$(opencode_tools "$r")"
+      printf '%s\n' "$body"; } > "$TARGET/.opencode/agents/$r.md"
+  done
+fi
+
+# ── 8. git 초기화 ─────────────────────────────────────────────
 if [ ! -d "$TARGET/.git" ]; then
   ( cd "$TARGET" \
     && git init -q \
     && printf "logs/app.log\n__pycache__/\n.pytest_cache/\n" > .gitignore \
     && git add -A \
     && git -c user.name=harness -c user.email=harness@local \
-         commit -qm "[harness] init (profile=$PROFILE, v$VERSION)" )
+         commit -qm "[harness] init (profile=$PROFILE, agents=$AGENTS, v$VERSION)" )
 fi
 
-# ── 6. hook 실동작 검증 ───────────────────────────────────────
+# ── 9. hook 실동작 검증 (공통 team/hooks) ─────────────────────
 if bash "$SRC/tests/verify_hooks.sh" "$TARGET"; then
   echo ""
-  echo "설치 완료 (v$VERSION, $PROFILE)."
-  echo "다음: $TARGET 에서 Claude Code를 열고 '개발 시작'이라고 입력하세요."
-  echo "초보자 안내: $TARGET/OWNER_GUIDE.md"
+  echo "설치 완료 (v$VERSION, $PROFILE, [$AGENTS])."
+  echo "다음: $TARGET 에서 코딩 에이전트를 열고 '개발 시작'이라고 입력하세요."
+  echo "초보자 안내: $TARGET/team/guides/OWNER_GUIDE.md"
+  has_agent codex && echo "Codex 주의: ~/.codex/config.toml 의 [projects.\"$TARGET\"] trust_level=\"trusted\" 등록 후 .codex 설정이 적용됩니다."
+  has_agent opencode && echo "opencode 주의: 가드레일 플러그인은 .opencode/plugins/guard.js 로 자동 로드됩니다(bun/node 필요)."
 else
   echo ""
   echo "경고: hook 검증 실패. 안전장치가 동작하지 않을 수 있습니다."

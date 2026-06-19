@@ -1,0 +1,20 @@
+# Codex 프로젝트 설정 (.codex/config.toml)
+# 적용 조건: ~/.codex/config.toml 의 [projects] 에서 이 프로젝트를 trusted로 등록해야
+# .codex/config.toml 과 .codex/hooks.json 이 동작한다(설치 후 안내 참고).
+
+sandbox_mode = "workspace-write"   # 워크스페이스 안에서만 자동 편집/실행
+approval_policy = "on-request"     # 샌드박스 경계를 넘을 때만 승인 요청
+project_doc_max_bytes = 65536      # AGENTS.md 로딩 상한
+
+[features]
+hooks = true                       # team/hooks 가드레일 사용
+
+# ── 온프레미스(사내) LLM 예시 ──────────────────────────────
+# 사내 모델을 쓸 때만 주석을 풀고 값을 채운다(small 프로파일).
+# model = "your-onprem-model"
+# model_provider = "onprem"
+# [model_providers.onprem]
+# name = "On-prem LLM"
+# base_url = "http://litellm.local/v1"
+# env_key = "ONPREM_API_KEY"
+# wire_api = "responses"

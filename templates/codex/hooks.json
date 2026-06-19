@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash team/hooks/block_on_owner_question.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          { "type": "command", "command": "bash team/hooks/block_on_owner_question.sh", "timeout": 10 },
+          { "type": "command", "command": "bash team/hooks/protect_tests.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

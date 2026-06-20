@@ -21,3 +21,12 @@
 8. goal 밖의 문제를 발견했다. 고치지 않는다.
    dev-agent-team/NOTES.md에 한 줄 적는다. planner가 다음 계획 때 읽는다.
 {{/IF_LARGE}}
+
+코드 작성 규칙(이름·함수 크기·매직넘버)은 code-convention 스킬을 따른다.
+
+끝내기 전 확인:
+- print 없이 common/logger.py 의 logger만 썼는가.
+- 새 라이브러리 API를 추측하지 않고 dev-agent-team/libs/ 를 읽었는가.
+- goal과 done_check를 만족하고, goal 밖의 것을 만들지 않았는가.
+- 기존 tests/ 파일을 건드리지 않았는가.
+- (선택) python -m common.selfcheck 로 print 사용·테스트 수집을 봐도 된다.

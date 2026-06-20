@@ -6,7 +6,7 @@ description: 요구사항을 받아 단계별로 자동 개발한다.
 
 순서대로 한다. 건너뛰지 않는다.
 
-이 절차는 "planner/tester/coder/checker를 호출한다"고 쓴다. 서브에이전트를 지원하는
+이 절차는 "planner/tester/coder/checker/documenter를 호출한다"고 쓴다. 서브에이전트를 지원하는
 도구(Claude Code, opencode)에서는 해당 역할 서브에이전트에 위임한다. 서브에이전트가 없는
 도구(Codex)에서는 같은 이름의 역할 스킬(.agents/skills/planner 등) 절차를 네가 직접 수행한다.
 
@@ -64,7 +64,8 @@ description: 요구사항을 받아 단계별로 자동 개발한다.
     dev-agent-team/OWNER_QUESTION.md를 dev-agent-team/answered/ 폴더로 옮긴다(mv). 작업을 계속한다.
 
 ## 종료
-17. 모든 단계가 끝났다. R번호별 통과 표와 dev-agent-team/TEST_LOG.md 요약을
+17. documenter를 호출한다. 제품 README.md(소개·설치·실행·R번호별 기능)를 만든다/갱신한다.
+18. 모든 단계가 끝났다. R번호별 통과 표와 dev-agent-team/TEST_LOG.md 요약을
     Owner에게 보여준다. "직접 실행해서 확인해 보세요"라고 안내한다. (Gate 4)
 {{#IF_SMALL}}
 

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 이것은 앱이 아니라 **하니스 생성기(harness generator)** 다. `templates/` 의 단일 소스를
 `init.sh` / `init.ps1` 이 설치 시점에 **프로파일(small/large) × 대상 에이전트(claude/codex/
 opencode)** 로 렌더링하여 **대상 프로젝트 폴더**에 헌법·역할·skill·가드레일을 깔아준다.
-설치된 결과물은 요구사항을 입력하면 planner / tester / coder / checker 4개 역할이
+설치된 결과물은 요구사항을 입력하면 planner / tester / coder / checker / documenter 5개 역할이
 Stage-Gate 방식으로 자동 개발하는 팀이다.
 
 **목적**: 코딩 에이전트에 변수 이름 등 코딩 규칙·로깅 규칙·테스트케이스 작성 규칙 같은
@@ -58,7 +58,7 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 `templates/docs/*`·`templates/project/*`·`templates/codex/hooks.json`·
 `templates/opencode/plugins/guard.js` 는 그대로 복사된다(`init.sh` §4–7 참조).
 
-3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 4개가 단일 소스다. init이
+3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 5개(planner/tester/coder/checker/documenter)가 단일 소스다. init이
    에이전트별 frontmatter를 붙여 렌더한다 — Claude=`.claude/agents/<role>.md`(name/description/
    tools), Codex=`.agents/skills/<role>/SKILL.md`(name/description), opencode=
    `.opencode/agents/<role>.md`(description/mode/tools). frontmatter 매핑(설명·tools)은
@@ -73,8 +73,8 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 - **opencode**: `opencode.json`, `.opencode/agents/`·`.opencode/plugins/guard.js`,
   스킬은 `.agents/skills/`(호환 경로)로 보장.
 
-스킬 3종(team-dev/logging-rule/lib-research)은 claude면 `.claude/skills/`, codex/opencode면
-`.agents/skills/` 로 렌더된다(`emit_skills`).
+스킬 5종(team-dev/logging-rule/lib-research/code-convention/test-design)은 claude면 `.claude/skills/`,
+codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
 ## 프로파일은 단 7가지만 다르다
 
@@ -96,7 +96,7 @@ DECISIONS, TEST_LOG, OWNER_QUESTION, NOTES, `dev-agent-team/libs/`, `dev-agent-t
 프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
 dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식, 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원칙 / 로그 형식 /
-4-에이전트 역할 경계 / 단일 작성자 원칙).
+5-에이전트 역할 경계 / 단일 작성자 원칙).
 이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).
 계약을 바꾸면 README "호환성 계약" 절과 `HARNESS_VERSION` 을 함께 갱신한다.
 
@@ -117,7 +117,8 @@ C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원�
 
 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md)은 **메인 세션만**
 쓴다. subagent는 자기 산출물만 쓴다(planner=계획/질문, tester=tests/, coder=구현,
-checker=pytest 실행·판정). 절차 전체는 `templates/skills/team-dev/SKILL.md.tmpl` 가 정본이다.
+checker=pytest 실행·판정, documenter=제품 README/문서. dev-agent-team/는 읽기만).
+절차 전체는 `templates/skills/team-dev/SKILL.md.tmpl` 가 정본이다.
 
 ## 알려진 제약
 

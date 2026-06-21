@@ -85,6 +85,29 @@ tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 역할 본문(`roles/`)은 단일 소스이고, init이 에이전트별 frontmatter를 붙여
 Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트로 렌더한다.
 
+## 역할 구성 (small vs large)
+
+small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
+
+| 역할 | 책임 | 도구 | small | large | 호출 시점 |
+|---|---|---|:--:|:--:|---|
+| planner | 단계 분해·B등급 결정·Owner 질문 (large: + 요구사항 충돌·누락 점검) | Read, Write | ✅ | ✅ | 계획·단계 시작 |
+| tester | 테스트케이스 작성 (large: 추가 엣지 탐색) | Read, Write | ✅ | ✅ | 단계 |
+| coder | 구현(테스트 통과) | Read, Write, Edit, Bash | ✅ | ✅ | 단계 |
+| checker | `pytest` 전체 실행·PASS/FAIL 판정(객관 검증) | Bash, Read | ✅ | ✅ | 단계 |
+| documenter | README·사용법 생성 | Read, Write, Edit | ✅ | ✅ | 종료 |
+| lead | 방향·우선순위·백로그 그루밍(팀장) | Read, Grep | ✕ | ✅ | 계획 전(4-0)·단계 시작(7-0) |
+| critic | 결정 심의·반론·합의(모호·고위험만 Owner로) | Read, Grep | ✕ | ✅ | planner 결정 직후(7b) |
+| reviewer | 코드·테스트 품질 리뷰 | Read, Grep | ✕ | ✅ | PASS 후 merge 전 |
+| security | 보안 위험 점검(맥락 판단) | Read, Grep | ✕ | ✅ | PASS 후 merge 전 |
+
+**설계 원칙**: 주관적 판정(리뷰·결정 심의 = lead·critic·reviewer·security)은 작은 모델의
+과신·불안정 위험을 피해 **large 전용**. 객관적 검증(`checker`의 pytest + `dev-agent-team/selfcheck.py`
+보안 스캔)은 **양쪽 공용**. 고위험·모호성은 양쪽 모두 Owner 합의(C등급 정지)를 유지한다.
+
+> 보안: small은 `dev-agent-team/selfcheck.py`의 정규식 기반 보안 스캔(객관)으로 점검하고,
+> large는 여기에 security 에이전트(맥락 판단)를 더한다.
+
 ## 프로파일 차이 (이 12가지만 다르다)
 
 | 항목 | small | large |

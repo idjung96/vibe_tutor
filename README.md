@@ -50,6 +50,49 @@ Claude Code Windows 버전의 요구사항이기도 하다). 두 설치 스크�
 설치가 끝나면 프로젝트 폴더에서 코딩 에이전트(Claude Code / Codex / opencode)를
 열고 `개발 시작` 이라고 입력한다. 초보자 안내는 생성된 `dev-agent-team/guides/OWNER_GUIDE.md` 참조.
 
+## 업그레이드 (기존 프로젝트를 새 하니스 버전으로 갱신)
+
+이미 하니스가 깔린 프로젝트는 **새 버전의 `init.sh`/`init.ps1`을 같은 대상 폴더에
+다시 실행**하면 갱신된다. 별도 마이그레이션 도구는 없다 — 재실행이 곧 업그레이드다.
+
+```bash
+# 1) 하니스 저장소를 최신으로
+cd team-dev-harness && git pull
+
+# 2) 현재 프로젝트의 버전 확인 (AGENTS.md 상단) → 저장소의 HARNESS_VERSION과 비교
+grep '^HARNESS_VERSION' ~/projects/my-app/AGENTS.md
+cat HARNESS_VERSION
+
+# 3) 처음 설치 때와 같은 프로파일·에이전트로 같은 폴더에 재실행
+./init.sh --profile small --agent claude ~/projects/my-app
+```
+Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 로 동일하다.
+
+**무엇이 덮어쓰이고 무엇이 보존되는가:**
+
+| 갱신됨 (하니스 소유 — 새 버전으로 덮어씀) | 보존됨 (작업 상태 — 건드리지 않음) |
+|---|---|
+| `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json` | `dev-agent-team/REQUIREMENTS.md`, `PLAN.json`, `PLAN.md` |
+| `.claude/agents/`, `.claude/skills/`(역할·스킬 본문) | `dev-agent-team/DECISIONS.md`, `TEST_LOG.md`, `OWNER_QUESTION.md` |
+| `.codex/`, `opencode.json`, `.opencode/`(guard.js 포함) | `dev-agent-team/BACKLOG.md`, `DIRECTION.md`(large), `libs/`, `answered/` |
+| `dev-agent-team/hooks/*.sh`, `selfcheck.py`, `guides/` | `tests/`(제품 테스트), `logs/` |
+| `common/logger.py` | |
+
+상태 파일은 `[ -f ] || cp` 로 보호되어 **있으면 그대로 둔다**. 따라서 개발 중인
+프로젝트에 재실행해도 계획·결정·테스트 이력·백로그가 사라지지 않는다.
+
+**주의:**
+- `common/logger.py` 는 **무조건 덮어쓴다**(고정 포맷 제품 로거). 직접 손댄 경우 먼저 백업한다.
+- 기존 `.git` 이 있으면 init은 **자동 커밋하지 않는다**. 재실행 후 `git diff` 로 변경을
+  검토하고 직접 커밋한다(하니스 파일만 바뀌었는지 확인하는 안전장치이기도 하다).
+- **처음과 같은 `--profile`·`--agent`** 로 실행한다. init은 *선택한* 역할·에이전트만
+  쓰고 빠진 것을 지우지 않으므로, 예컨대 `all`→`claude` 로 바꾸면 이전 `.codex`/
+  `.opencode` 파일이, large→small 로 바꾸면 `lead`/`reviewer`/`critic`/`security`
+  역할 파일과 `DIRECTION.md` 가 **고아로 남는다**. 의도적으로 줄일 때는 해당 파일을 직접 지운다.
+  (small↔large 전환은 상태가 전부 파일에 있어 무손실이다 — "호환성 계약" 절 참조.)
+- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 6/6 PASS를 확인한다. 실패 시
+  종료 코드 1로 멈추므로, 그 상태로 쓰지 말고 점검한다.
+
 ## 저장소 구조
 
 ```

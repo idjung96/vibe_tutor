@@ -10,9 +10,10 @@ description: 요구사항을 받아 단계별로 자동 개발한다.
 도구(Claude Code, opencode)에서는 해당 역할 서브에이전트에 위임한다. 서브에이전트가 없는
 도구(Codex)에서는 같은 이름의 역할 스킬(.agents/skills/planner 등) 절차를 네가 직접 수행한다.
 {{#IF_LARGE}}
-large 프로파일에는 lead(팀장)와 reviewer 역할도 있다.
+large 프로파일에는 lead(팀장)·reviewer·critic·security 역할도 있다.
 lead는 방향·우선순위를 정하고 백로그를 그루밍한다 — 계획 전(4-0)과 단계 시작 시(7-0)에 호출한다.
-reviewer는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12번).
+critic은 planner 결정에 반론을 펴 합의를 만든다(7b). 명확하면 자율 진행, 모호·고위험은 Owner 합의로 올린다.
+reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12번). 보안 위험은 고위험으로 다룬다.
 {{/IF_LARGE}}
 
 ## 0단계: 인터뷰 (dev-agent-team/REQUIREMENTS.md가 없을 때)
@@ -50,6 +51,12 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 7. planner를 호출한다. dev-agent-team/BACKLOG.md의 "할 일"을 읽어 이번 단계에 반영한다.
    이 단계의 B등급 결정을 모두 내린다.
    결과를 dev-agent-team/DECISIONS.md에 기록한다. C등급이 나오면 14번으로 간다. (Gate 2, 자동)
+{{#IF_LARGE}}
+7b. critic을 호출해 planner의 결정에 반론을 받는다.
+    AGREE면 진행한다. REVISE면 planner가 ALTERNATIVE를 반영해 다시 결정한다({{RETRY_LIMIT}}회까지).
+    ESCALATE(모호·고위험)면 그 항목을 C등급으로 올린다(14번). critic의 RECOMMEND를
+    Owner 질문의 (추천)안으로 쓴다. 합의 근거를 dev-agent-team/DECISIONS.md에 적는다.
+{{/IF_LARGE}}
 {{#IF_SMALL}}
 8. tester를 호출한다. 새 라이브러리가 필요하면 lib-research 절차를 한다.
 {{/IF_SMALL}}
@@ -67,6 +74,8 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       RESULT가 CHANGES면 coder에게 FINDINGS를 주고 고치게 한다(테스트는 깨지 않는다).
       그 뒤 checker를 다시 부른다. RESULT가 OK가 될 때까지 반복하되,
       {{RETRY_LIMIT}}회를 넘으면 남은 지적을 dev-agent-team/BACKLOG.md에 적고 진행한다.
+      security를 호출한다. RESULT가 RISK면 coder에게 FINDINGS를 주고 고치게 한다(테스트는 깨지 않는다)
+      후 checker를 다시 부른다. ESCALATE가 있으면 그 항목을 C등급으로 올린다(14번, Owner 합의).
 {{/IF_LARGE}}
       커밋한다. main으로 merge한다. dev-agent-team/TEST_LOG.md를 갱신한다. 13번으로.
     - NEW_FAIL: coder에게 REASON과 LOG를 주고 다시 시킨다.

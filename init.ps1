@@ -94,6 +94,8 @@ function Role-Desc($r) { switch ($r) {
     'documenter' { '완성된 코드로 README와 사용법 문서를 만든다.' }
     'reviewer' { '코드와 테스트코드를 규칙에 비추어 검토하고 지적한다.' }
     'lead' { '개발 방향과 우선순위를 정하고 백로그를 그루밍한다.' }
+    'critic' { '결정과 계획에 반론을 펴고 고위험·모호성을 가린다.' }
+    'security' { '코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다.' }
 } }
 function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
@@ -101,6 +103,8 @@ function Claude-Tools($r) { switch ($r) {
     'documenter' { 'Read, Write, Edit' }
     'reviewer' { 'Read, Grep' }
     'lead' { 'Read, Grep' }
+    'critic' { 'Read, Grep' }
+    'security' { 'Read, Grep' }
 } }
 function Opencode-Tools($r) { switch ($r) {
     'planner' { "  write: true`n  edit: false`n  bash: false" }
@@ -110,11 +114,13 @@ function Opencode-Tools($r) { switch ($r) {
     'documenter' { "  write: true`n  edit: true`n  bash: false" }
     'reviewer' { "  write: false`n  edit: false`n  bash: false" }
     'lead' { "  write: false`n  edit: false`n  bash: false" }
+    'critic' { "  write: false`n  edit: false`n  bash: false" }
+    'security' { "  write: false`n  edit: false`n  bash: false" }
 } }
 
-# 역할 목록: lead(팀장)·reviewer(코드·테스트 리뷰)는 large 프로파일에서만 깐다.
+# 역할 목록: lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 $Roles = @('planner', 'tester', 'coder', 'checker', 'documenter')
-if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer') }
+if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security') }
 
 Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -join ' ') → $Target"
 

@@ -90,9 +90,12 @@ security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락
 
 에이전트 작업/상태 파일은 모두 **`dev-agent-team/`** 아래에 둔다(REQUIREMENTS, PLAN.json/PLAN.md,
 DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, DIRECTION(large), `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
+**에이전트가 실행하는 코드·스크립트도 `dev-agent-team/` 안에 둔다** — 가드 훅(`dev-agent-team/hooks/*.sh`),
+자가점검 도구(`dev-agent-team/selfcheck.py`). generic depth-1 폴더에 두면 제품 폴더와 헷갈리므로 금지.
 `tests/` `logs/` `common/` 은 **제품 디렉터리**(만들고 있는 프로그램의 것 — pytest 표준 위치,
-앱 런타임 로그, 제품 공통 코드)라 이름이 겹쳐도 그대로 둔다. 경로를 옮기면 호환성 계약이
-바뀌므로 `HARNESS_VERSION` 을 올린다(team/ 도입 v1.2.0 → `dev-agent-team/` 개명 v1.3.0).
+앱 런타임 로그, 제품 공통 코드 `common/logger.py`)라 이름이 겹쳐도 그대로 둔다. 경로를 옮기면 호환성
+계약이 바뀌므로 `HARNESS_VERSION` 을 올린다(team/ 도입 v1.2.0 → `dev-agent-team/` 개명 v1.3.0 →
+selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 
 ## 호환성 계약 — 변경 시 `HARNESS_VERSION` 을 올릴 것
 

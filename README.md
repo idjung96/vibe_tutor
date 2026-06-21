@@ -68,10 +68,9 @@ templates/
   hooks/                 # Owner 질문 정지, 테스트 보호 (→ dev-agent-team/hooks/)
   codex/                 # config.toml, hooks.json (Codex 오버레이)
   opencode/              # opencode.json, plugins/guard.js (opencode 오버레이)
-  common/logger.py       # 공통 로거 (고정 포맷)
-  common/selfcheck.py    # 선택적 자가점검 도구 (테스트 수집 + print 사용 점검)
+  common/logger.py       # 제품용 공통 로거 (고정 포맷) → 설치 시 common/
   docs/                  # OWNER_GUIDE, DEBUG_GUIDE → 설치 시 dev-agent-team/guides/
-  project/               # DECISIONS, TEST_LOG, libs INDEX → 설치 시 dev-agent-team/
+  project/               # DECISIONS, TEST_LOG, BACKLOG, libs INDEX, selfcheck.py → 설치 시 dev-agent-team/
 samples/sample-task-todo # 표본 과제 (모델 전환 테스트용)
 tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 ```

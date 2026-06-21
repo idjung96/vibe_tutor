@@ -130,7 +130,7 @@ foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team
     New-Item -ItemType Directory -Force -Path (Join-Path $Target $d) | Out-Null
 }
 Copy-Item (Join-Path $Src 'templates\common\logger.py') (Join-Path $Target 'common\logger.py') -Force
-Copy-Item (Join-Path $Src 'templates\common\selfcheck.py') (Join-Path $Target 'common\selfcheck.py') -Force
+Copy-Item (Join-Path $Src 'templates\project\selfcheck.py') (Join-Path $Target 'dev-agent-team\selfcheck.py') -Force
 Copy-Item (Join-Path $Src 'templates\hooks\*.sh')       (Join-Path $Target 'dev-agent-team\hooks\') -Force
 Copy-Item (Join-Path $Src 'templates\docs\OWNER_GUIDE.md') (Join-Path $Target 'dev-agent-team\guides\OWNER_GUIDE.md') -Force
 Copy-Item (Join-Path $Src 'templates\docs\DEBUG_GUIDE.md') (Join-Path $Target 'dev-agent-team\guides\DEBUG_GUIDE.md') -Force

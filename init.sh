@@ -117,7 +117,7 @@ render "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md"
 mkdir -p "$TARGET/common" "$TARGET/tests" "$TARGET/logs" \
          "$TARGET/dev-agent-team/libs" "$TARGET/dev-agent-team/guides" "$TARGET/dev-agent-team/answered" "$TARGET/dev-agent-team/hooks"
 cp "$SRC/templates/common/logger.py"        "$TARGET/common/logger.py"
-cp "$SRC/templates/common/selfcheck.py"      "$TARGET/common/selfcheck.py"
+cp "$SRC/templates/project/selfcheck.py"     "$TARGET/dev-agent-team/selfcheck.py"
 cp "$SRC/templates/hooks/block_on_owner_question.sh" "$TARGET/dev-agent-team/hooks/"
 cp "$SRC/templates/hooks/protect_tests.sh"           "$TARGET/dev-agent-team/hooks/"
 chmod +x "$TARGET/dev-agent-team/hooks/"*.sh

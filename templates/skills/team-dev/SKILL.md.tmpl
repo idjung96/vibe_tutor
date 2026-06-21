@@ -9,6 +9,9 @@ description: 요구사항을 받아 단계별로 자동 개발한다.
 이 절차는 "planner/tester/coder/checker/documenter를 호출한다"고 쓴다. 서브에이전트를 지원하는
 도구(Claude Code, opencode)에서는 해당 역할 서브에이전트에 위임한다. 서브에이전트가 없는
 도구(Codex)에서는 같은 이름의 역할 스킬(.agents/skills/planner 등) 절차를 네가 직접 수행한다.
+{{#IF_LARGE}}
+large 프로파일에는 reviewer 역할도 있다. 단계가 PASS한 뒤 merge 전에 호출한다(아래 12번).
+{{/IF_LARGE}}
 
 ## 0단계: 인터뷰 (dev-agent-team/REQUIREMENTS.md가 없을 때)
 1. Owner에게 차례로 묻는다. 한 번에 하나씩.
@@ -40,7 +43,14 @@ description: 요구사항을 받아 단계별로 자동 개발한다.
 10. coder를 호출한다. 현재 단계의 goal과 done_check만 준다.
 11. checker를 호출한다.
 12. 결과를 처리한다:
-    - PASS: 커밋한다. main으로 merge한다. dev-agent-team/TEST_LOG.md를 갱신한다. 13번으로.
+    - PASS:
+{{#IF_LARGE}}
+      reviewer를 호출한다. 코드 리뷰와 테스트코드 리뷰를 받는다.
+      RESULT가 CHANGES면 coder에게 FINDINGS를 주고 고치게 한다(테스트는 깨지 않는다).
+      그 뒤 checker를 다시 부른다. RESULT가 OK가 될 때까지 반복하되,
+      {{RETRY_LIMIT}}회를 넘으면 남은 지적을 dev-agent-team/NOTES.md에 적고 진행한다.
+{{/IF_LARGE}}
+      커밋한다. main으로 merge한다. dev-agent-team/TEST_LOG.md를 갱신한다. 13번으로.
     - NEW_FAIL: coder에게 REASON과 LOG를 주고 다시 시킨다.
       {{RETRY_LIMIT}}회 실패하면 C등급으로 올린다.
     - REGRESSION: coder에게 이렇게 준다:

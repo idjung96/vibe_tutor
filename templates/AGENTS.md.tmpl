@@ -19,6 +19,9 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 - 서브에이전트를 지원하는 도구(Claude Code, opencode)에서는 각 역할의 서브에이전트에 위임한다.
 - 서브에이전트가 없는 도구(Codex)에서는 네가 planner/tester/coder/checker/documenter 스킬을
   순서대로 직접 수행한다.
+{{#IF_LARGE}}
+- large 프로파일에는 reviewer(코드·테스트 리뷰)도 있다. 단계 PASS 후 merge 전에 호출한다.
+{{/IF_LARGE}}
 
 ## 파일 맵
 에이전트 작업/상태 파일은 모두 dev-agent-team/ 아래에 있다. tests/ logs/ common/ 은 제품 디렉터리다.

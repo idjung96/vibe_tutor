@@ -85,19 +85,26 @@ role_desc() { case "$1" in
   coder)   echo "테스트를 통과시키는 코드를 작성한다." ;;
   checker) echo "테스트 전체를 실행하고 PASS/FAIL을 판정한다." ;;
   documenter) echo "완성된 코드로 README와 사용법 문서를 만든다." ;;
+  reviewer)   echo "코드와 테스트코드를 규칙에 비추어 검토하고 지적한다." ;;
 esac; }
 claude_tools() { case "$1" in
   planner|tester) echo "Read, Write" ;;
   coder)          echo "Read, Write, Edit, Bash" ;;
   checker)        echo "Bash, Read" ;;
   documenter)     echo "Read, Write, Edit" ;;
+  reviewer)       echo "Read, Grep" ;;
 esac; }
 opencode_tools() { case "$1" in
   planner|tester) printf '  write: true\n  edit: false\n  bash: false' ;;
   coder)          printf '  write: true\n  edit: true\n  bash: true' ;;
   checker)        printf '  write: false\n  edit: false\n  bash: true' ;;
   documenter)     printf '  write: true\n  edit: true\n  bash: false' ;;
+  reviewer)       printf '  write: false\n  edit: false\n  bash: false' ;;
 esac; }
+
+# 역할 목록: reviewer(코드·테스트 리뷰)는 large 프로파일에서만 깐다.
+ROLES="planner tester coder checker documenter"
+[ "$PROFILE" = large ] && ROLES="$ROLES reviewer"
 
 echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
 
@@ -127,7 +134,7 @@ if has_agent claude; then
   render "$SRC/templates/settings.json.tmpl" "$TARGET/.claude/settings.json"
   emit_skills ".claude/skills"
   mkdir -p "$TARGET/.claude/agents"
-  for r in planner tester coder checker documenter; do
+  for r in $ROLES; do
     body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
     { printf -- "---\nname: %s\ndescription: %s\ntools: %s\n---\n" "$r" "$(role_desc "$r")" "$(claude_tools "$r")"
       printf '%s\n' "$body"; } > "$TARGET/.claude/agents/$r.md"
@@ -140,7 +147,7 @@ if has_agent codex; then
   render "$SRC/templates/codex/config.toml.tmpl" "$TARGET/.codex/config.toml"
   cp "$SRC/templates/codex/hooks.json"           "$TARGET/.codex/hooks.json"
   emit_skills ".agents/skills"
-  for r in planner tester coder checker documenter; do
+  for r in $ROLES; do
     body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
     mkdir -p "$TARGET/.agents/skills/$r"
     { printf -- "---\nname: %s\ndescription: %s\n---\n" "$r" "$(role_desc "$r")"
@@ -155,7 +162,7 @@ if has_agent opencode; then
   cp "$SRC/templates/opencode/plugins/guard.js" "$TARGET/.opencode/plugins/guard.js"
   # opencode는 .agents/skills/ 를 호환 경로로 읽는다. codex가 안 깔렸으면 여기서 보장.
   [ -d "$TARGET/.agents/skills/team-dev" ] || emit_skills ".agents/skills"
-  for r in planner tester coder checker documenter; do
+  for r in $ROLES; do
     body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
     { printf -- "---\ndescription: %s\nmode: subagent\ntools:\n%s\n---\n" "$(role_desc "$r")" "$(opencode_tools "$r")"
       printf '%s\n' "$body"; } > "$TARGET/.opencode/agents/$r.md"

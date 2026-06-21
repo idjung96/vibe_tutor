@@ -63,7 +63,7 @@ templates/
   AGENTS.md.tmpl         # 공통 헌법 (모든 에이전트가 읽음)
   CLAUDE.md.tmpl         # Claude 전용 오버레이 (@AGENTS.md import)
   settings.json.tmpl     # Claude 권한 allow/deny + hook 등록
-  roles/                 # planner, tester, coder, checker, documenter 본문 (단일 소스)
+  roles/                 # planner, tester, coder, checker, documenter (+large: reviewer) 본문 (단일 소스)
   skills/                # team-dev(절차), logging-rule, lib-research, code-convention, test-design
   hooks/                 # Owner 질문 정지, 테스트 보호 (→ dev-agent-team/hooks/)
   codex/                 # config.toml, hooks.json (Codex 오버레이)
@@ -86,7 +86,7 @@ tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 역할 본문(`roles/`)은 단일 소스이고, init이 에이전트별 frontmatter를 붙여
 Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트로 렌더한다.
 
-## 프로파일 차이 (이 7가지만 다르다)
+## 프로파일 차이 (이 8가지만 다르다)
 
 | 항목 | small | large |
 |---|---|---|
@@ -97,6 +97,7 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
 | coder 디버깅 절차 | 4단계 강제 | 로그 우선 1줄 |
 | 영향 표 파일 수 산정 | 추정 | grep 실측 |
 | 단계 시작 병렬 (tester ∥ lib-research) | 순차 | 병렬 |
+| 코드·테스트 리뷰 (reviewer 역할) | 없음 | 있음 (PASS 후 merge 전) |
 
 ## 호환성 계약 (프로파일과 무관하게 동일 — 변경 시 버전 올림)
 

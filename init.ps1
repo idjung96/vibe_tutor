@@ -92,11 +92,13 @@ function Role-Desc($r) { switch ($r) {
     'coder'   { '테스트를 통과시키는 코드를 작성한다.' }
     'checker' { '테스트 전체를 실행하고 PASS/FAIL을 판정한다.' }
     'documenter' { '완성된 코드로 README와 사용법 문서를 만든다.' }
+    'reviewer' { '코드와 테스트코드를 규칙에 비추어 검토하고 지적한다.' }
 } }
 function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
     'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }
     'documenter' { 'Read, Write, Edit' }
+    'reviewer' { 'Read, Grep' }
 } }
 function Opencode-Tools($r) { switch ($r) {
     'planner' { "  write: true`n  edit: false`n  bash: false" }
@@ -104,7 +106,12 @@ function Opencode-Tools($r) { switch ($r) {
     'coder'   { "  write: true`n  edit: true`n  bash: true" }
     'checker' { "  write: false`n  edit: false`n  bash: true" }
     'documenter' { "  write: true`n  edit: true`n  bash: false" }
+    'reviewer' { "  write: false`n  edit: false`n  bash: false" }
 } }
+
+# 역할 목록: reviewer(코드·테스트 리뷰)는 large 프로파일에서만 깐다.
+$Roles = @('planner', 'tester', 'coder', 'checker', 'documenter')
+if ($Profile -eq 'large') { $Roles += 'reviewer' }
 
 Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -join ' ') → $Target"
 
@@ -138,7 +145,7 @@ if (Has-Agent 'claude') {
     Render (Join-Path $Src 'templates\CLAUDE.md.tmpl')     (Join-Path $Target 'CLAUDE.md')
     Render (Join-Path $Src 'templates\settings.json.tmpl') (Join-Path $Target '.claude\settings.json')
     Emit-Skills '.claude\skills'
-    foreach ($r in 'planner', 'tester', 'coder', 'checker', 'documenter') {
+    foreach ($r in $Roles) {
         $body = Render-String (Join-Path $Src "templates\roles\$r.md.tmpl")
         $fm = "---`nname: $r`ndescription: $(Role-Desc $r)`ntools: $(Claude-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".claude\agents\$r.md") ($fm + $body)
@@ -150,7 +157,7 @@ if (Has-Agent 'codex') {
     Render (Join-Path $Src 'templates\codex\config.toml.tmpl') (Join-Path $Target '.codex\config.toml')
     Copy-Item (Join-Path $Src 'templates\codex\hooks.json')    (Join-Path $Target '.codex\hooks.json') -Force
     Emit-Skills '.agents\skills'
-    foreach ($r in 'planner', 'tester', 'coder', 'checker', 'documenter') {
+    foreach ($r in $Roles) {
         $body = Render-String (Join-Path $Src "templates\roles\$r.md.tmpl")
         $fm = "---`nname: $r`ndescription: $(Role-Desc $r)`n---`n"
         Write-Text (Join-Path $Target ".agents\skills\$r\SKILL.md") ($fm + $body)
@@ -164,7 +171,7 @@ if (Has-Agent 'opencode') {
     New-Item -ItemType Directory -Force -Path (Join-Path $Target '.opencode\agents') | Out-Null
     Copy-Item (Join-Path $Src 'templates\opencode\plugins\guard.js') (Join-Path $Target '.opencode\plugins\guard.js') -Force
     if (-not (Test-Path (Join-Path $Target '.agents\skills\team-dev'))) { Emit-Skills '.agents\skills' }
-    foreach ($r in 'planner', 'tester', 'coder', 'checker', 'documenter') {
+    foreach ($r in $Roles) {
         $body = Render-String (Join-Path $Src "templates\roles\$r.md.tmpl")
         $fm = "---`ndescription: $(Role-Desc $r)`nmode: subagent`ntools:`n$(Opencode-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".opencode\agents\$r.md") ($fm + $body)

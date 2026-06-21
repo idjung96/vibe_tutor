@@ -58,7 +58,7 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 `templates/docs/*`·`templates/project/*`·`templates/codex/hooks.json`·
 `templates/opencode/plugins/guard.js` 는 그대로 복사된다(`init.sh` §4–7 참조).
 
-3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 6개(planner/tester/coder/checker/documenter, +reviewer)가 단일 소스다. reviewer는 large 프로파일에서만 emit된다(`init.sh`/`init.ps1`의 `$ROLES`/`$Roles`). init이
+3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 7개(planner/tester/coder/checker/documenter, +lead/reviewer)가 단일 소스다. lead·reviewer는 large 프로파일에서만 emit된다(`init.sh`/`init.ps1`의 `$ROLES`/`$Roles`). init이
    에이전트별 frontmatter를 붙여 렌더한다 — Claude=`.claude/agents/<role>.md`(name/description/
    tools), Codex=`.agents/skills/<role>/SKILL.md`(name/description), opencode=
    `.opencode/agents/<role>.md`(description/mode/tools). frontmatter 매핑(설명·tools)은
@@ -80,14 +80,14 @@ codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
-차이 8종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
-coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, reviewer 역할(large 전용 코드·테스트 리뷰).
-(BACKLOG.md 파일 자체는 양 프로파일 공통.)
+차이 9종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
+coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, reviewer 역할(large 전용 코드·테스트 리뷰),
+lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
 
 ## 생성된 프로젝트의 디렉터리 규약
 
 에이전트 작업/상태 파일은 모두 **`dev-agent-team/`** 아래에 둔다(REQUIREMENTS, PLAN.json/PLAN.md,
-DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
+DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, DIRECTION(large), `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
 `tests/` `logs/` `common/` 은 **제품 디렉터리**(만들고 있는 프로그램의 것 — pytest 표준 위치,
 앱 런타임 로그, 제품 공통 코드)라 이름이 겹쳐도 그대로 둔다. 경로를 옮기면 호환성 계약이
 바뀌므로 `HARNESS_VERSION` 을 올린다(team/ 도입 v1.2.0 → `dev-agent-team/` 개명 v1.3.0).
@@ -97,7 +97,7 @@ DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, `dev-agent-team/libs/`, `dev-agent
 프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
 dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식, 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원칙 / 로그 형식 /
-역할 경계(5역할 공통 + large 전용 reviewer) / 단일 작성자 원칙).
+역할 경계(5역할 공통 + large 전용 lead·reviewer) / 단일 작성자 원칙).
 이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).
 계약을 바꾸면 README "호환성 계약" 절과 `HARNESS_VERSION` 을 함께 갱신한다.
 
@@ -116,9 +116,9 @@ C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원�
 
 ## 에이전트 역할 경계 (단일 작성자 원칙)
 
-공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md)은 **메인 세션만**
+공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md, dev-agent-team/DIRECTION.md)은 **메인 세션만**
 쓴다. subagent는 자기 산출물만 쓴다(planner=계획/질문, tester=tests/, coder=구현,
-checker=pytest 실행·판정, documenter=제품 README/문서. dev-agent-team/는 읽기만).
+checker=pytest 실행·판정, documenter=제품 README/문서, lead·reviewer(large)=제안만 출력. dev-agent-team/는 읽기만).
 절차 전체는 `templates/skills/team-dev/SKILL.md.tmpl` 가 정본이다.
 
 ## 알려진 제약

@@ -93,12 +93,14 @@ function Role-Desc($r) { switch ($r) {
     'checker' { '테스트 전체를 실행하고 PASS/FAIL을 판정한다.' }
     'documenter' { '완성된 코드로 README와 사용법 문서를 만든다.' }
     'reviewer' { '코드와 테스트코드를 규칙에 비추어 검토하고 지적한다.' }
+    'lead' { '개발 방향과 우선순위를 정하고 백로그를 그루밍한다.' }
 } }
 function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
     'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }
     'documenter' { 'Read, Write, Edit' }
     'reviewer' { 'Read, Grep' }
+    'lead' { 'Read, Grep' }
 } }
 function Opencode-Tools($r) { switch ($r) {
     'planner' { "  write: true`n  edit: false`n  bash: false" }
@@ -107,11 +109,12 @@ function Opencode-Tools($r) { switch ($r) {
     'checker' { "  write: false`n  edit: false`n  bash: true" }
     'documenter' { "  write: true`n  edit: true`n  bash: false" }
     'reviewer' { "  write: false`n  edit: false`n  bash: false" }
+    'lead' { "  write: false`n  edit: false`n  bash: false" }
 } }
 
-# 역할 목록: reviewer(코드·테스트 리뷰)는 large 프로파일에서만 깐다.
+# 역할 목록: lead(팀장)·reviewer(코드·테스트 리뷰)는 large 프로파일에서만 깐다.
 $Roles = @('planner', 'tester', 'coder', 'checker', 'documenter')
-if ($Profile -eq 'large') { $Roles += 'reviewer' }
+if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer') }
 
 Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -join ' ') → $Target"
 
@@ -132,6 +135,9 @@ foreach ($pair in @(
         @('templates\project\BACKLOG.md', 'dev-agent-team\BACKLOG.md'))) {
     $dst = Join-Path $Target $pair[1]
     if (-not (Test-Path $dst)) { Copy-Item (Join-Path $Src $pair[0]) $dst }
+}
+if ($Profile -eq 'large' -and -not (Test-Path (Join-Path $Target 'dev-agent-team\DIRECTION.md'))) {
+    Copy-Item (Join-Path $Src 'templates\project\DIRECTION.md') (Join-Path $Target 'dev-agent-team\DIRECTION.md')
 }
 foreach ($k in 'logs\.gitkeep', 'dev-agent-team\answered\.gitkeep') {
     New-Item -ItemType File -Force -Path (Join-Path $Target $k) | Out-Null

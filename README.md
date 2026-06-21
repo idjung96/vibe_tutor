@@ -63,7 +63,7 @@ templates/
   AGENTS.md.tmpl         # 공통 헌법 (모든 에이전트가 읽음)
   CLAUDE.md.tmpl         # Claude 전용 오버레이 (@AGENTS.md import)
   settings.json.tmpl     # Claude 권한 allow/deny + hook 등록
-  roles/                 # planner, tester, coder, checker, documenter (+large: reviewer) 본문 (단일 소스)
+  roles/                 # planner, tester, coder, checker, documenter (+large: lead, reviewer) 본문 (단일 소스)
   skills/                # team-dev(절차), logging-rule, lib-research, code-convention, test-design
   hooks/                 # Owner 질문 정지, 테스트 보호 (→ dev-agent-team/hooks/)
   codex/                 # config.toml, hooks.json (Codex 오버레이)
@@ -86,7 +86,7 @@ tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 역할 본문(`roles/`)은 단일 소스이고, init이 에이전트별 frontmatter를 붙여
 Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트로 렌더한다.
 
-## 프로파일 차이 (이 8가지만 다르다)
+## 프로파일 차이 (이 9가지만 다르다)
 
 | 항목 | small | large |
 |---|---|---|
@@ -98,6 +98,7 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
 | 영향 표 파일 수 산정 | 추정 | grep 실측 |
 | 단계 시작 병렬 (tester ∥ lib-research) | 순차 | 병렬 |
 | 코드·테스트 리뷰 (reviewer 역할) | 없음 | 있음 (PASS 후 merge 전) |
+| 팀장 방향·백로그 그루밍 (lead 역할) | 없음 | 있음 (계획 전·단계 시작) |
 
 ## 호환성 계약 (프로파일과 무관하게 동일 — 변경 시 버전 올림)
 
@@ -170,9 +171,9 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
   끌어오거나 심볼릭으로 연결한다.
 - **스킬은 `.agents/skills/` + `.claude/skills/` 두 곳**에 두면 셋 다 커버된다
   (`.agents/`=Codex 네이티브+opencode 호환, `.claude/`=Claude Code+opencode 호환).
-- **5-에이전트(planner/tester/coder/checker/documenter)**: Claude·opencode는 서브에이전트로 둘 수 있으나,
-  **Codex는 별도 서브에이전트 프로세스가 없다** → team-dev 스킬이 "단일 에이전트가 5역할을
-  순차 수행"하도록 기술해야 한다.
+- **5-에이전트(planner/tester/coder/checker/documenter) + large 전용 lead·reviewer**: Claude·opencode는
+  서브에이전트로 둘 수 있으나, **Codex는 별도 서브에이전트 프로세스가 없다** → team-dev 스킬이
+  "단일 에이전트가 역할을 순차 수행"하도록 기술해야 한다.
 - **가드레일(C등급 정지·테스트 보호)**: Claude=shell hook, Codex=동일 `exit 2` `hook.json`
   (단 파일편집 훅 불안정), opencode=JS 플러그인. Codex/opencode에서는 일부만 강제되므로
   **프롬프트 규칙을 반드시 병행**한다.

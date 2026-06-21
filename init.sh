@@ -86,25 +86,26 @@ role_desc() { case "$1" in
   checker) echo "테스트 전체를 실행하고 PASS/FAIL을 판정한다." ;;
   documenter) echo "완성된 코드로 README와 사용법 문서를 만든다." ;;
   reviewer)   echo "코드와 테스트코드를 규칙에 비추어 검토하고 지적한다." ;;
+  lead)       echo "개발 방향과 우선순위를 정하고 백로그를 그루밍한다." ;;
 esac; }
 claude_tools() { case "$1" in
   planner|tester) echo "Read, Write" ;;
   coder)          echo "Read, Write, Edit, Bash" ;;
   checker)        echo "Bash, Read" ;;
   documenter)     echo "Read, Write, Edit" ;;
-  reviewer)       echo "Read, Grep" ;;
+  reviewer|lead)  echo "Read, Grep" ;;
 esac; }
 opencode_tools() { case "$1" in
   planner|tester) printf '  write: true\n  edit: false\n  bash: false' ;;
   coder)          printf '  write: true\n  edit: true\n  bash: true' ;;
   checker)        printf '  write: false\n  edit: false\n  bash: true' ;;
   documenter)     printf '  write: true\n  edit: true\n  bash: false' ;;
-  reviewer)       printf '  write: false\n  edit: false\n  bash: false' ;;
+  reviewer|lead)  printf '  write: false\n  edit: false\n  bash: false' ;;
 esac; }
 
-# 역할 목록: reviewer(코드·테스트 리뷰)는 large 프로파일에서만 깐다.
+# 역할 목록: lead(팀장)·reviewer(코드·테스트 리뷰)는 large 프로파일에서만 깐다.
 ROLES="planner tester coder checker documenter"
-[ "$PROFILE" = large ] && ROLES="$ROLES reviewer"
+[ "$PROFILE" = large ] && ROLES="$ROLES lead reviewer"
 
 echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
 
@@ -124,6 +125,9 @@ cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/dev-agent-team/guides/DEBUG
 [ -f "$TARGET/dev-agent-team/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/dev-agent-team/TEST_LOG.md"
 [ -f "$TARGET/dev-agent-team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/dev-agent-team/libs/INDEX.md"
 [ -f "$TARGET/dev-agent-team/BACKLOG.md" ] || cp "$SRC/templates/project/BACKLOG.md" "$TARGET/dev-agent-team/BACKLOG.md"
+if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/dev-agent-team/DIRECTION.md" ]; then
+  cp "$SRC/templates/project/DIRECTION.md" "$TARGET/dev-agent-team/DIRECTION.md"
+fi
 touch "$TARGET/logs/.gitkeep" "$TARGET/dev-agent-team/answered/.gitkeep"
 
 # ── 5. Claude Code 오버레이 ───────────────────────────────────

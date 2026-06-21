@@ -93,7 +93,7 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
 | RETRY_LIMIT | 3 | 5 |
 | MAX_CHECKER_CALLS | 10 | 15 |
 | tester 추가 탐색 | 없음 (체크리스트 4종만) | "보이면 더 쓴다" |
-| dev-agent-team/NOTES.md (단계 밖 발견) | 없음 | 있음 |
+| coder 단계 밖 발견 → BACKLOG 보고 | 없음 | 있음 |
 | coder 디버깅 절차 | 4단계 강제 | 로그 우선 1줄 |
 | 영향 표 파일 수 산정 | 추정 | grep 실측 |
 | 단계 시작 병렬 (tester ∥ lib-research) | 순차 | 병렬 |

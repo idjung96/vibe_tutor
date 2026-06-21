@@ -123,9 +123,7 @@ cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/dev-agent-team/guides/DEBUG
 [ -f "$TARGET/dev-agent-team/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/dev-agent-team/DECISIONS.md"
 [ -f "$TARGET/dev-agent-team/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/dev-agent-team/TEST_LOG.md"
 [ -f "$TARGET/dev-agent-team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/dev-agent-team/libs/INDEX.md"
-if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/dev-agent-team/NOTES.md" ]; then
-  printf "# 단계 밖 발견사항 (한 줄씩)\n\n" > "$TARGET/dev-agent-team/NOTES.md"
-fi
+[ -f "$TARGET/dev-agent-team/BACKLOG.md" ] || cp "$SRC/templates/project/BACKLOG.md" "$TARGET/dev-agent-team/BACKLOG.md"
 touch "$TARGET/logs/.gitkeep" "$TARGET/dev-agent-team/answered/.gitkeep"
 
 # ── 5. Claude Code 오버레이 ───────────────────────────────────

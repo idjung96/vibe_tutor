@@ -80,13 +80,14 @@ codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
-차이 8종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, dev-agent-team/NOTES.md 유무,
+차이 8종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
 coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, reviewer 역할(large 전용 코드·테스트 리뷰).
+(BACKLOG.md 파일 자체는 양 프로파일 공통.)
 
 ## 생성된 프로젝트의 디렉터리 규약
 
 에이전트 작업/상태 파일은 모두 **`dev-agent-team/`** 아래에 둔다(REQUIREMENTS, PLAN.json/PLAN.md,
-DECISIONS, TEST_LOG, OWNER_QUESTION, NOTES, `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
+DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
 `tests/` `logs/` `common/` 은 **제품 디렉터리**(만들고 있는 프로그램의 것 — pytest 표준 위치,
 앱 런타임 로그, 제품 공통 코드)라 이름이 겹쳐도 그대로 둔다. 경로를 옮기면 호환성 계약이
 바뀌므로 `HARNESS_VERSION` 을 올린다(team/ 도입 v1.2.0 → `dev-agent-team/` 개명 v1.3.0).

@@ -31,9 +31,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 - dev-agent-team/DECISIONS.md : 모든 결정 기록.
 - dev-agent-team/OWNER_QUESTION.md : 이 파일에 답이 없으면 모든 작업을 멈춘다.
 - dev-agent-team/TEST_LOG.md : 테스트 현황.
-{{#IF_LARGE}}
-- dev-agent-team/NOTES.md : 단계 밖에서 발견한 문제. 한 줄씩 적는다.
-{{/IF_LARGE}}
+- dev-agent-team/BACKLOG.md : 협업용 백로그. "할 일"(상태 추적)과 "메모·주의"(참고) 2섹션.
+  메인 세션만 쓴다. subagent는 출력에 "BACKLOG: 설명"으로 후보만 낸다.
 - dev-agent-team/libs/ : 라이브러리 사용법. import 전에 반드시 읽는다.
 - logs/app.log : 실행 로그. 디버깅할 때 먼저 읽는다.
 
@@ -55,7 +54,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 4. print 금지. common/logger.py 의 logger만 쓴다.
 5. git push, rm -rf, 요구사항에 없는 기능 추가를 하지 않는다.
 6. 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md,
-   dev-agent-team/OWNER_QUESTION.md)은 메인 세션만 쓴다. subagent는 자기 산출물만 쓴다.
+   dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md)은 메인 세션만 쓴다.
+   subagent는 자기 산출물만 쓴다.
 
 ## 가드레일 (자동 강제)
 - dev-agent-team/OWNER_QUESTION.md에 "답: 번호"가 없으면 도구 사용이 차단된다.

@@ -28,4 +28,5 @@ dev-agent-team/guides/DEBUG_GUIDE.md 를 보세요.
 - dev-agent-team/PLAN.md : 개발 계획 (쉬운 말 요약)
 - dev-agent-team/DECISIONS.md : 지금까지 내려진 결정들
 - dev-agent-team/TEST_LOG.md : 테스트 현황 (숫자가 계속 늘어나면 정상)
+- dev-agent-team/BACKLOG.md : 나중에 할 일과 주의 메모 (에이전트들이 함께 보는 목록)
 - dev-agent-team/libs/INDEX.md : 이 프로그램이 쓰는 외부 도구 목록

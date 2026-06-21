@@ -128,13 +128,10 @@ Copy-Item (Join-Path $Src 'templates\docs\DEBUG_GUIDE.md') (Join-Path $Target 'd
 foreach ($pair in @(
         @('templates\project\DECISIONS.md', 'dev-agent-team\DECISIONS.md'),
         @('templates\project\TEST_LOG.md', 'dev-agent-team\TEST_LOG.md'),
-        @('templates\project\docs-libs-INDEX.md', 'dev-agent-team\libs\INDEX.md'))) {
+        @('templates\project\docs-libs-INDEX.md', 'dev-agent-team\libs\INDEX.md'),
+        @('templates\project\BACKLOG.md', 'dev-agent-team\BACKLOG.md'))) {
     $dst = Join-Path $Target $pair[1]
     if (-not (Test-Path $dst)) { Copy-Item (Join-Path $Src $pair[0]) $dst }
-}
-if ($Profile -eq 'large' -and -not (Test-Path (Join-Path $Target 'dev-agent-team\NOTES.md'))) {
-    [System.IO.File]::WriteAllLines((Join-Path $Target 'dev-agent-team\NOTES.md'),
-        @('# 단계 밖 발견사항 (한 줄씩)', ''), $Utf8NoBom)
 }
 foreach ($k in 'logs\.gitkeep', 'dev-agent-team\answered\.gitkeep') {
     New-Item -ItemType File -Force -Path (Join-Path $Target $k) | Out-Null

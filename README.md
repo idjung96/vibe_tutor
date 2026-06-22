@@ -233,6 +233,25 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
 | 온프레미스 연결 | `ANTHROPIC_BASE_URL` | config.toml `[model_providers]` `base_url`, `wire_api="responses"` | `provider` `@ai-sdk/openai-compatible` `baseURL` |
 | MCP | `.mcp.json` | config.toml `[mcp_servers]` | opencode.json `mcp` |
 
+### 강제력 비교 (실측 기준)
+
+같은 규칙이라도 **자동 강제 정도**는 에이전트마다 다르다. 아래는 산출물을 설치해
+확인한 결과다(✅ 확실히 강제 / ⚠️ 조건부·부분 / ❌ 미강제, 프롬프트 규율에만 의존).
+
+| 강제 항목 | Claude Code | Codex CLI | opencode |
+|---|---|---|---|
+| C등급 Owner 질문 정지 | ✅ hook exit 2 | ✅ 파일 기반이라 발화 시 작동 | ✅ 플러그인 throw |
+| 기존 테스트 보호 | ✅ exit 2 | ⚠️ apply_patch 인식하나 전용 훅 미발화 가능(셸 경유만 보장) | ✅ 플러그인 throw |
+| 역할별 도구 격리(단일 작성자) | ✅ 서브에이전트 `tools` | ❌ 서브에이전트 없음 → 규율만 | ✅ 서브에이전트 `tools` |
+| 명령 deny(git push·rm -rf·python -c 등) | ✅ settings.json allow/deny | ⚠️ deny 목록 없음 → sandbox+approval(거친 경계) | ✅ opencode.json deny |
+| 선행 조건 / 런타임 | 없음(bash) | trusted 등록 필요·apply_patch/MCP 훅 불안정 | bun/node 필요(없으면 플러그인 미로딩) |
+| Windows | ✅ | ❌ 훅 미지원 | ✅ node 있으면 |
+
+요약: **opencode는 가드레일·역할 격리·deny 모두 Claude와 동등**하다(런타임만 추가 요구).
+**Codex는 프로세스(5역할·헌법·정지 흐름)는 동일하나 자동 강제가 약해** — 테스트 보호가
+훅 미발화 시 빠지고, 역할 도구 격리·명령 deny가 정밀하지 않다. 따라서 Codex/opencode에서는
+AGENTS.md 규칙 병행과 컨테이너 격리를 권장한다(아래 "설계에 주는 함의" 참조).
+
 ### 설계에 주는 함의
 
 - **AGENTS.md = 공통 헌법.** 셋 다 읽힌다. Claude Code만 `CLAUDE.md`에서 `@AGENTS.md`로

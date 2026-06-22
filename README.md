@@ -90,7 +90,7 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
   `.opencode` 파일이, large→small 로 바꾸면 `lead`/`reviewer`/`critic`/`security`
   역할 파일과 `DIRECTION.md` 가 **고아로 남는다**. 의도적으로 줄일 때는 해당 파일을 직접 지운다.
   (small↔large 전환은 상태가 전부 파일에 있어 무손실이다 — "호환성 계약" 절 참조.)
-- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 6/6 PASS를 확인한다. 실패 시
+- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 8/8 PASS를 확인한다. 실패 시
   종료 코드 1로 멈추므로, 그 상태로 쓰지 말고 점검한다.
 
 ## 저장소 구조
@@ -189,7 +189,7 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
 ## 배포 전 검증 (관리자용)
 
 1. `./init.sh --profile small /tmp/t1` 과 `--profile large /tmp/t2` 실행,
-   hook 검증 6항목 전부 PASS 확인 (init.sh가 자동 수행).
+   hook 검증 8항목 전부 PASS 확인 (init.sh가 자동 수행).
 2. samples/sample-task-todo 로 양 프로파일 실주행:
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰

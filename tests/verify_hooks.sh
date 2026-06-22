@@ -51,5 +51,18 @@ printf '{"tool_input":{"file_path":"%s/src/app.py"}}' "$TARGET" \
   | "$H/protect_tests.sh" >/dev/null 2>&1
 check "일반 파일 허용" 0 $?
 
+# 7. (codex) apply_patch 로 기존 테스트 수정 → 차단(2)
+T="$TARGET/tests/stage_0_verify_test.py"
+touch "$T"
+printf '{"tool_input":{"command":"apply_patch","input":"*** Begin Patch\\n*** Update File: %s\\n@@\\n-a\\n+b\\n*** End Patch\\n"}}' "$T" \
+  | "$H/protect_tests.sh" >/dev/null 2>&1
+check "codex apply_patch 기존 테스트 수정 차단" 2 $?
+rm -f "$T"
+
+# 8. (codex) apply_patch 로 새 테스트 생성(Add File) → 허용(0)
+printf '{"tool_input":{"command":"apply_patch","input":"*** Begin Patch\\n*** Add File: %s/tests/stage_98_new_test.py\\n+x\\n*** End Patch\\n"}}' "$TARGET" \
+  | "$H/protect_tests.sh" >/dev/null 2>&1
+check "codex apply_patch 새 테스트 생성 허용" 0 $?
+
 echo "[hook 검증] PASS $PASS / FAIL $FAIL"
 [ "$FAIL" -eq 0 ]

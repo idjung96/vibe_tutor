@@ -40,6 +40,8 @@ cd team-dev-harness
 Windows 요구사항: PowerShell 5.1 이상, Git for Windows(Git Bash 포함 —
 Claude Code Windows 버전의 요구사항이기도 하다). 두 설치 스크립트의
 렌더링 결과는 동일하게 설계되어 있다.
+파리티 확인(코드리뷰): opencode 미포함 설치에서 `init.sh`가 종료코드 1을 내던 단축평가 버그를
+고쳤고, `init.ps1`은 안내를 `if (Has-Agent ...) { ... }` 문으로 처리해 종료코드가 전파되지 않으므로 동일 버그가 없다.
 
 - **프로파일**(`--profile`/`-Profile`, 생략 시 자동): `ANTHROPIC_BASE_URL` 또는
   `OPENAI_BASE_URL`이 사내망(내부 IP, kims, litellm, localhost)을 가리키면 **small**,

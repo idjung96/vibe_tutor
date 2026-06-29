@@ -189,8 +189,12 @@ if bash "$SRC/tests/verify_hooks.sh" "$TARGET"; then
   echo "설치 완료 (v$VERSION, $PROFILE, [$AGENTS])."
   echo "다음: $TARGET 에서 코딩 에이전트를 열고 '개발 시작'이라고 입력하세요."
   echo "초보자 안내: $TARGET/dev-agent-team/guides/OWNER_GUIDE.md"
-  has_agent codex && echo "Codex 주의: ~/.codex/config.toml 의 [projects.\"$TARGET\"] trust_level=\"trusted\" 등록 후 .codex 설정이 적용됩니다."
-  has_agent opencode && echo "opencode 주의: 가드레일 플러그인은 .opencode/plugins/guard.js 로 자동 로드됩니다(bun/node 필요)."
+  if has_agent codex; then
+    echo "Codex 주의: ~/.codex/config.toml 의 [projects.\"$TARGET\"] trust_level=\"trusted\" 등록 후 .codex 설정이 적용됩니다."
+  fi
+  if has_agent opencode; then
+    echo "opencode 주의: 가드레일 플러그인은 .opencode/plugins/guard.js 로 자동 로드됩니다(bun/node 필요)."
+  fi
 else
   echo ""
   echo "경고: hook 검증 실패. 안전장치가 동작하지 않을 수 있습니다."

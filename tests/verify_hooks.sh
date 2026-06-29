@@ -64,5 +64,43 @@ printf '{"tool_input":{"command":"apply_patch","input":"*** Begin Patch\\n*** Ad
   | "$H/protect_tests.sh" >/dev/null 2>&1
 check "codex apply_patch 새 테스트 생성 허용" 0 $?
 
+# 9. (go) 기존 *_test.go 수정 → 차단(2)
+T="$TARGET/tests/calc_test.go"
+touch "$T"
+printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "go 기존 테스트 수정 차단" 2 $?
+rm -f "$T"
+
+# 10. (go) 새 *_test.go 생성 → 허용(0)
+printf '{"tool_input":{"file_path":"%s/tests/new_test.go"}}' "$TARGET" \
+  | "$H/protect_tests.sh" >/dev/null 2>&1
+check "go 새 테스트 생성 허용" 0 $?
+
+# 11. (rust) 기존 *_test.rs 수정 → 차단(2)
+T="$TARGET/tests/calc_test.rs"
+touch "$T"
+printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "rust 기존 테스트 수정 차단" 2 $?
+rm -f "$T"
+
+# 12. (node) 기존 *.test.js 수정 → 차단(2)
+T="$TARGET/tests/calc.test.js"
+touch "$T"
+printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "node 기존 테스트 수정 차단" 2 $?
+rm -f "$T"
+
+# 13. (ts) 새 *.spec.ts 생성 → 허용(0)
+printf '{"tool_input":{"file_path":"%s/tests/calc.spec.ts"}}' "$TARGET" \
+  | "$H/protect_tests.sh" >/dev/null 2>&1
+check "ts 새 테스트 생성 허용" 0 $?
+
+# 14. (회귀) tests/conftest.py 같은 비-테스트 파일 → 허용(0)
+T="$TARGET/tests/conftest.py"
+touch "$T"
+printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "tests/ 안 비-테스트 파일 허용" 0 $?
+rm -f "$T"
+
 echo "[hook 검증] PASS $PASS / FAIL $FAIL"
 [ "$FAIL" -eq 0 ]

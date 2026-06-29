@@ -1,14 +1,19 @@
 // team-dev-harness 가드레일 플러그인 (opencode)
 // Claude/Codex의 두 hook(block_on_owner_question, protect_tests)을 opencode 플러그인으로 포팅한다.
 // 1) dev-agent-team/OWNER_QUESTION.md 에 "답: 번호"가 없으면 모든 도구 사용을 막는다.
-// 2) 기존 tests/*_test.py · tests/test_*.py 의 수정/덮어쓰기를 막는다.
+// 2) tests/ 밑 기존 테스트 파일의 수정/덮어쓰기를 막는다(언어 무관).
+//    python(*_test.py / test_*.py) · go(*_test.go) · rust(*_test.rs / test_*.rs)
+//    · node·ts(*.test.{js,jsx,ts,tsx,mjs,cjs} / *.spec.{...}).
+//    판정 정규식은 protect_tests.sh 의 TEST_RE 와 동기화한다.
 import fs from "fs";
 import path from "path";
 
 export const TeamGuard = async ({ directory }) => {
   const root = directory || process.cwd();
   const isTestFile = (fp) =>
-    /(^|\/)tests\/([^/]*_test\.py|test_[^/]*\.py)$/.test(fp.replace(/\\/g, "/"));
+    /(^|\/)tests\/([^/]*(_test\.(py|go|rs)|\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs))|test_[^/]*\.(py|rs))$/.test(
+      fp.replace(/\\/g, "/")
+    );
 
   return {
     "tool.execute.before": async (input, output) => {

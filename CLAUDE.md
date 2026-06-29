@@ -36,13 +36,13 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh ~/projects/my-app                     # 자동 판별(온프레미스→small) + all
 
 # hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
-./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 8항목 PASS여야 함
+./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 14항목 PASS여야 함
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile small -Agent all -Target C:\projects\my-app
 ```
 
-변경 후 검증 루틴: `--agent all` 로 양 프로파일 설치 → `verify_hooks.sh` 8/8 PASS →
+변경 후 검증 루틴: `--agent all` 로 양 프로파일 설치 → `verify_hooks.sh` 14/14 PASS →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
 TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
 
@@ -110,9 +110,11 @@ C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원�
 
 - **공유 가드 스크립트 2개**(`dev-agent-team/hooks/`): `block_on_owner_question.sh`
   (dev-agent-team/OWNER_QUESTION.md에 `^답: 숫자`가 없으면 exit 2 차단), `protect_tests.sh`
-  (기존 `tests/*_test.py` 수정 시 exit 2). exit 2 + stderr 규약 — 바꾸면 `verify_hooks.sh` 도 함께.
+  (기존 테스트 파일 수정 시 exit 2 — 언어 무관: py/go/rs/js·ts, `tests/` 밑 판정 정규식은
+  `protect_tests.sh` 와 `guard.js` 가 동일). exit 2 + stderr 규약 — 바꾸면 `verify_hooks.sh` 도 함께.
 - **에이전트별 연결**: Claude=`.claude/settings.json` hooks가 `dev-agent-team/hooks/*.sh` 호출 +
-  allow/deny(`git push`/`rm -rf`/`git reset --hard`/`python -c` 등 deny). Codex=
+  allow/deny(`git push`/`rm -rf`/`git reset --hard`/`python -c`/`node -e` 등 deny;
+  go/cargo/npm/node 테스트 실행은 allow). Codex=
   `.codex/hooks.json` 이 같은 `dev-agent-team/hooks/*.sh` 호출(단 apply_patch·MCP 훅 불안정·Windows 미지원).
   opencode=`.opencode/plugins/guard.js` 가 동일 로직을 JS로 재현(`tool.execute.before` throw).
 - **C등급 정지 흐름**: planner가 dev-agent-team/OWNER_QUESTION.md 작성 → 가드레일이 도구 사용 차단 →

@@ -44,6 +44,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 
 ## 결정 등급
 행위는 묻지 않는다. 설치, 테스트 실행, 파일 생성, 커밋은 그냥 한다.
+테스트 실행은 언어 무관이다 — pytest / go test / cargo test / npm test 등을 묻지 않고 돌린다.
+단 inline 임의코드 실행(`python -c`, `node -e`)은 금지다. 기존 테스트 파일 수정도 금지다(틀렸으면 C등급).
 - A: 함수명, 파일 구조. 결정하고 dev-agent-team/DECISIONS.md에 기록한다.
 - B: DB 스키마, API 형식, 라이브러리 선택. 결정하고 기록한다.
 - C: 요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL 라이선스, 외부 데이터·콘텐츠 약관·저작권.

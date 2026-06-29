@@ -90,7 +90,7 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
   `.opencode` 파일이, large→small 로 바꾸면 `lead`/`reviewer`/`critic`/`security`
   역할 파일과 `DIRECTION.md` 가 **고아로 남는다**. 의도적으로 줄일 때는 해당 파일을 직접 지운다.
   (small↔large 전환은 상태가 전부 파일에 있어 무손실이다 — "호환성 계약" 절 참조.)
-- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 8/8 PASS를 확인한다. 실패 시
+- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 14/14 PASS를 확인한다. 실패 시
   종료 코드 1로 멈추므로, 그 상태로 쓰지 말고 점검한다.
 
 ## 저장소 구조
@@ -175,8 +175,8 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
    커밋 메시지, 브랜치 이름
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
    정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
-3. deny/차단 목록 (push, rm -rf, hard reset, python -c 우회 포함)
-4. append-only 테스트 원칙 (가드레일로 강제)
+3. deny/차단 목록 (push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함)
+4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통)
 5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
 6. 5개 역할(planner/tester/coder/checker/documenter) 구조와 역할 경계
 7. 공유 상태 파일은 메인 세션만 쓴다 (단일 작성자 원칙)
@@ -189,7 +189,7 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
 ## 배포 전 검증 (관리자용)
 
 1. `./init.sh --profile small /tmp/t1` 과 `--profile large /tmp/t2` 실행,
-   hook 검증 8항목 전부 PASS 확인 (init.sh가 자동 수행).
+   hook 검증 14항목 전부 PASS 확인 (init.sh가 자동 수행).
 2. samples/sample-task-todo 로 양 프로파일 실주행:
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰
@@ -241,11 +241,16 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
 | 강제 항목 | Claude Code | Codex CLI | opencode |
 |---|---|---|---|
 | C등급 Owner 질문 정지 | ✅ hook exit 2 | ✅ 파일 기반이라 발화 시 작동 | ✅ 플러그인 throw |
-| 기존 테스트 보호 | ✅ exit 2 | ⚠️ apply_patch 인식하나 전용 훅 미발화 가능(셸 경유만 보장) | ✅ 플러그인 throw |
+| 기존 테스트 보호(py/go/rs/js·ts) | ✅ exit 2 | ⚠️ apply_patch 인식하나 전용 훅 미발화 가능(셸 경유만 보장) | ✅ 플러그인 throw |
 | 역할별 도구 격리(단일 작성자) | ✅ 서브에이전트 `tools` | ❌ 서브에이전트 없음 → 규율만 | ✅ 서브에이전트 `tools` |
-| 명령 deny(git push·rm -rf·python -c 등) | ✅ settings.json allow/deny | ⚠️ deny 목록 없음 → sandbox+approval(거친 경계) | ✅ opencode.json deny |
+| 명령 deny(git push·rm -rf·python -c·node -e 등) | ✅ settings.json allow/deny | ⚠️ deny 목록 없음 → sandbox+approval(거친 경계) | ✅ opencode.json deny |
+| 테스트 실행(pytest·go test·cargo test·npm test) | ✅ allow 등록(프롬프트 없음) | ✅ sandbox 안 자동 실행 | ✅ wildcard allow |
 | 선행 조건 / 런타임 | 없음(bash) | trusted 등록 필요·apply_patch/MCP 훅 불안정 | bun/node 필요(없으면 플러그인 미로딩) |
 | Windows | ✅ | ❌ 훅 미지원 | ✅ node 있으면 |
+
+테스트는 언어 무관으로 동일 취급한다 — 세 에이전트 모두 pytest·go test·cargo test·npm test 를
+프롬프트 없이 실행하고(Claude=allow 등록, Codex=sandbox 자동, opencode=wildcard), 기존 테스트
+파일(py/go/rs/js·ts) 수정은 똑같이 차단된다. inline 임의코드(`python -c`·`node -e`)는 deny다.
 
 요약: **opencode는 가드레일·역할 격리·deny 모두 Claude와 동등**하다(런타임만 추가 요구).
 **Codex는 프로세스(5역할·헌법·정지 흐름)는 동일하나 자동 강제가 약해** — 테스트 보호가

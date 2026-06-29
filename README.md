@@ -56,6 +56,7 @@ Claude Code Windows 버전의 요구사항이기도 하다). 두 설치 스크�
 
 이미 하니스가 깔린 프로젝트는 **새 버전의 `init.sh`/`init.ps1`을 같은 대상 폴더에
 다시 실행**하면 갱신된다. 별도 마이그레이션 도구는 없다 — 재실행이 곧 업그레이드다.
+버전별 변경 내역은 [CHANGELOG.md](CHANGELOG.md) 참조.
 
 ```bash
 # 1) 하니스 저장소를 최신으로
@@ -99,6 +100,7 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
 
 ```
 HARNESS_VERSION          # 버전 (호환성 계약 변경 시 올림)
+CHANGELOG.md             # 버전별 변경 이력 (HARNESS_VERSION과 일치)
 init.sh                  # 설치 (macOS/Linux): 판별 → 렌더링 → hook 검증
 init.ps1                 # 설치 (Windows): 동일 로직의 PowerShell 포팅
 profiles/

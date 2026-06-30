@@ -4,6 +4,25 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.11.0] - 2026-06-30
+
+### Added
+- **designer 역할**(UI 설계 담당) 추가 — 양 프로파일(small/large) 공통. UI/화면이 있는 단계에서만
+  호출하며, 코드는 만들지 않고 `dev-agent-team/DESIGN.md`(설계 명세)만 산출한다(spec-only).
+  명세대로의 구현은 coder가 한다(단일 작성자·TDD·단계게이트 유지).
+- **ui-design 스킬** 추가(디자인 토큰·컴포넌트·상태·접근성 WCAG·반응형 모바일 퍼스트). emit_skills 5 → 6.
+- 세 에이전트 모두에 designer 깔림 — Claude `.claude/agents/designer.md`(tools: Read, Write),
+  Codex `.agents/skills/designer/SKILL.md`, opencode `.opencode/agents/designer.md`(write only).
+
+### Changed
+- team-dev 절차에 공통 **7c 단계** 추가: UI 단계면 designer 호출 → DESIGN.md → tester·coder가 참조.
+- AGENTS.md "5개 역할" → "역할"(5 공통 + designer + large 전용 4), 파일 맵에 DESIGN.md, 스킬에 ui-design.
+- planner: UI/화면 포함 단계를 PLAN.md에 "(designer 필요)"로 표시.
+
+### Compatibility
+- 역할 경계·스킬셋·파일 레이아웃(DESIGN.md)은 **호환성 계약** 항목이라 `HARNESS_VERSION` 1.10.0 → 1.11.0.
+  가드 3경로(.sh 2개 + guard.js)와 verify_hooks(14항목)는 불변.
+
 ## [1.10.0] - 2026-06-29
 
 ### Added

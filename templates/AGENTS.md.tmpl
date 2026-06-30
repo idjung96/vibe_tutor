@@ -14,11 +14,13 @@ PROFILE: {{PROFILE_LABEL}}
 ## 이 프로젝트의 작업 방식
 Stage-Gate 방식이다. 절차는 team-dev 스킬을 따른다.
 
-## 5개 역할
+## 역할
 planner(계획·결정·질문), tester(테스트 작성), coder(구현), checker(검사), documenter(문서화).
+- UI/화면이 있는 단계에서는 designer(설계 명세: 디자인 토큰·컴포넌트·접근성·반응형)도 호출한다.
+  designer는 양 프로파일 공통이며 코드는 만들지 않고 dev-agent-team/DESIGN.md만 쓴다.
 - 서브에이전트를 지원하는 도구(Claude Code, opencode)에서는 각 역할의 서브에이전트에 위임한다.
-- 서브에이전트가 없는 도구(Codex)에서는 네가 planner/tester/coder/checker/documenter 스킬을
-  순서대로 직접 수행한다.
+- 서브에이전트가 없는 도구(Codex)에서는 네가 planner/tester/coder/checker/documenter(필요하면 designer)
+  스킬을 순서대로 직접 수행한다.
 {{#IF_LARGE}}
 - large 프로파일에는 lead(팀장: 방향·우선순위·백로그 그루밍), reviewer(코드·테스트 리뷰),
   critic(결정 반론·합의), security(보안 점검)도 있다. lead는 계획 전과 단계 시작 시,
@@ -34,6 +36,7 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 - dev-agent-team/DECISIONS.md : 모든 결정 기록.
 - dev-agent-team/OWNER_QUESTION.md : 이 파일에 답이 없으면 모든 작업을 멈춘다.
 - dev-agent-team/TEST_LOG.md : 테스트 현황.
+- dev-agent-team/DESIGN.md : UI 설계 명세(디자인 토큰·컴포넌트·접근성·반응형). designer만 쓴다. UI 단계에서만 생긴다.
 - dev-agent-team/BACKLOG.md : 협업용 백로그. "할 일"(상태 추적)과 "메모·주의"(참고) 2섹션.
   메인 세션만 쓴다. subagent는 출력에 "BACKLOG: 설명"으로 후보만 낸다.
 {{#IF_LARGE}}
@@ -79,5 +82,6 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 - 라이브러리 조사: lib-research
 - 코딩 규칙(이름·함수·매직넘버): code-convention
 - 테스트 설계: test-design
+- UI 설계 규칙(토큰·컴포넌트·접근성·반응형): ui-design
 스킬 위치는 도구별로 다르다: Claude=.claude/skills/, Codex/opencode=.agents/skills/
 (opencode는 .claude/skills/도 읽는다).

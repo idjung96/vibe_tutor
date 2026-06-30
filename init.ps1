@@ -82,7 +82,7 @@ function Write-Text($DstFile, $Text) {
     [System.IO.File]::WriteAllText($DstFile, $Text, $Utf8NoBom)
 }
 function Emit-Skills($Base) {
-    foreach ($s in 'team-dev', 'logging-rule', 'lib-research', 'code-convention', 'test-design') {
+    foreach ($s in 'team-dev', 'logging-rule', 'lib-research', 'code-convention', 'test-design', 'ui-design') {
         Render (Join-Path $Src "templates\skills\$s\SKILL.md.tmpl") (Join-Path $Target "$Base\$s\SKILL.md")
     }
 }
@@ -92,6 +92,7 @@ function Role-Desc($r) { switch ($r) {
     'coder'   { '테스트를 통과시키는 코드를 작성한다.' }
     'checker' { '테스트 전체를 실행하고 PASS/FAIL을 판정한다.' }
     'documenter' { '완성된 코드로 README와 사용법 문서를 만든다.' }
+    'designer' { 'UI/화면의 설계 명세(디자인 토큰·컴포넌트·접근성·반응형)를 만든다.' }
     'reviewer' { '코드와 테스트코드를 규칙에 비추어 검토하고 지적한다.' }
     'lead' { '개발 방향과 우선순위를 정하고 백로그를 그루밍한다.' }
     'critic' { '결정과 계획에 반론을 펴고 고위험·모호성을 가린다.' }
@@ -101,6 +102,7 @@ function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
     'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }
     'documenter' { 'Read, Write, Edit' }
+    'designer' { 'Read, Write' }
     'reviewer' { 'Read, Grep' }
     'lead' { 'Read, Grep' }
     'critic' { 'Read, Grep' }
@@ -112,14 +114,16 @@ function Opencode-Tools($r) { switch ($r) {
     'coder'   { "  write: true`n  edit: true`n  bash: true" }
     'checker' { "  write: false`n  edit: false`n  bash: true" }
     'documenter' { "  write: true`n  edit: true`n  bash: false" }
+    'designer' { "  write: true`n  edit: false`n  bash: false" }
     'reviewer' { "  write: false`n  edit: false`n  bash: false" }
     'lead' { "  write: false`n  edit: false`n  bash: false" }
     'critic' { "  write: false`n  edit: false`n  bash: false" }
     'security' { "  write: false`n  edit: false`n  bash: false" }
 } }
 
-# 역할 목록: lead·reviewer·critic·security는 large 프로파일에서만 깐다.
-$Roles = @('planner', 'tester', 'coder', 'checker', 'documenter')
+# 역할 목록: designer는 양 프로파일 공통(UI 단계에서만 호출).
+# lead·reviewer·critic·security는 large 프로파일에서만 깐다.
+$Roles = @('planner', 'tester', 'coder', 'checker', 'documenter', 'designer')
 if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security') }
 
 Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -join ' ') → $Target"

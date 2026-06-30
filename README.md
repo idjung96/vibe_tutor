@@ -110,8 +110,8 @@ templates/
   AGENTS.md.tmpl         # 공통 헌법 (모든 에이전트가 읽음)
   CLAUDE.md.tmpl         # Claude 전용 오버레이 (@AGENTS.md import)
   settings.json.tmpl     # Claude 권한 allow/deny + hook 등록
-  roles/                 # planner, tester, coder, checker, documenter (+large: lead, reviewer, critic, security) 본문 (단일 소스)
-  skills/                # team-dev(절차), logging-rule, lib-research, code-convention, test-design
+  roles/                 # planner, tester, coder, checker, documenter, designer(UI 단계) (+large: lead, reviewer, critic, security) 본문 (단일 소스)
+  skills/                # team-dev(절차), logging-rule, lib-research, code-convention, test-design, ui-design
   hooks/                 # Owner 질문 정지, 테스트 보호 (→ dev-agent-team/hooks/)
   codex/                 # config.toml, hooks.json (Codex 오버레이)
   opencode/              # opencode.json, plugins/guard.js (opencode 오버레이)
@@ -134,7 +134,8 @@ Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트�
 
 ## 역할 구성 (small vs large)
 
-small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
+small은 6역할(공통 5 + UI 단계 designer), large는 10역할(+ large 전용 4)이다.
+designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만 호출된다(설계 명세만 산출, 코드는 coder).
 
 | 역할 | 책임 | 도구 | small | large | 호출 시점 |
 |---|---|---|:--:|:--:|---|
@@ -143,6 +144,7 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
 | coder | 구현(테스트 통과) | Read, Write, Edit, Bash | ✅ | ✅ | 단계 |
 | checker | `pytest` 전체 실행·PASS/FAIL 판정(객관 검증) | Bash, Read | ✅ | ✅ | 단계 |
 | documenter | README·사용법 생성 | Read, Write, Edit | ✅ | ✅ | 종료 |
+| designer | UI 설계 명세(토큰·컴포넌트·상태·접근성·반응형, 코드 아님) | Read, Write | ✅ | ✅ | UI 단계(7c) |
 | lead | 방향·우선순위·백로그 그루밍(팀장) | Read, Grep | ✕ | ✅ | 계획 전(4-0)·단계 시작(7-0) |
 | critic | 결정 심의·반론·합의(모호·고위험만 Owner로) | Read, Grep | ✕ | ✅ | planner 결정 직후(7b) |
 | reviewer | 코드·테스트 품질 리뷰 | Read, Grep | ✕ | ✅ | PASS 후 merge 전 |
@@ -182,7 +184,8 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
 3. deny/차단 목록 (push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함)
 4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통)
 5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
-6. 5개 역할(planner/tester/coder/checker/documenter) 구조와 역할 경계
+6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
+   및 designer 산출물 dev-agent-team/DESIGN.md 형식
 7. 공유 상태 파일은 메인 세션만 쓴다 (단일 작성자 원칙)
 
 이 계약은 에이전트와 무관하게 동일하다. 가드레일 **강제 방식만** 에이전트별로
@@ -210,8 +213,8 @@ small은 5역할, large는 9역할(공통 5 + large 전용 4)이다.
   시 devcontainer/Docker로 프로젝트 디렉토리만 마운트하는 것을 권장한다.
 - **Codex는 `.codex` 설정이 trusted 프로젝트에서만 적용된다.** 설치 후 안내대로
   `~/.codex/config.toml` 의 `[projects]` 에 프로젝트를 등록해야 한다.
-- **Codex에는 서브에이전트가 없다.** 5개 역할은 `.agents/skills/` 스킬로 제공되며
-  단일 에이전트가 순차로 수행한다(Claude·opencode는 서브에이전트로 위임).
+- **Codex에는 서브에이전트가 없다.** 역할(공통 5 + UI 단계 designer + large 전용 4)은
+  `.agents/skills/` 스킬로 제공되며 단일 에이전트가 순차로 수행한다(Claude·opencode는 서브에이전트로 위임).
 - **온프레미스 연결은 에이전트별로 따로 설정**한다(Claude=`ANTHROPIC_BASE_URL`,
   Codex=`.codex/config.toml` `[model_providers]`, opencode=`provider`). 설치된 파일에
   주석 예시가 있다.
@@ -267,7 +270,7 @@ AGENTS.md 규칙 병행과 컨테이너 격리를 권장한다(아래 "설계에
   끌어오거나 심볼릭으로 연결한다.
 - **스킬은 `.agents/skills/` + `.claude/skills/` 두 곳**에 두면 셋 다 커버된다
   (`.agents/`=Codex 네이티브+opencode 호환, `.claude/`=Claude Code+opencode 호환).
-- **5-에이전트(planner/tester/coder/checker/documenter) + large 전용 lead·reviewer·critic·security**: Claude·opencode는
+- **5-에이전트(planner/tester/coder/checker/documenter) + UI 단계 designer + large 전용 lead·reviewer·critic·security**: Claude·opencode는
   서브에이전트로 둘 수 있으나, **Codex는 별도 서브에이전트 프로세스가 없다** → team-dev 스킬이
   "단일 에이전트가 역할을 순차 수행"하도록 기술해야 한다.
 - **가드레일(C등급 정지·테스트 보호)**: Claude=shell hook, Codex=동일 `exit 2` `hook.json`

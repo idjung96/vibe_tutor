@@ -11,6 +11,8 @@ description: 요구사항을 받아 단계별로 자동 개발한다.
 도구(Codex)에서는 같은 이름의 역할 스킬(.agents/skills/planner 등) 절차를 네가 직접 수행한다.
 UI/화면이 있는 단계에서는 designer도 호출한다(양 프로파일 공통, 아래 7c). designer는 설계 명세만
 만들고 코드는 coder가 그 명세대로 구현한다.
+lib-research는 메인 세션이 직접 수행하는 절차다. 전용 서브에이전트(researcher 등)는 없다 —
+coder/tester/designer는 "lib-research 필요: {이름}"만 보고하고 멈춘다.
 {{#IF_LARGE}}
 large 프로파일에는 lead(팀장)·reviewer·critic·security 역할도 있다.
 lead는 방향·우선순위를 정하고 백로그를 그루밍한다 — 계획 전(4-0)과 단계 시작 시(7-0)에 호출한다.
@@ -66,7 +68,7 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 8. tester를 호출한다. 새 라이브러리가 필요하면 lib-research 절차를 한다.
 {{/IF_SMALL}}
 {{#IF_LARGE}}
-8. tester와 lib-research(새 라이브러리가 있을 때)를 동시에 호출한다.
+8. tester를 호출하고, 새 라이브러리가 있으면 lib-research 절차를 함께 수행한다.
    둘 다 끝나면 진행한다.
 {{/IF_LARGE}}
 9. 테스트를 커밋한다. 메시지: "[stage-N] 테스트 추가"

@@ -4,6 +4,22 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.11.1] - 2026-06-30
+
+### Changed
+- lib-research 스킬을 언어 일반화 — 파이썬 전용(`requirements.txt`/`pip install`)에서
+  node(`package.json`)·go(`go.mod`)·rust(`Cargo.toml`) 매니페스트와 npm/pkg.go.dev/crates.io
+  레지스트리까지 다루도록 변경. (직전 v1.10.0 다국어 테스트 일반화와 짝.)
+
+### Fixed
+- team-dev 절차에 "lib-research는 메인 세션이 직접 수행하는 절차이며 전용 서브에이전트
+  (researcher 등)는 없다 — coder/tester/designer는 'lib-research 필요: {이름}'만 보고한다"를
+  명시. 에이전트가 존재하지 않는 `researcher` 서브에이전트를 호출하던 오류 방지.
+
+### Compatibility
+- libs/{이름}.md 필드 구조·역할셋은 불변(계약 위반 아님). 절차·예시 명령 변경 정합을 위해
+  `HARNESS_VERSION` 1.11.0 → 1.11.1 (patch).
+
 ## [1.11.0] - 2026-06-30
 
 ### Added

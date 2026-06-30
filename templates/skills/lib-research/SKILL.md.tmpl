@@ -8,10 +8,13 @@ description: 새 라이브러리를 도입할 때 공식 문서를 조사하고 
 
 1. dev-agent-team/libs/{라이브러리명}.md 가 있는지 본다. 있으면 그것을 읽고 끝낸다.
 2. 없으면 조사한다. 이 2곳만 본다:
-   a. 공식 배포 페이지 (PyPI 또는 npm)
+   a. 해당 언어의 공식 배포 페이지 (PyPI / npm / pkg.go.dev / crates.io 중 하나)
    b. 공식 문서의 Quickstart 또는 Getting Started 페이지
 3. dev-agent-team/libs/{라이브러리명}.md 를 만든다. 형식은 아래와 같다.
-4. requirements.txt 에 버전을 고정해서 추가한다. 예: requests==2.32.3
+4. 프로젝트 언어의 의존성 매니페스트에 버전을 고정한다. 추측하지 않는다.
+   - 파이썬: requirements.txt (예: requests==2.32.3)
+   - node: package.json (예: "nodemailer": "6.9.0")
+   - go: go.mod / rust: Cargo.toml
 5. dev-agent-team/libs/INDEX.md 에 한 줄 추가한다.
 6. dev-agent-team/DECISIONS.md 에 B등급으로 기록한다.
 7. 라이선스가 GPL 또는 AGPL 이다: C등급이다. Owner에게 묻는다.
@@ -22,7 +25,7 @@ description: 새 라이브러리를 도입할 때 공식 문서를 조사하고 
 - 공식 사이트: URL
 - 문서: URL
 - 라이선스: MIT 등
-- 설치: pip install {이름}=={버전}
+- 설치: 언어에 맞는 명령 (pip install / npm install / go get / cargo add)
 
 ## 핵심 사용법
 (공식 Quickstart의 코드 3개. 각 코드에 한 줄 설명.)

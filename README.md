@@ -132,6 +132,8 @@ tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 역할 본문(`roles/`)은 단일 소스이고, init이 에이전트별 frontmatter를 붙여
 Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트로 렌더한다.
 
+> Claude Code에서는 10개 역할 전부에 모델을 명시적으로 고정한다 — 전략적 판단·고위험 역할(`planner`/`lead`/`reviewer`/`security`)은 `model: opus`, 구현·실행 역할(`coder`/`checker`/`documenter`/`tester`/`designer`)은 `model: sonnet`. 단 `critic`은 고위험·모호성이 있을 때만 선별 호출되는 역할이라 호출 빈도가 낮은 대신 판단 오류의 되돌리기 비용이 가장 커서 예외적으로 `model: fable`을 쓴다. codex/opencode는 frontmatter에 model 개념이 없어 세션 기본 모델을 그대로 쓴다.
+
 ## 역할 구성 (small vs large)
 
 small은 6역할(공통 5 + UI 단계 designer), large는 10역할(+ large 전용 4)이다.

@@ -98,6 +98,18 @@ function Role-Desc($r) { switch ($r) {
     'critic' { '결정과 계획에 반론을 펴고 고위험·모호성을 가린다.' }
     'security' { '코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다.' }
 } }
+function Role-Model($r) { switch ($r) {
+    'coder' { 'sonnet' }
+    'checker' { 'sonnet' }
+    'documenter' { 'sonnet' }
+    'tester' { 'sonnet' }
+    'designer' { 'sonnet' }
+    'planner' { 'opus' }
+    'lead' { 'opus' }
+    'reviewer' { 'opus' }
+    'security' { 'opus' }
+    'critic' { 'fable' }
+} }
 function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
     'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }
@@ -160,7 +172,10 @@ if (Has-Agent 'claude') {
     Emit-Skills '.claude\skills'
     foreach ($r in $Roles) {
         $body = Render-String (Join-Path $Src "templates\roles\$r.md.tmpl")
-        $fm = "---`nname: $r`ndescription: $(Role-Desc $r)`ntools: $(Claude-Tools $r)`n---`n"
+        $model = Role-Model $r
+        $fm = "---`nname: $r`ndescription: $(Role-Desc $r)`n"
+        if ($model) { $fm += "model: $model`n" }
+        $fm += "tools: $(Claude-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".claude\agents\$r.md") ($fm + $body)
     }
 }

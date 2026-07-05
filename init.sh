@@ -91,6 +91,11 @@ role_desc() { case "$1" in
   critic)     echo "결정과 계획에 반론을 펴고 고위험·모호성을 가린다." ;;
   security)   echo "코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다." ;;
 esac; }
+role_model() { case "$1" in
+  coder|checker|documenter|tester|designer) echo "sonnet" ;;
+  planner|lead|reviewer|security) echo "opus" ;;
+  critic) echo "fable" ;;
+esac; }
 claude_tools() { case "$1" in
   planner|tester) echo "Read, Write" ;;
   coder)          echo "Read, Write, Edit, Bash" ;;
@@ -144,8 +149,15 @@ if has_agent claude; then
   mkdir -p "$TARGET/.claude/agents"
   for r in $ROLES; do
     body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
-    { printf -- "---\nname: %s\ndescription: %s\ntools: %s\n---\n" "$r" "$(role_desc "$r")" "$(claude_tools "$r")"
-      printf '%s\n' "$body"; } > "$TARGET/.claude/agents/$r.md"
+    model="$(role_model "$r")"
+    { echo "---"
+      printf 'name: %s\n' "$r"
+      printf 'description: %s\n' "$(role_desc "$r")"
+      [ -n "$model" ] && printf 'model: %s\n' "$model"
+      printf 'tools: %s\n' "$(claude_tools "$r")"
+      echo "---"
+      printf '%s\n' "$body"
+    } > "$TARGET/.claude/agents/$r.md"
   done
 fi
 

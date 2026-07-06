@@ -26,7 +26,8 @@ macOS / Linux:
 git clone <이 저장소>
 cd team-dev-harness
 ./init.sh ~/projects/my-app                          # 프로파일 자동, 에이전트 all
-./init.sh --profile small --agent codex ~/projects/my-app
+./init.sh --profile large --agent codex ~/projects/my-app   # codex는 large 전용
+./init.sh --profile small --agent claude,opencode ~/projects/my-app  # small은 codex 불가
 ./init.sh --agent claude,codex ~/projects/my-app     # 일부만
 ```
 
@@ -35,7 +36,7 @@ Windows (PowerShell):
 git clone <이 저장소>
 cd team-dev-harness
 .\init.ps1 -Target C:\projects\my-app
-.\init.ps1 -Profile small -Agent codex -Target C:\projects\my-app
+.\init.ps1 -Profile large -Agent codex -Target C:\projects\my-app   # codex는 large 전용
 ```
 Windows 요구사항: PowerShell 5.1 이상, Git for Windows(Git Bash 포함 —
 Claude Code Windows 버전의 요구사항이기도 하다). 두 설치 스크립트의
@@ -48,6 +49,8 @@ Claude Code Windows 버전의 요구사항이기도 하다). 두 설치 스크�
   그 외(비어 있거나 외부)는 **large**.
 - **에이전트**(`--agent`/`-Agent`, 생략 시 `all`): `claude`, `codex`, `opencode`를
   콤마로 조합하거나 `all`. 선택한 에이전트의 설정만 생성된다.
+  단 **codex는 large 프로파일 전용**이다 — small에서 codex가 요청되면(`all` 포함) 에러로
+  차단된다. small은 `--agent claude,opencode` 로 설치한다.
 
 설치가 끝나면 프로젝트 폴더에서 코딩 에이전트(Claude Code / Codex / opencode)를
 열고 `개발 시작` 이라고 입력한다. 초보자 안내는 생성된 `dev-agent-team/guides/OWNER_GUIDE.md` 참조.
@@ -132,7 +135,7 @@ tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 역할 본문(`roles/`)은 단일 소스이고, init이 에이전트별 frontmatter를 붙여
 Claude=서브에이전트, Codex=`.agents/skills/`, opencode=서브에이전트로 렌더한다.
 
-> Claude Code에서는 10개 역할 전부에 모델을 명시적으로 고정한다 — 전략적 판단·고위험 역할(`planner`/`lead`/`reviewer`/`security`)은 `model: opus`, 구현·실행 역할(`coder`/`checker`/`documenter`/`tester`/`designer`)은 `model: sonnet`. 단 `critic`은 고위험·모호성이 있을 때만 선별 호출되는 역할이라 호출 빈도가 낮은 대신 판단 오류의 되돌리기 비용이 가장 커서 예외적으로 `model: fable`을 쓴다. codex/opencode는 frontmatter에 model 개념이 없어 세션 기본 모델을 그대로 쓴다.
+> Claude Code에서는 10개 역할 전부에 모델을 명시적으로 고정한다 — 전략적 판단·고위험 역할(`planner`/`lead`/`reviewer`/`security`)은 `model: opus`, 구현·실행 역할(`coder`/`checker`/`documenter`/`tester`/`designer`)은 `model: sonnet`. 단 `critic`은 고위험·모호성이 있을 때만 선별 호출되는 역할이라 호출 빈도가 낮은 대신 판단 오류의 되돌리기 비용이 가장 커서 예외적으로 `model: fable`을 쓴다. codex/opencode는 frontmatter에 model 개념이 없어 세션 기본 모델을 그대로 쓴다. 다만 codex는 서브에이전트가 없어 역할별 지정은 못 해도, `.codex/config.toml`의 `model_reasoning_effort = "high"`로 세션 전체 추론을 강화한다(codex는 large 전용이라 항상 적용). claude가 역할별로, codex가 세션 전체로 추론 강도를 정하는 대칭 구조다.
 
 ## 역할 구성 (small vs large)
 
@@ -198,8 +201,8 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 
 ## 배포 전 검증 (관리자용)
 
-1. `./init.sh --profile small /tmp/t1` 과 `--profile large /tmp/t2` 실행,
-   hook 검증 14항목 전부 PASS 확인 (init.sh가 자동 수행).
+1. `./init.sh --profile small --agent claude,opencode /tmp/t1` 과 `--profile large /tmp/t2` 실행,
+   hook 검증 14항목 전부 PASS 확인 (init.sh가 자동 수행). small은 codex를 포함할 수 없다(에러).
 2. samples/sample-task-todo 로 양 프로파일 실주행:
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰
@@ -218,6 +221,8 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
   `~/.codex/config.toml` 의 `[projects]` 에 프로젝트를 등록해야 한다.
 - **Codex에는 서브에이전트가 없다.** 역할(공통 5 + UI 단계 designer + large 전용 4)은
   `.agents/skills/` 스킬로 제공되며 단일 에이전트가 순차로 수행한다(Claude·opencode는 서브에이전트로 위임).
+- **Codex는 large 프로파일 전용이다.** 외부 대형 추론 모델을 전제하므로 small(온프레미스)에서
+  codex가 요청되면(`all` 포함) 설치가 에러로 중단된다. small은 `--agent claude,opencode` 로 설치한다.
 - **온프레미스 연결은 에이전트별로 따로 설정**한다(Claude=`ANTHROPIC_BASE_URL`,
   Codex=`.codex/config.toml` `[model_providers]`, opencode=`provider`). 설치된 파일에
   주석 예시가 있다.

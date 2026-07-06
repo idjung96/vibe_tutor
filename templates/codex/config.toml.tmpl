@@ -5,16 +5,17 @@
 sandbox_mode = "workspace-write"   # 워크스페이스 안에서만 자동 편집/실행
 approval_policy = "on-request"     # 샌드박스 경계를 넘을 때만 승인 요청
 project_doc_max_bytes = 65536      # AGENTS.md 로딩 상한
+model_reasoning_effort = "high"    # codex는 large 전용이라 세션 추론을 강화한다 (reasoning 지원 모델에서만 유효)
 
 [features]
 hooks = true                       # dev-agent-team/hooks 가드레일 사용
 
-# ── 온프레미스(사내) LLM 예시 ──────────────────────────────
-# 사내 모델을 쓸 때만 주석을 풀고 값을 채운다(small 프로파일).
-# model = "your-onprem-model"
-# model_provider = "onprem"
-# [model_providers.onprem]
-# name = "On-prem LLM"
+# ── 커스텀/사내 provider 예시 ──────────────────────────────
+# codex를 사내·커스텀 대형 모델 엔드포인트로 쓸 때만 주석을 풀고 값을 채운다.
+# model = "your-model"
+# model_provider = "custom"
+# [model_providers.custom]
+# name = "Custom LLM"
 # base_url = "http://litellm.local/v1"
-# env_key = "ONPREM_API_KEY"
+# env_key = "CUSTOM_API_KEY"
 # wire_api = "responses"

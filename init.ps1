@@ -43,6 +43,12 @@ if (-not $Profile) {
     }
 }
 
+# codex는 large 프로파일 전용(외부 대형 추론 모델). small에서 요청되면 차단한다.
+if ($Profile -eq 'small' -and (Has-Agent 'codex')) {
+    Write-Error "codex는 large 프로파일 전용입니다 (small 미지원). small은 --agent claude,opencode 로 실행하세요."
+    exit 1
+}
+
 # 프로파일 conf 읽기 (KEY=VALUE)
 $conf = @{}
 Get-Content -Encoding UTF8 (Join-Path $Src "profiles\$Profile.conf") | ForEach-Object {

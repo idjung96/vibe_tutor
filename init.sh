@@ -48,6 +48,13 @@ if [ -z "$PROFILE" ]; then
 fi
 case "$PROFILE" in small|large) ;; *) echo "프로파일은 small 또는 large 여야 합니다."; exit 1 ;; esac
 
+# codex는 large 프로파일 전용(외부 대형 추론 모델). small에서 요청되면 차단한다.
+if [ "$PROFILE" = small ] && has_agent codex; then
+  echo "codex는 large 프로파일 전용입니다 (small 미지원)." >&2
+  echo "small로 설치하려면 codex를 빼고 실행하세요: --agent claude,opencode" >&2
+  exit 1
+fi
+
 # shellcheck source=/dev/null
 . "$SRC/profiles/$PROFILE.conf"
 

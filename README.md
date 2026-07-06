@@ -159,7 +159,7 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 > 보안: small은 `dev-agent-team/selfcheck.py`의 정규식 기반 보안 스캔(객관)으로 점검하고,
 > large는 여기에 security 에이전트(맥락 판단)를 더한다.
 
-## 프로파일 차이 (이 12가지만 다르다)
+## 프로파일 차이 (이 13가지만 다르다)
 
 | 항목 | small | large |
 |---|---|---|
@@ -175,20 +175,21 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 | 결정 심의·합의 (critic 역할) | 없음 | 있음 (planner 결정 직후, 모호·고위험만 Owner) |
 | 보안 점검 (security 역할) | 없음 | 있음 (PASS 후 merge 전, 심각하면 Owner) |
 | 요구사항 충돌·누락 점검 (planner) | 없음 | 있음 (단계 나누기 전) |
+| 절차 자기개선 (lead 회고 → Owner 승인 → PROCESS.md) | 없음 | 있음 (재발 신호 있을 때) |
 
 ## 호환성 계약 (프로파일과 무관하게 동일 — 변경 시 버전 올림)
 
 1. 파일 위치/형식: AGENTS.md(공통 헌법), dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
    dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md / dev-agent-team/libs/ 형식,
-   커밋 메시지, 브랜치 이름
+   dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치 이름
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
    정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
 3. deny/차단 목록 (push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함)
 4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통)
 5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
 6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
-   및 designer 산출물 dev-agent-team/DESIGN.md 형식
-7. 공유 상태 파일은 메인 세션만 쓴다 (단일 작성자 원칙)
+   및 designer 산출물 dev-agent-team/DESIGN.md 형식. lead는 방향·백로그 외에 회고·절차 개선제안(IMPROVE)도 낸다(large 전용).
+7. 공유 상태 파일은 메인 세션만 쓴다 (단일 작성자 원칙; PROCESS.md 포함)
 
 이 계약은 에이전트와 무관하게 동일하다. 가드레일 **강제 방식만** 에이전트별로
 다르다(Claude=hook, Codex=hook.json, opencode=플러그인). 이 덕분에 **모델 전환과

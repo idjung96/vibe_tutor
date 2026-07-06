@@ -16,8 +16,11 @@ coder/tester/designer는 "lib-research 필요: {이름}"만 보고하고 멈춘�
 {{#IF_LARGE}}
 large 프로파일에는 lead(팀장)·reviewer·critic·security 역할도 있다.
 lead는 방향·우선순위를 정하고 백로그를 그루밍한다 — 계획 전(4-0)과 단계 시작 시(7-0)에 호출한다.
+lead는 팀의 일하는 방식에 반복 문제가 보이면 개선안(IMPROVE)도 낸다 — Owner 승인 후 PROCESS.md에 누적한다.
 critic은 planner 결정에 반론을 펴 합의를 만든다(7b). 명확하면 자율 진행, 모호·고위험은 Owner 합의로 올린다.
 reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12번). 보안 위험은 고위험으로 다룬다.
+역할을 호출할 때, PROCESS.md에 그 역할 대상(또는 "전체") 개정이 있으면 함께 전달한다.
+역할은 그 개정을 따르고, 유효 파라미터(RETRY_LIMIT 등)는 헌법 기본값보다 PROCESS.md를 우선한다.
 {{/IF_LARGE}}
 
 ## 0단계: 인터뷰 (dev-agent-team/REQUIREMENTS.md가 없을 때)
@@ -50,6 +53,9 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 {{#IF_LARGE}}
 7-0. lead를 호출한다. 백로그를 그루밍하고 이번 단계 초점을 정한다.
      변경을 dev-agent-team/DIRECTION.md와 dev-agent-team/BACKLOG.md에 반영한다.
+     IMPROVE가 있으면 팀 운영규칙 개선 제안이다. 절차 변경은 고위험이므로 C등급으로 올린다(14번).
+     Owner가 승인하면 그 개정을 dev-agent-team/PROCESS.md에 P-번호 항목(대상·변경·근거·승인 참조)으로
+     append한다. 폐기는 삭제가 아니라 새 항목으로 표현한다. 승인 못 받으면 반영하지 않는다.
      ESCALATE가 있으면 14번으로 간다.
 {{/IF_LARGE}}
 7. planner를 호출한다. dev-agent-team/BACKLOG.md의 "할 일"을 읽어 이번 단계에 반영한다.

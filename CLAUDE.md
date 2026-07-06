@@ -80,16 +80,17 @@ codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
-차이 12종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
+차이 13종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
 coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, reviewer 역할(large 전용 코드·테스트 리뷰),
-lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md),
+lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md; 회고·절차 자기개선 제안 IMPROVE),
 critic 역할(large 전용 결정 심의·합의; 명확하면 자율, 모호·고위험은 Owner),
-security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락 점검(large만). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
+security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락 점검(large만),
+절차 자기개선(large 전용 lead 회고→Owner 승인→PROCESS.md 오버레이). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
 
 ## 생성된 프로젝트의 디렉터리 규약
 
 에이전트 작업/상태 파일은 모두 **`dev-agent-team/`** 아래에 둔다(REQUIREMENTS, PLAN.json/PLAN.md,
-DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, DIRECTION(large), DESIGN(UI 단계), `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
+DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, DIRECTION(large), PROCESS(large), DESIGN(UI 단계), `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
 **에이전트가 실행하는 코드·스크립트도 `dev-agent-team/` 안에 둔다** — 가드 훅(`dev-agent-team/hooks/*.sh`),
 자가점검 도구(`dev-agent-team/selfcheck.py`). generic depth-1 폴더에 두면 제품 폴더와 헷갈리므로 금지.
 `tests/` `logs/` `common/` 은 **제품 디렉터리**(만들고 있는 프로그램의 것 — pytest 표준 위치,
@@ -100,7 +101,8 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 ## 호환성 계약 — 변경 시 `HARNESS_VERSION` 을 올릴 것
 
 프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
-dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식, 커밋 메시지, 브랜치명 /
+dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식,
+dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원칙 / 로그 형식 /
 역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security) / 단일 작성자 원칙).
 이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).
@@ -123,7 +125,7 @@ C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원�
 
 ## 에이전트 역할 경계 (단일 작성자 원칙)
 
-공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md, dev-agent-team/DIRECTION.md)은 **메인 세션만**
+공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md, dev-agent-team/DIRECTION.md, dev-agent-team/PROCESS.md)은 **메인 세션만**
 쓴다. subagent는 자기 산출물만 쓴다(planner=계획/질문, tester=tests/, coder=구현,
 checker=pytest 실행·판정, documenter=제품 README/문서, designer=dev-agent-team/DESIGN.md(UI 단계),
 lead·reviewer·critic·security(large)=제안만 출력. dev-agent-team/는 읽기만).

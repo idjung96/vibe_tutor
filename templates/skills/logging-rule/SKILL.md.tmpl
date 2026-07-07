@@ -26,3 +26,15 @@ logger = get_logger(__name__)
 - print를 쓰지 않는다. logger만 쓴다.
 - 비밀번호, 토큰, 주민번호를 로그에 적지 않는다. 대신 "***"를 적는다.
 - 반복문 안에 INFO를 넣지 않는다. 반복문은 시작과 끝에만 넣는다.
+
+## SQL_ID로 DB 로그 추적 (DB/DAO를 쓸 때만)
+SQL_ID 이름 규칙은 code-convention을 따른다. 여기서는 그 ID를 로그까지 잇는 방법을 정한다.
+- DB 서버는 원문 SQL만 남긴다. SQL_ID를 SQL 주석으로 실어 보내야 슬로우 로그까지 살아남는다:
+  /* sqlid=user.account.select_by_id */ SELECT ...
+  프레임워크면 인터셉터로, raw면 DAO 공통 래퍼에서 자동 주입한다. 손으로 붙이면 빠뜨린다.
+- 앱 로그에는 SQL_ID와 요청 추적 trace_id를 함께 남긴다(둘을 이어야 "이 쿼리가 그 요청에서" 성립).
+  예: logger.info("쿼리 실행 | sqlid=%s trace_id=%s", sql_id, trace_id)
+- 동적 trace_id는 SQL 주석에 넣지 않는다 — Oracle/MySQL은 커서·plan 캐시가 파편화된다.
+  세션 속성으로 전달한다(Oracle client_identifier, MySQL connection attributes, PG application_name).
+  PostgreSQL은 pg_stat_statements가 주석을 정규화해 벗기므로 주석도 안전하다.
+- SQL 주석과 로그에 개인정보·비밀값을 넣지 않는다.

@@ -4,6 +4,37 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.12.0] - 2026-07-07
+
+### Added
+- **팀 절차 자기개선 루프**(large 전용) — lead가 단계 시작(7-0) 그루밍에서 재발 신호
+  (BACKLOG 반복·같은 단계 NEW_FAIL/REGRESSION 반복·RETRY_LIMIT/MAX_CHECKER_CALLS 도달)를
+  보면 IMPROVE 개선안을 낸다. 절차 변경은 C등급으로 Owner 승인 → `dev-agent-team/PROCESS.md`에
+  append-only(P번호) 누적. 역할은 자기 대상(+전체) 개정을 따르고, 유효 파라미터(RETRY_LIMIT 등)는
+  헌법 기본값보다 PROCESS.md를 우선. 정적 역할 md는 불변(오버레이 방식). lead 미emit인 small은 자동 제외.
+
+### Changed
+- **codex를 large 프로파일 전용으로 고정** — small(온프레미스)에서 codex가 요청되면
+  (`--agent all` 포함) init이 프로파일 확정 직후 에러로 중단한다(`init.sh`/`init.ps1` 양쪽 가드).
+  codex가 large 전용이 되어 `.codex/config.toml`에 `model_reasoning_effort = "high"`를 무조건
+  포함(세션 추론 강화)하고, on-prem(small) 예시는 커스텀 provider로 일반화.
+- **테스트 레이어 언어 일반화** — tester/coder/checker/reviewer의 `pytest`·`stage_{n}_test.py`
+  하드코딩을 제품 언어의 테스트 관례·러너(pytest / go test / cargo test / npm test)로 일반화한다
+  (가드 정규식 호환 파일명만 예시로). checker가 AGENTS.md "테스트 실행 언어 무관" 선언과 정합.
+  `common/logger.py`는 Python 유지(제품 코드 언어중립화는 별도 과제).
+- **테스트 설계 강화** — tester·test-design에 done_check(수용 기준) 각 항목 정상 케이스 커버리지
+  강제, 테스트 간 독립성(실행 순서 무관), 준비-실행-검증(AAA) 본문 골격 규칙 추가.
+- **SQL_ID 규칙 추가** — DB/DAO를 쓰는 제품에서 DB 로그↔코드 추적을 위해 code-convention
+  (이름 체계 `모듈.엔티티.동작`·DAO/매퍼 자동 파생·유일성)과 logging-rule(SQL 주석 `/* sqlid=... */`
+  주입·앱로그에 sqlid+trace_id 동시 기록·동적 trace_id는 캐시 파편화 탓에 세션 속성으로)에
+  조건부 섹션을 추가. DB 없는 제품엔 무영향.
+
+### Compatibility
+- 새 상태 파일 `dev-agent-team/PROCESS.md`(P번호·append-only, large 전용)가 **호환성 계약**에
+  추가되어 `HARNESS_VERSION` 1.11.1 → 1.12.0 (minor). codex 프로파일 게이팅·테스트 문구 일반화·
+  SQL_ID 규칙은 새 파일/포맷/가드 변경이 없어 독립 상향이 불필요하며 1.12.0에 함께 실린다.
+  가드 3경로(.sh 2개 + guard.js)와 verify_hooks(14항목), 로그 형식(key=value)은 불변.
+
 ## [1.11.1] - 2026-06-30
 
 ### Changed

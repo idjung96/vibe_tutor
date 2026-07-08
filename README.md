@@ -218,6 +218,8 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
   불안정하고 Windows에서 미지원이다. opencode는 `.opencode/plugins/guard.js`로 차단한다
   (bun/node 필요). 강제가 불완전할 수 있으므로 AGENTS.md의 규칙을 병행하고, 기관 배포
   시 devcontainer/Docker로 프로젝트 디렉토리만 마운트하는 것을 권장한다.
+- **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접
+  push와 force push(`--force`/`-f`)는 금지 — force는 가드 deny로, main 금지는 AGENTS.md 규칙으로 강제한다.
 - **Codex는 `.codex` 설정이 trusted 프로젝트에서만 적용된다.** 설치 후 안내대로
   `~/.codex/config.toml` 의 `[projects]` 에 프로젝트를 등록해야 한다.
 - **Codex에는 서브에이전트가 없다.** 역할(공통 5 + UI 단계 designer + large 전용 4)은

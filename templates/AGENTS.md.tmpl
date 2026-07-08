@@ -66,7 +66,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 2. 기존 테스트를 수정하거나 삭제하지 않는다.
 3. 새 라이브러리는 dev-agent-team/libs/ 조사 후에 쓴다. API를 추측하지 않는다.
 4. print 금지. common/logger.py 의 logger만 쓴다.
-5. git push, rm -rf, 요구사항에 없는 기능 추가를 하지 않는다.
+5. rm -rf, 요구사항에 없는 기능 추가를 하지 않는다. git push는 작업(stage/feature) 브랜치에
+   허용하되, main 직접 push와 force push(-f/--force)는 하지 않는다.
 6. 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md,
    dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md)은 메인 세션만 쓴다.
    subagent는 자기 산출물만 쓴다.

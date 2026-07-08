@@ -4,6 +4,24 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.13.0] - 2026-07-08
+
+### Changed
+- **git push를 allow로 재분류** — 개발팀이 stage/feature 브랜치에 자주 push하는 워크플로에 맞춰
+  일반 `git push`를 허용한다. Claude `settings.json`은 deny에서 `git push:*`를 빼고 allow로 옮기며,
+  opencode `opencode.json`은 `git push*` deny를 제거(기본 allow). AGENTS.md·team-dev 금지 규칙도
+  "작업 브랜치 push 허용, main 직접 push·force push 금지"로 갱신.
+
+### Security
+- **force push는 계속 차단** — `git push --force`/`-f`/`--force-with-lease`(+ opencode는 인자 순서
+  회피 `git push*--force*`)를 양쪽 가드의 deny에 명시. main 직접 push 금지는 패턴으로 구분이
+  어려워 AGENTS.md 규칙으로 병행 강제(하니스의 "강제 불완전 → 규칙 병행" 원칙).
+
+### Compatibility
+- deny/차단 목록은 **호환성 계약** 항목이라 `HARNESS_VERSION` 1.12.0 → 1.13.0. push 금지 해제는
+  안전 계약의 실질 변화라 minor. codex는 deny 목록 없이 `approval_policy`로 원격 경계를 다루므로
+  변경 없음(push는 승인 프롬프트로 통과). verify_hooks(14항목)·protect_tests·guard.js는 불변.
+
 ## [1.12.0] - 2026-07-07
 
 ### Added

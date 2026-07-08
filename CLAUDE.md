@@ -117,8 +117,9 @@ C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원�
   (기존 테스트 파일 수정 시 exit 2 — 언어 무관: py/go/rs/js·ts, `tests/` 밑 판정 정규식은
   `protect_tests.sh` 와 `guard.js` 가 동일). exit 2 + stderr 규약 — 바꾸면 `verify_hooks.sh` 도 함께.
 - **에이전트별 연결**: Claude=`.claude/settings.json` hooks가 `dev-agent-team/hooks/*.sh` 호출 +
-  allow/deny(`git push`/`rm -rf`/`git reset --hard`/`python -c`/`node -e` 등 deny;
-  go/cargo/npm/node 테스트 실행은 allow). Codex=
+  allow/deny(force push(`--force`/`-f`)/`rm -rf`/`git reset --hard`/`python -c`/`node -e` 등 deny;
+  일반 `git push`(작업 브랜치)·go/cargo/npm/node 테스트 실행은 allow. main 직접 push·force 금지는
+  AGENTS.md 규칙 병행). Codex=
   `.codex/hooks.json` 이 같은 `dev-agent-team/hooks/*.sh` 호출(단 apply_patch·MCP 훅 불안정·Windows 미지원).
   opencode=`.opencode/plugins/guard.js` 가 동일 로직을 JS로 재현(`tool.execute.before` throw).
 - **C등급 정지 흐름**: planner가 dev-agent-team/OWNER_QUESTION.md 작성 → 가드레일이 도구 사용 차단 →

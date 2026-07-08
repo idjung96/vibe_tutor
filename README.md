@@ -187,7 +187,8 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
    dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치 이름
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
    정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
-3. deny/차단 목록 (push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함)
+3. deny/차단 목록 (force push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함).
+   일반 git push는 allow(작업 브랜치); main 직접 push·force push 금지는 AGENTS.md 규칙으로 병행.
 4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통)
 5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
 6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
@@ -258,7 +259,7 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 | C등급 Owner 질문 정지 | ✅ hook exit 2 | ✅ 파일 기반이라 발화 시 작동 | ✅ 플러그인 throw |
 | 기존 테스트 보호(py/go/rs/js·ts) | ✅ exit 2 | ⚠️ apply_patch 인식하나 전용 훅 미발화 가능(셸 경유만 보장) | ✅ 플러그인 throw |
 | 역할별 도구 격리(단일 작성자) | ✅ 서브에이전트 `tools` | ❌ 서브에이전트 없음 → 규율만 | ✅ 서브에이전트 `tools` |
-| 명령 deny(git push·rm -rf·python -c·node -e 등) | ✅ settings.json allow/deny | ⚠️ deny 목록 없음 → sandbox+approval(거친 경계) | ✅ opencode.json deny |
+| 명령 deny(force push·rm -rf·python -c·node -e 등; 일반 git push는 allow) | ✅ settings.json allow/deny | ⚠️ deny 목록 없음 → sandbox+approval(거친 경계) | ✅ opencode.json deny |
 | 테스트 실행(pytest·go test·cargo test·npm test) | ✅ allow 등록(프롬프트 없음) | ✅ sandbox 안 자동 실행 | ✅ wildcard allow |
 | 선행 조건 / 런타임 | 없음(bash) | trusted 등록 필요·apply_patch/MCP 훅 불안정 | bun/node 필요(없으면 플러그인 미로딩) |
 | Windows | ✅ | ❌ 훅 미지원 | ✅ node 있으면 |

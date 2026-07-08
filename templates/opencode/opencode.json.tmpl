@@ -4,7 +4,10 @@
   "permission": {
     "bash": {
       "*": "allow",
-      "git push*": "deny",
+      "git push --force*": "deny",
+      "git push -f*": "deny",
+      "git push --force-with-lease*": "deny",
+      "git push*--force*": "deny",
       "rm -rf*": "deny",
       "rm -r *": "deny",
       "git reset --hard*": "deny",

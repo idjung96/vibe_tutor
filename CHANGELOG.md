@@ -4,6 +4,23 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.14.0] - 2026-07-10
+
+### Changed
+- **판단 역할을 opus → fable + effort:low로 재조정**(Claude 전용) — `planner`/`lead`/
+  `reviewer`/`security`의 `model: opus`를 `model: fable` + `effort: low`로 바꾼다. 상위 세대인
+  fable을 낮은 추론 강도로 돌리는 편이 옛 opus를 높은 강도로 돌리는 것보다 빠르고 저렴하면서
+  판단 품질이 낫다는 Owner 라우팅 원칙(판단→fable). `critic`은 이미 fable이었고 되돌리기 비용이
+  가장 커서 `effort: medium`으로 한 단계 높인다. 구현·실행 역할(coder/checker/documenter/
+  tester/designer)은 `model: sonnet` 유지(effort 미지정=세션 상속). `init.sh`의 `role_effort()`·
+  `init.ps1`의 `Role-Effort()`가 새로 emit하며, `effort` frontmatter는 Claude Code v2.1.198+ 지원.
+
+### Compatibility
+- model/effort per-role 지정은 **Claude 전용 frontmatter**라 호환성 계약 항목이 아니다 —
+  상태 파일 레이아웃·PLAN.json 스키마·small↔large 무손실 핸드오프가 모두 불변. codex는 자체
+  모델을 `model_reasoning_effort="high"`로 쓰고(fable 아님), opencode는 세션 기본 모델을 쓴다(불변).
+  가시성 위해 `HARNESS_VERSION` 1.13.0 → 1.14.0(minor). 가드 3경로·verify_hooks(14)·로그 형식 불변.
+
 ## [1.13.0] - 2026-07-08
 
 ### Changed

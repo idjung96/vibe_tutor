@@ -100,8 +100,12 @@ role_desc() { case "$1" in
 esac; }
 role_model() { case "$1" in
   coder|checker|documenter|tester|designer) echo "sonnet" ;;
-  planner|lead|reviewer|security) echo "opus" ;;
-  critic) echo "fable" ;;
+  planner|lead|reviewer|critic|security) echo "fable" ;;
+esac; }
+# 판단·고위험 역할은 fable을 낮은 추론 강도로(fable-low > opus-high) 돌린다. critic만 medium.
+role_effort() { case "$1" in
+  planner|lead|reviewer|security) echo "low" ;;
+  critic) echo "medium" ;;
 esac; }
 claude_tools() { case "$1" in
   planner|tester) echo "Read, Write" ;;
@@ -157,10 +161,12 @@ if has_agent claude; then
   for r in $ROLES; do
     body="$(render_stdout "$SRC/templates/roles/$r.md.tmpl")"
     model="$(role_model "$r")"
+    effort="$(role_effort "$r")"
     { echo "---"
       printf 'name: %s\n' "$r"
       printf 'description: %s\n' "$(role_desc "$r")"
       [ -n "$model" ] && printf 'model: %s\n' "$model"
+      [ -n "$effort" ] && printf 'effort: %s\n' "$effort"
       printf 'tools: %s\n' "$(claude_tools "$r")"
       echo "---"
       printf '%s\n' "$body"

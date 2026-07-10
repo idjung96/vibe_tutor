@@ -110,11 +110,19 @@ function Role-Model($r) { switch ($r) {
     'documenter' { 'sonnet' }
     'tester' { 'sonnet' }
     'designer' { 'sonnet' }
-    'planner' { 'opus' }
-    'lead' { 'opus' }
-    'reviewer' { 'opus' }
-    'security' { 'opus' }
+    'planner' { 'fable' }
+    'lead' { 'fable' }
+    'reviewer' { 'fable' }
+    'security' { 'fable' }
     'critic' { 'fable' }
+} }
+# 판단·고위험 역할은 fable을 낮은 추론 강도로(fable-low > opus-high) 돌린다. critic만 medium.
+function Role-Effort($r) { switch ($r) {
+    'planner' { 'low' }
+    'lead' { 'low' }
+    'reviewer' { 'low' }
+    'security' { 'low' }
+    'critic' { 'medium' }
 } }
 function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
@@ -179,8 +187,10 @@ if (Has-Agent 'claude') {
     foreach ($r in $Roles) {
         $body = Render-String (Join-Path $Src "templates\roles\$r.md.tmpl")
         $model = Role-Model $r
+        $effort = Role-Effort $r
         $fm = "---`nname: $r`ndescription: $(Role-Desc $r)`n"
         if ($model) { $fm += "model: $model`n" }
+        if ($effort) { $fm += "effort: $effort`n" }
         $fm += "tools: $(Claude-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".claude\agents\$r.md") ($fm + $body)
     }

@@ -4,6 +4,22 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.15.0] - 2026-07-26
+
+### Changed
+- **coder·tester를 sonnet → opus로 승격**(Claude 전용) — 구현+디버깅이 얽힌 `coder`와
+  요구사항→테스트케이스 설계를 하는 `tester`에서 sonnet의 산출물 품질이 부족하다는 Owner 관찰에
+  따라 `model: opus`로 올린다. effort는 미지정 유지(=세션 상속). 나머지 구현·실행 역할
+  (`checker`/`documenter`/`designer`)은 `model: sonnet` 유지 — 추론 부담이 낮아 승격 효과가
+  과함. 판단 역할(`planner`/`lead`/`reviewer`/`security`=fable+low, `critic`=fable+medium)은
+  1.14.0 그대로. `init.sh`의 `role_model()`·`init.ps1`의 `Role-Model()`을 함께 갱신.
+
+### Compatibility
+- model per-role 지정은 **Claude 전용 frontmatter**라 호환성 계약 항목이 아니다 — 상태 파일
+  레이아웃·PLAN.json 스키마·small↔large 무손실 핸드오프가 모두 불변. codex는 skill이라 모델
+  미지정, opencode도 세션 기본 모델을 쓴다(둘 다 불변). 가시성 위해 `HARNESS_VERSION`
+  1.14.0 → 1.15.0(minor). 가드 3경로·verify_hooks(14)·로그 형식 불변.
+
 ## [1.14.0] - 2026-07-10
 
 ### Changed

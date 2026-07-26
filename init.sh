@@ -99,7 +99,8 @@ role_desc() { case "$1" in
   security)   echo "코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다." ;;
 esac; }
 role_model() { case "$1" in
-  coder|checker|documenter|tester|designer) echo "sonnet" ;;
+  coder|tester)               echo "opus" ;;
+  checker|documenter|designer) echo "sonnet" ;;
   planner|lead|reviewer|critic|security) echo "fable" ;;
 esac; }
 # 판단·고위험 역할은 fable을 낮은 추론 강도로(fable-low > opus-high) 돌린다. critic만 medium.

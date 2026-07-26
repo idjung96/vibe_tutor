@@ -105,10 +105,10 @@ function Role-Desc($r) { switch ($r) {
     'security' { '코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다.' }
 } }
 function Role-Model($r) { switch ($r) {
-    'coder' { 'sonnet' }
+    'coder' { 'opus' }
     'checker' { 'sonnet' }
     'documenter' { 'sonnet' }
-    'tester' { 'sonnet' }
+    'tester' { 'opus' }
     'designer' { 'sonnet' }
     'planner' { 'fable' }
     'lead' { 'fable' }

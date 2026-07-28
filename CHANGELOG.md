@@ -4,6 +4,24 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.16.0] - 2026-07-29
+
+### Changed
+- **fable 역할 전부 opus로 환원 + designer도 opus로 승격**(Claude 전용) — `planner`/`lead`/
+  `reviewer`/`critic`/`security`의 `model: fable`을 `model: opus`로 되돌리고, `designer`도
+  `sonnet` → `opus`로 올린다. 결과적으로 `checker`/`documenter`만 `model: sonnet`이고
+  나머지 8역할이 `model: opus`다.
+- **`effort: high`를 전 역할 공통으로 고정** — 1.14.0에서 도입한 역할별 차등(`low`/`medium`,
+  구현 역할은 미지정=세션 상속)을 없앤다. `role_effort()`/`Role-Effort()`는 이제 역할과 무관하게
+  항상 `high`를 반환하며, 10개 역할 모두 frontmatter에 `effort: high`가 붙는다. 품질 우선
+  방침(비용·지연은 감수)에 따른 Owner 결정. `init.sh`·`init.ps1`을 함께 갱신.
+
+### Compatibility
+- model/effort per-role 지정은 **Claude 전용 frontmatter**라 호환성 계약 항목이 아니다 — 상태 파일
+  레이아웃·PLAN.json 스키마·small↔large 무손실 핸드오프가 모두 불변. codex는 skill이라 모델
+  미지정(`model_reasoning_effort="high"` 유지), opencode도 세션 기본 모델을 쓴다(둘 다 불변).
+  가시성 위해 `HARNESS_VERSION` 1.15.0 → 1.16.0(minor). 가드 3경로·verify_hooks(14)·로그 형식 불변.
+
 ## [1.15.0] - 2026-07-26
 
 ### Changed

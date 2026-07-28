@@ -109,21 +109,15 @@ function Role-Model($r) { switch ($r) {
     'checker' { 'sonnet' }
     'documenter' { 'sonnet' }
     'tester' { 'opus' }
-    'designer' { 'sonnet' }
-    'planner' { 'fable' }
-    'lead' { 'fable' }
-    'reviewer' { 'fable' }
-    'security' { 'fable' }
-    'critic' { 'fable' }
+    'designer' { 'opus' }
+    'planner' { 'opus' }
+    'lead' { 'opus' }
+    'reviewer' { 'opus' }
+    'security' { 'opus' }
+    'critic' { 'opus' }
 } }
-# 판단·고위험 역할은 fable을 낮은 추론 강도로(fable-low > opus-high) 돌린다. critic만 medium.
-function Role-Effort($r) { switch ($r) {
-    'planner' { 'low' }
-    'lead' { 'low' }
-    'reviewer' { 'low' }
-    'security' { 'low' }
-    'critic' { 'medium' }
-} }
+# 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
+function Role-Effort($r) { 'high' }
 function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
     'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }

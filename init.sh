@@ -99,15 +99,12 @@ role_desc() { case "$1" in
   security)   echo "코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다." ;;
 esac; }
 role_model() { case "$1" in
-  coder|tester)               echo "opus" ;;
-  checker|documenter|designer) echo "sonnet" ;;
-  planner|lead|reviewer|critic|security) echo "fable" ;;
+  coder|tester|designer)      echo "opus" ;;
+  checker|documenter)         echo "sonnet" ;;
+  planner|lead|reviewer|critic|security) echo "opus" ;;
 esac; }
-# 판단·고위험 역할은 fable을 낮은 추론 강도로(fable-low > opus-high) 돌린다. critic만 medium.
-role_effort() { case "$1" in
-  planner|lead|reviewer|security) echo "low" ;;
-  critic) echo "medium" ;;
-esac; }
+# 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
+role_effort() { echo "high"; }
 claude_tools() { case "$1" in
   planner|tester) echo "Read, Write" ;;
   coder)          echo "Read, Write, Edit, Bash" ;;

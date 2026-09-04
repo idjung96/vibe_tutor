@@ -4,6 +4,33 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.17.0] - 2026-09-04
+
+### Added
+- **`documenter`에 확인 전용 Bash 부여** — `tools`가 `Read, Write, Edit` → `Read, Write, Edit, Bash`
+  (opencode는 `bash: true`). documenter는 "설치/실행 명령이 실제 진입점과 일치하는가"를 자체
+  점검 항목으로 요구하면서도 실행 수단이 없어 파일을 읽고 추정할 수밖에 없었다. 이제 진입점·
+  의존성 조회와 `--version`/`--help` 같은 부작용 없는 호출로 직접 확인한다. 파일 변경·패키지
+  설치·git 쓰기·서버 기동은 역할 본문(`templates/roles/documenter.md.tmpl`)에서 금지한다.
+- **가드 훅이 Bash 명령문까지 검사** — `protect_tests.sh`와 `guard.js`가 명령문에서 **쓰기
+  위치에 온 경로만** 추출해 기존 테스트 수정을 차단한다: `>` `>>` 리다이렉션 대상, `tee`/`mv`/
+  `rm`/`truncate`/`patch`의 비플래그 인자, `cp`의 목적지, in-place 플래그가 있을 때의 `sed`,
+  `dd of=`. `.claude/settings.json`의 matcher도 `Write|Edit` → `Write|Edit|Bash`.
+  읽기·실행(`cat`/`grep`/`pytest`)은 통과시킨다 — 여기서 막으면 checker가 죽는다.
+- `tests/verify_hooks.sh` 14항목 → **18항목**. 15·16은 Bash 우회 차단, 17·18은 checker
+  오탐 방지 회귀(실행+리다이렉션, 조회)를 고정한다.
+
+### Changed
+- **`mv`는 원본도 차단 대상이다** — `mv tests/old_test.py tests/new_test.py` 같은 rename도
+  막힌다. 원본을 옮기면 기존 테스트가 사라지므로 append-only 원칙상 의도한 동작이다.
+
+### Compatibility
+- 호환성 계약 4번(append-only 테스트 원칙)의 **강제 범위**가 넓어지고 역할 경계(documenter
+  도구)가 바뀌므로 `HARNESS_VERSION`을 1.17.0으로 올린다. 상태 파일 형식·small↔large
+  핸드오프 계약은 그대로다.
+- 셸 파싱은 휴리스틱이다. 변수 확장·명령 치환·here-doc 조합으로 우회 가능하며, 샌드박스가
+  아니라 과속방지턱이다(README "알려진 제약" 참조).
+
 ## [1.16.0] - 2026-07-29
 
 ### Changed

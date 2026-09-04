@@ -121,7 +121,7 @@ function Role-Effort($r) { 'high' }
 function Claude-Tools($r) { switch ($r) {
     'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
     'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }
-    'documenter' { 'Read, Write, Edit' }
+    'documenter' { 'Read, Write, Edit, Bash' }
     'designer' { 'Read, Write' }
     'reviewer' { 'Read, Grep' }
     'lead' { 'Read, Grep' }
@@ -133,7 +133,7 @@ function Opencode-Tools($r) { switch ($r) {
     'tester'  { "  write: true`n  edit: false`n  bash: false" }
     'coder'   { "  write: true`n  edit: true`n  bash: true" }
     'checker' { "  write: false`n  edit: false`n  bash: true" }
-    'documenter' { "  write: true`n  edit: true`n  bash: false" }
+    'documenter' { "  write: true`n  edit: true`n  bash: true" }
     'designer' { "  write: true`n  edit: false`n  bash: false" }
     'reviewer' { "  write: false`n  edit: false`n  bash: false" }
     'lead' { "  write: false`n  edit: false`n  bash: false" }

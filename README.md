@@ -96,7 +96,7 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
   `.opencode` 파일이, large→small 로 바꾸면 `lead`/`reviewer`/`critic`/`security`
   역할 파일과 `DIRECTION.md` 가 **고아로 남는다**. 의도적으로 줄일 때는 해당 파일을 직접 지운다.
   (small↔large 전환은 상태가 전부 파일에 있어 무손실이다 — "호환성 계약" 절 참조.)
-- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 14/14 PASS를 확인한다. 실패 시
+- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 18/18 PASS를 확인한다. 실패 시
   종료 코드 1로 멈추므로, 그 상태로 쓰지 말고 점검한다.
 
 ## 저장소 구조
@@ -148,12 +148,16 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 | tester | 테스트케이스 작성 (large: 추가 엣지 탐색) | Read, Write | ✅ | ✅ | 단계 |
 | coder | 구현(테스트 통과) | Read, Write, Edit, Bash | ✅ | ✅ | 단계 |
 | checker | `pytest` 전체 실행·PASS/FAIL 판정(객관 검증) | Bash, Read | ✅ | ✅ | 단계 |
-| documenter | README·사용법 생성 | Read, Write, Edit | ✅ | ✅ | 종료 |
+| documenter | README·사용법 생성 | Read, Write, Edit, Bash | ✅ | ✅ | 종료 |
 | designer | UI 설계 명세(토큰·컴포넌트·상태·접근성·반응형, 코드 아님) | Read, Write | ✅ | ✅ | UI 단계(7c) |
 | lead | 방향·우선순위·백로그 그루밍(팀장) | Read, Grep | ✕ | ✅ | 계획 전(4-0)·단계 시작(7-0) |
 | critic | 결정 심의·반론·합의(모호·고위험만 Owner로) | Read, Grep | ✕ | ✅ | planner 결정 직후(7b) |
 | reviewer | 코드·테스트 품질 리뷰 | Read, Grep | ✕ | ✅ | PASS 후 merge 전 |
 | security | 보안 위험 점검(맥락 판단) | Read, Grep | ✕ | ✅ | PASS 후 merge 전 |
+
+> `documenter`의 Bash는 **확인 전용**이다 — 진입점·의존성 조회와 `--version`/`--help` 같은
+> 부작용 없는 호출로 README의 설치·실행 명령이 실제로 맞는지 확인하는 데만 쓴다. 파일 변경·
+> 설치·커밋은 역할 본문에서 금지하고, tests/ 수정은 가드 훅이 기계적으로 막는다.
 
 **설계 원칙**: 주관적 판정(리뷰·결정 심의 = lead·critic·reviewer·security)은 작은 모델의
 과신·불안정 위험을 피해 **large 전용**. 객관적 검증(`checker`의 pytest + `dev-agent-team/selfcheck.py`
@@ -189,7 +193,9 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
    정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
 3. deny/차단 목록 (force push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함).
    일반 git push는 allow(작업 브랜치); main 직접 push·force push 금지는 AGENTS.md 규칙으로 병행.
-4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통)
+4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통).
+   Write/Edit·apply_patch뿐 아니라 **Bash 쓰기 명령**(`>` `>>`/tee/sed -i/mv/cp/rm/
+   truncate/dd of=/patch)도 차단 대상이다. 읽기·실행은 통과시킨다.
 5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
 6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
    및 designer 산출물 dev-agent-team/DESIGN.md 형식. lead는 방향·백로그 외에 회고·절차 개선제안(IMPROVE)도 낸다(large 전용).
@@ -203,7 +209,7 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 ## 배포 전 검증 (관리자용)
 
 1. `./init.sh --profile small --agent claude,opencode /tmp/t1` 과 `--profile large /tmp/t2` 실행,
-   hook 검증 14항목 전부 PASS 확인 (init.sh가 자동 수행). small은 codex를 포함할 수 없다(에러).
+   hook 검증 18항목 전부 PASS 확인 (init.sh가 자동 수행). small은 codex를 포함할 수 없다(에러).
 2. samples/sample-task-todo 로 양 프로파일 실주행:
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰
@@ -218,6 +224,11 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
   불안정하고 Windows에서 미지원이다. opencode는 `.opencode/plugins/guard.js`로 차단한다
   (bun/node 필요). 강제가 불완전할 수 있으므로 AGENTS.md의 규칙을 병행하고, 기관 배포
   시 devcontainer/Docker로 프로젝트 디렉토리만 마운트하는 것을 권장한다.
+- **Bash 경유 테스트 수정 차단은 휴리스틱이다.** `protect_tests.sh`/`guard.js`는 명령문에서
+  쓰기 위치(`>` `>>`, `tee`, `sed -i`, `mv`, `cp`, `rm`, `truncate`, `dd of=`, `patch`)에 온
+  경로만 골라 막는다. 읽기·실행(`cat`, `grep`, `pytest`)은 통과시켜야 하므로 셸을 완전히
+  파싱하지 않으며, 변수 확장·명령 치환·here-doc 조합으로 우회할 수 있다. 샌드박스가 아니라
+  과속방지턱으로 보고 AGENTS.md 규칙을 병행한다.
 - **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접
   push와 force push(`--force`/`-f`)는 금지 — force는 가드 deny로, main 금지는 AGENTS.md 규칙으로 강제한다.
 - **Codex는 `.codex` 설정이 trusted 프로젝트에서만 적용된다.** 설치 후 안내대로

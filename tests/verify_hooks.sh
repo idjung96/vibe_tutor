@@ -102,5 +102,25 @@ printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/nu
 check "tests/ 안 비-테스트 파일 허용" 0 $?
 rm -f "$T"
 
+# 15. (bash) 리다이렉션으로 기존 테스트 덮어쓰기 → 차단(2)
+T="$TARGET/tests/stage_0_verify_test.py"
+touch "$T"
+printf '{"tool_input":{"command":"echo x > %s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "bash 리다이렉션 기존 테스트 덮어쓰기 차단" 2 $?
+
+# 16. (bash) sed -i 로 기존 테스트 수정 → 차단(2)
+printf '{"tool_input":{"command":"sed -i s/a/b/ %s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "bash sed -i 기존 테스트 수정 차단" 2 $?
+
+# 17. (bash 회귀) 테스트 실행 + 다른 곳으로 리다이렉션 → 허용(0)
+#     여기서 막히면 checker가 죽는다.
+printf '{"tool_input":{"command":"pytest %s > /tmp/out"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "bash 테스트 실행·리다이렉션 허용" 0 $?
+
+# 18. (bash 회귀) 테스트 파일 조회 → 허용(0)
+printf '{"tool_input":{"command":"cat %s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+check "bash 테스트 파일 조회 허용" 0 $?
+rm -f "$T"
+
 echo "[hook 검증] PASS $PASS / FAIL $FAIL"
 [ "$FAIL" -eq 0 ]

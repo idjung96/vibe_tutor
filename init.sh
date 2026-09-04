@@ -109,7 +109,7 @@ claude_tools() { case "$1" in
   planner|tester) echo "Read, Write" ;;
   coder)          echo "Read, Write, Edit, Bash" ;;
   checker)        echo "Bash, Read" ;;
-  documenter)     echo "Read, Write, Edit" ;;
+  documenter)     echo "Read, Write, Edit, Bash" ;;
   designer)       echo "Read, Write" ;;
   reviewer|lead|critic|security) echo "Read, Grep" ;;
 esac; }
@@ -117,7 +117,7 @@ opencode_tools() { case "$1" in
   planner|tester) printf '  write: true\n  edit: false\n  bash: false' ;;
   coder)          printf '  write: true\n  edit: true\n  bash: true' ;;
   checker)        printf '  write: false\n  edit: false\n  bash: true' ;;
-  documenter)     printf '  write: true\n  edit: true\n  bash: false' ;;
+  documenter)     printf '  write: true\n  edit: true\n  bash: true' ;;
   designer)       printf '  write: true\n  edit: false\n  bash: false' ;;
   reviewer|lead|critic|security) printf '  write: false\n  edit: false\n  bash: false' ;;
 esac; }

@@ -123,6 +123,43 @@ opencode_tools() { case "$1" in
   reviewer|lead|critic|security) printf '  write: false\n  edit: false\n  bash: false' ;;
 esac; }
 
+# TEST_LOG.md 5열 -> 7열 마이그레이션 (v1.22.0에서 재시도·리뷰지적 열이 생겼다).
+# init은 기존 상태 파일을 덮지 않으므로 옛 프로젝트는 재설치해도 5열로 남는다.
+# 모두 7열로 올라간 뒤에는 이 함수를 지워도 된다.
+migrate_test_log() {
+  f="$1"
+  [ -f "$f" ] || return 0
+  # 옛 5열 헤더가 있고 새 열이 아직 없을 때만 건드린다(멱등).
+  grep -qE "^\|[[:space:]]*단계[[:space:]]*\|[[:space:]]*신규[[:space:]]*\|[[:space:]]*누적[[:space:]]*\|[[:space:]]*전체 결과[[:space:]]*\|[[:space:]]*커밋[[:space:]]*\|$" "$f" || return 0
+  grep -q "재시도" "$f" && return 0
+  cp "$f" "$f.bak"
+  # 파이프가 정확히 6개인 줄만 마지막 칸(커밋) 앞에 두 칸을 끼운다. 나머지 줄은 원문 유지.
+  awk '
+    {
+      line = $0
+      if (substr(line, 1, 1) == "|" && gsub(/\|/, "|", line) == 6) {
+        split($0, a, "|")
+        head = a[2] "|" a[3] "|" a[4] "|" a[5]
+        sep = head
+        gsub(/[-| :]/, "", sep)
+        if (a[2] ~ /단계/ && a[6] ~ /커밋/) {
+          # 헤더 앞에 새 열 설명을 넣는다(위 가드 덕에 아직 없는 것이 보장된다).
+          print "- 재시도: 이 단계에서 checker를 다시 부른 횟수(NEW_FAIL·REGRESSION 재시도 포함)."
+          print "- 리뷰지적: 이 단계에서 받은 코드·보안 리뷰 지적 건수. 리뷰 단계가 없으면 `-`."
+          print ""
+          mid = " 재시도 | 리뷰지적 "
+        }
+        else if (sep == "") mid = "---|---"
+        else mid = " - | - "
+        print "|" head "|" mid "|" a[6] "|"
+        next
+      }
+      print
+    }
+  ' "$f.bak" > "$f.tmp" && mv "$f.tmp" "$f"
+  echo "TEST_LOG.md를 7열로 갱신했습니다 (원본: dev-agent-team/TEST_LOG.md.bak)."
+}
+
 # 역할 목록: designer는 양 프로파일 공통(UI 단계에서만 호출).
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 ROLES="planner tester coder checker documenter designer"
@@ -144,6 +181,7 @@ cp "$SRC/templates/docs/OWNER_GUIDE.md"     "$TARGET/dev-agent-team/guides/OWNER
 cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/dev-agent-team/guides/DEBUG_GUIDE.md"
 [ -f "$TARGET/dev-agent-team/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/dev-agent-team/DECISIONS.md"
 [ -f "$TARGET/dev-agent-team/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/dev-agent-team/TEST_LOG.md"
+migrate_test_log "$TARGET/dev-agent-team/TEST_LOG.md"
 [ -f "$TARGET/dev-agent-team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/dev-agent-team/libs/INDEX.md"
 [ -f "$TARGET/dev-agent-team/BACKLOG.md" ] || cp "$SRC/templates/project/BACKLOG.md" "$TARGET/dev-agent-team/BACKLOG.md"
 if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/dev-agent-team/DIRECTION.md" ]; then

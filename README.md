@@ -91,6 +91,9 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
 - `common/logger.py` 는 **무조건 덮어쓴다**(고정 포맷 제품 로거 — Python 구현이자 로그 형식의
   참조 규격). 직접 손댄 경우 먼저 백업한다. 제품이 다른 언어면 1단계에서 `logging-rule` 의
   최소 구현으로 `common/logger.go|rs|js` 를 만든다.
+- 1.22.0 이전에 만든 프로젝트의 `dev-agent-team/TEST_LOG.md` 는 표가 5열이다. 재설치하면
+  init이 자동으로 **7열로 올리고** 기존 행의 새 두 칸을 `-` 로 채운다. 원본은
+  `TEST_LOG.md.bak` 으로 남는다. 헤더를 손으로 고쳐 열 이름이 다르면 건드리지 않는다.
 - 기존 `.git` 이 있으면 init은 **자동 커밋하지 않는다**. 재실행 후 `git diff` 로 변경을
   검토하고 직접 커밋한다(하니스 파일만 바뀌었는지 확인하는 안전장치이기도 하다).
 - **처음과 같은 `--profile`·`--agent`** 로 실행한다. init은 *선택한* 역할·에이전트만

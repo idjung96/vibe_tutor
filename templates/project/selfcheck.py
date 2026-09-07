@@ -4,9 +4,10 @@
 읽기 전용이다. 파일을 고치지 않는다.
 
 사용법(프로젝트 루트에서):
-    python dev-agent-team/selfcheck.py                          # 언어 감지 후 전체 점검
-    python dev-agent-team/selfcheck.py --gate                   # 단계 병합 게이트 (아래 참조)
-    python dev-agent-team/selfcheck.py tests/stage_1_test.py    # 특정 테스트만 수집 확인(python)
+    python3 dev-agent-team/selfcheck.py                          # 언어 감지 후 전체 점검
+    python3 dev-agent-team/selfcheck.py --gate                   # 단계 병합 게이트 (아래 참조)
+    python3 dev-agent-team/selfcheck.py tests/stage_1_test.py    # 특정 테스트만 수집 확인
+    (Windows에 python3 가 없으면 python 으로 부른다.)
 
 --gate 는 단계가 checker PASS를 받은 뒤 merge 전에 도는 모드다. 검사는 모두 그대로 하되
 exit code는 결정적 3종(collect / print / trace)만 반영한다. security 와 size 는 각각

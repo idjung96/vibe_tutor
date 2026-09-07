@@ -78,7 +78,7 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 스킬 6종(team-dev/logging-rule/lib-research/code-convention/test-design/ui-design)은 claude면 `.claude/skills/`,
 codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
-## 프로파일은 단 7가지만 다르다
+## 프로파일은 이 13가지만 다르다
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.

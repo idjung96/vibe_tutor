@@ -4,6 +4,26 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.25.2] - 2026-09-07
+
+전체 리뷰에서 나온 정합성 결함 3건.
+
+### Fixed
+- **`selfcheck.py` 호출이 `python` 과 `python3` 로 갈렸다.** `coder` 자체 점검은 `python`,
+  team-dev 절차 12번은 `python3` 을 썼다. 1.25.0에서 게이트가 필수가 되면서 이게 문제가 된다 —
+  `python` 이 없는 환경(Python 3만 설치된 macOS·Linux)에서 coder 쪽 지시만 실패한다.
+  `python3` 으로 통일하고, Windows에 `python3` 가 없으면 `python` 으로 부르라는 단서를
+  selfcheck 사용법에 한 줄 남겼다.
+- **`selfcheck: allow-print` 예외가 `logging-rule` 스킬에 없었다.** 1.25.0에서 예외를
+  만들면서 `AGENTS.md` 4번 규칙에만 적었는데, print 규칙을 찾는 coder가 실제로 읽는 곳은
+  `logging-rule` 이다. "print를 쓰지 않는다" 옆에 예외와 그 한계(로그 대용 금지)를 적었다.
+- **저장소 `CLAUDE.md` 의 절 제목이 본문과 어긋나 있었다** — 제목은 "프로파일은 단 7가지만
+  다르다"인데 본문은 "차이 13종"을 13개 나열한다. v1.2.0(`dcc3cae`)부터 있던 오류로,
+  `README.md` 는 이미 "이 13가지만 다르다"로 맞아 있었다. 제목을 13가지로 고쳤다.
+
+### Compatibility
+- 렌더 결과의 문구만 바뀐다. 파일 형식·역할 경계·절차 구조는 그대로다.
+
 ## [1.25.1] - 2026-09-07
 
 ### Fixed

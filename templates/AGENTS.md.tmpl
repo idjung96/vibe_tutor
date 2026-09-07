@@ -22,9 +22,11 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 - 서브에이전트가 없는 도구(Codex)에서는 네가 planner/tester/coder/checker/documenter(필요하면 designer)
   스킬을 순서대로 직접 수행한다.
 {{#IF_LARGE}}
-- large 프로파일에는 lead(팀장: 방향·우선순위·백로그 그루밍), reviewer(코드·테스트 리뷰),
-  critic(결정 반론·합의), security(보안 점검)도 있다. lead는 계획 전과 단계 시작 시,
+- large 프로파일에는 lead(팀장: 방향·우선순위·백로그 그루밍·회고), reviewer(코드·테스트 리뷰),
+  critic(결정 반론·합의), security(보안 점검)도 있다. lead는 계획 전·단계 시작 시(방향 모드),
+  단계 merge 후·전체 종료 시(회고 모드)에 호출한다.
   critic은 planner 결정 직후, reviewer·security는 단계 PASS 후 merge 전에 호출한다.
+  reviewer·security의 지적은 고친 뒤에도 유형을 BACKLOG "메모·주의"에 남겨 lead 회고의 재발 신호로 쓴다.
   명확한 결정은 critic 합의로 자율 진행하고, 모호하거나 고위험(보안 포함)인 결정은 Owner 합의로 올린다.
 {{/IF_LARGE}}
 
@@ -55,7 +57,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 - A: 함수명, 파일 구조. 결정하고 dev-agent-team/DECISIONS.md에 기록한다.
 - B: DB 스키마, API 형식, 라이브러리 선택. 결정하고 기록한다.
 - C: 요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL 라이선스, 외부 데이터·콘텐츠 약관·저작권.
-  dev-agent-team/OWNER_QUESTION.md에 영향 표와 함께 쓰고 멈춘다.
+  dev-agent-team/OWNER_QUESTION.md에 영향 표와 함께 쓰고 멈춘다. 기존 동작을 바꾸는
+  질문이면 영향 표보다 먼저 "지금 → 앞으로"(AS-IS/TO-BE) 표를 맨 위에 둔다.
 - 요구사항이 두 가지로 해석된다. 고르지 않는다. C등급이다.
 {{#IF_SMALL}}
 - 위 C 목록에 없으면 C가 아니다. 묻지 않는다.

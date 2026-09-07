@@ -4,6 +4,76 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.19.0] - 2026-09-07
+
+### Added
+- **Owner 질문에 "지금 → 앞으로"(AS-IS/TO-BE) 표** — 기존 동작을 바꾸는 C등급 질문이면
+  `dev-agent-team/OWNER_QUESTION.md` 맨 위, 선택지별 영향 표보다 **먼저** 온다.
+  행 3개 고정(동작 / Owner가 보는 것 / 데이터·파일), 열은 `항목 | 지금 (AS-IS) | 1안 | 2안`.
+  지금까지 Owner는 선택지들만 비교했지 **현재 어떻게 동작하는지**를 볼 수 없어서, 무엇을
+  잃고 무엇을 얻는지 판단하기 어려웠다. 새로 만드는 기능이면 표 대신
+  "신규 기능(바뀌는 동작 없음)" 한 줄을 적는다.
+- `dev-agent-team/DECISIONS.md` 형식에 `- 변경: AS-IS → TO-BE` 줄. 기존 동작을 바꾼 결정만
+  해당하며 신규는 생략한다. 나중에 기록을 읽을 때 "그 전에는 어땠는데?"가 남는다.
+- `OWNER_GUIDE.md` "질문이 올 때"에 이 표를 먼저 보라는 안내 한 줄.
+
+### Changed
+- **영향 표는 그대로 둔다.** "지금 → 앞으로"(무엇이 달라지나 — 이해용)와 선택지별 영향 표
+  (비용·되돌리기 — 판단용)는 목적이 달라 한 표로 합치지 않았다. 기존 5항목(기능·코드 변경·
+  일정·테스트·되돌리기)과 마지막 "답:" 줄은 문구까지 유지된다.
+- **표 재료를 내는 역할이 AS-IS/TO-BE를 함께 넘긴다(large 전용)** — planner가 현재 동작을
+  추측하지 않도록. `lead`의 `IMPROVE`는 `대상 · AS-IS · TO-BE · 근거`, `critic`의
+  `RECOMMEND`는 `추천안 · AS-IS → TO-BE` 형태가 됐다. **출력 필드 개수는 그대로**라
+  메인 세션 파싱은 바뀌지 않는다.
+- 표는 planner 한 곳에서만 만든다. `critic`의 `ALTERNATIVE`(→planner)와 `reviewer`의
+  `FINDINGS`(→coder)는 Owner가 읽는 것이 아니라 건드리지 않았다.
+
+### Compatibility
+- `OWNER_QUESTION.md`·`DECISIONS.md` 형식이 호환성 계약이므로 `HARNESS_VERSION`을 1.19.0으로
+  올린다. 표는 **추가**이고 기존 영향 표·"답: 번호" 정지 해제 메커니즘은 그대로라
+  small↔large 무손실 핸드오프는 계속 성립한다.
+- 이번 변경은 **양 프로파일 공통**이다(planner·DECISIONS·OWNER_GUIDE가 공통 산출물).
+  large 전용은 lead·critic 출력 형식뿐이다.
+- `init.sh`/`init.ps1`, 가드 훅, `verify_hooks.sh`(18항목)는 건드리지 않았다.
+
+## [1.18.0] - 2026-09-07
+
+### Added
+- **단계 종료 회고 신설(large 전용, `12c`)** — 단계가 merge된 뒤 `lead`를 "단계 회고" 모드로
+  매 단계 빠짐없이 호출한다. 지금까지 lead의 회고 절은 존재했지만 호출 시점이 단계 **시작**
+  (7-0)뿐이라 사실상 사전 점검이었다. 메인 세션이 그 단계의 증거(CHECKER_CALLS, NEW_FAIL/
+  REGRESSION 횟수, REVIEWER CHANGES 반복 횟수, SECURITY 결과, CRITIC REVISE/ESCALATE 횟수,
+  신규 BACKLOG 건수)를 인라인으로 넘긴다 — 새 상태 파일은 만들지 않는다.
+- **프로젝트 최종 회고 신설(large 전용, `17b`)** — documenter(17)와 결과 보고(18) 사이에
+  lead를 "최종 회고" 모드로 부른다. 기존 번호를 밀지 않도록 `7b`/`12c`와 같은 접미 번호를 썼다. TEST_LOG 전체·BACKLOG 두 섹션·DECISIONS·
+  PROCESS와 12c에서 쌓인 `[절차개선]` 항목을 함께 본다.
+- **lead 호출 모드 3종** — 방향(4-0·7-0) / 단계 회고(12c) / 최종 회고(17b). 메인 세션이
+  모드를 알려주고, 해당 없는 출력 항목은 "없음"으로 둔다. **출력 형식 5필드
+  (DIRECTION/PRIORITIES/GROOMING/IMPROVE/ESCALATE)는 그대로**라 파싱은 바뀌지 않는다.
+
+### Changed
+- **reviewer·security 지적이 lead에게 흐른다** — 지금까지 FINDINGS는 coder에게만 가고 고치면
+  사라져서(RETRY_LIMIT 초과분만 BACKLOG에 남았다) "매 단계 같은 유형이 반복된다"는 신호가
+  lead의 회고 입력에 도달하지 못했다. 이제 **고친 지적도** 유형을 `BACKLOG.md` "메모·주의"에
+  `- 설명 · 출처:stageN/역할` 형식으로 남긴다. 처리 대상이 아니라 재발 신호용 기록이다.
+- **lead 회고 신호 3개 → 5개** — reviewer FINDINGS가 여러 단계에 걸쳐 같은 유형으로 반복,
+  security RISK 반복을 추가했다.
+- **단계 회고의 IMPROVE는 즉시 Owner를 멈춰 세우지 않는다** — BACKLOG "할 일"에
+  `[절차개선]` 표시로 쌓아두고, 다음 단계 시작(7-0)이나 최종 회고(17b)에서 **한 번에 하나만**
+  C등급으로 올린다. 매 단계 Owner 개입이 생기는 것을 막기 위해서다. 방향 차원 ESCALATE는
+  기존대로 즉시 14번으로 간다.
+- `templates/project/BACKLOG.md`의 "메모·주의" 섹션에 형식 줄을 추가했다. 이 섹션은 이제
+  의도적으로 누적된다 — 오래된 항목 정리는 lead가 그루밍에서 제안할 수 있다.
+
+### Compatibility
+- 역할 경계(lead 호출 모드·시점)와 BACKLOG "메모·주의" 형식이 바뀌므로 `HARNESS_VERSION`을
+  1.18.0으로 올린다. team-dev 절차의 기존 번호는 그대로다(신설분은 12c·17b). PLAN.json 스키마·
+  DECISIONS/TEST_LOG/OWNER_QUESTION/PROCESS 형식·small↔large 핸드오프 계약은 그대로다.
+- **small 프로파일은 절차가 그대로다.** 회고 관련 추가는 전부 `{{#IF_LARGE}}` 안에 있다.
+  small 렌더 결과에서 1.17.0과 다른 것은 버전 문자열과 BACKLOG "메모·주의" 형식 줄뿐이다.
+- `init.sh`/`init.ps1`, 가드 훅(`protect_tests.sh`/`guard.js`), `verify_hooks.sh`(18항목)는
+  건드리지 않았다.
+
 ## [1.17.0] - 2026-09-04
 
 ### Added

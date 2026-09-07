@@ -150,7 +150,7 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 | checker | `pytest` 전체 실행·PASS/FAIL 판정(객관 검증) | Bash, Read | ✅ | ✅ | 단계 |
 | documenter | README·사용법 생성 | Read, Write, Edit, Bash | ✅ | ✅ | 종료 |
 | designer | UI 설계 명세(토큰·컴포넌트·상태·접근성·반응형, 코드 아님) | Read, Write | ✅ | ✅ | UI 단계(7c) |
-| lead | 방향·우선순위·백로그 그루밍(팀장) | Read, Grep | ✕ | ✅ | 계획 전(4-0)·단계 시작(7-0) |
+| lead | 방향·우선순위·백로그 그루밍·회고(팀장) | Read, Grep | ✕ | ✅ | 계획 전(4-0)·단계 시작(7-0)·단계 회고(12c)·최종 회고(17b) |
 | critic | 결정 심의·반론·합의(모호·고위험만 Owner로) | Read, Grep | ✕ | ✅ | planner 결정 직후(7b) |
 | reviewer | 코드·테스트 품질 리뷰 | Read, Grep | ✕ | ✅ | PASS 후 merge 전 |
 | security | 보안 위험 점검(맥락 판단) | Read, Grep | ✕ | ✅ | PASS 후 merge 전 |
@@ -182,13 +182,16 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 | 결정 심의·합의 (critic 역할) | 없음 | 있음 (planner 결정 직후, 모호·고위험만 Owner) |
 | 보안 점검 (security 역할) | 없음 | 있음 (PASS 후 merge 전, 심각하면 Owner) |
 | 요구사항 충돌·누락 점검 (planner) | 없음 | 있음 (단계 나누기 전) |
-| 절차 자기개선 (lead 회고 → Owner 승인 → PROCESS.md) | 없음 | 있음 (재발 신호 있을 때) |
+| 절차 자기개선 (lead 회고 → Owner 승인 → PROCESS.md) | 없음 | 있음 (단계 회고 12c·최종 회고 17b, 재발 신호 있을 때) |
 
 ## 호환성 계약 (프로파일과 무관하게 동일 — 변경 시 버전 올림)
 
 1. 파일 위치/형식: AGENTS.md(공통 헌법), dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
    dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md / dev-agent-team/libs/ 형식,
-   dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치 이름
+   dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치 이름.
+   OWNER_QUESTION.md는 기존 동작을 바꾸는 질문일 때 선택지별 영향 표보다 먼저
+   "지금 → 앞으로"(AS-IS/TO-BE, 행 3개: 동작·Owner가 보는 것·데이터·파일) 표를 둔다.
+   DECISIONS.md에는 그런 결정일 때 `- 변경: AS-IS → TO-BE` 줄이 들어간다.
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
    정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
 3. deny/차단 목록 (force push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함).
@@ -199,6 +202,8 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
 6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
    및 designer 산출물 dev-agent-team/DESIGN.md 형식. lead는 방향·백로그 외에 회고·절차 개선제안(IMPROVE)도 낸다(large 전용).
+   lead 호출 모드 3종(방향·단계 회고·최종 회고)과 호출 시점(4-0/7-0/12c/17b), BACKLOG "메모·주의"의
+   출처 표기 형식(`- 설명 · 출처:stageN/역할`)도 계약에 포함된다.
 7. 공유 상태 파일은 메인 세션만 쓴다 (단일 작성자 원칙; PROCESS.md 포함)
 
 이 계약은 에이전트와 무관하게 동일하다. 가드레일 **강제 방식만** 에이전트별로

@@ -84,10 +84,10 @@ codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
 차이 13종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
 coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, reviewer 역할(large 전용 코드·테스트 리뷰),
-lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md; 회고·절차 자기개선 제안 IMPROVE),
+lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md; 회고 모드 2종(단계 12c·최종 17b)과 절차 자기개선 제안 IMPROVE),
 critic 역할(large 전용 결정 심의·합의; 명확하면 자율, 모호·고위험은 Owner),
 security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락 점검(large만),
-절차 자기개선(large 전용 lead 회고→Owner 승인→PROCESS.md 오버레이). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
+절차 자기개선(large 전용 lead 회고→[절차개선] BACKLOG 누적→7-0/17b에서 Owner 승인→PROCESS.md 오버레이). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
 
 ## 생성된 프로젝트의 디렉터리 규약
 
@@ -103,7 +103,8 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 ## 호환성 계약 — 변경 시 `HARNESS_VERSION` 을 올릴 것
 
 프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
-dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식,
+dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식
+(기존 동작을 바꾸는 질문이면 영향 표 앞에 "지금 → 앞으로" AS-IS/TO-BE 표, DECISIONS에는 `- 변경:` 줄),
 dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원칙 / 로그 형식 /
 역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security) / 단일 작성자 원칙).

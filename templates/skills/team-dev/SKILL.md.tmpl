@@ -16,6 +16,7 @@ coder/tester/designer는 "lib-research 필요: {이름}"만 보고하고 멈춘�
 {{#IF_LARGE}}
 large 프로파일에는 lead(팀장)·reviewer·critic·security 역할도 있다.
 lead는 방향·우선순위를 정하고 백로그를 그루밍한다 — 계획 전(4-0)과 단계 시작 시(7-0)에 호출한다.
+lead는 회고도 한다 — 단계가 merge된 뒤(12c)와 전체가 끝난 뒤(17b)에 호출 모드를 지정해 부른다.
 lead는 팀의 일하는 방식에 반복 문제가 보이면 개선안(IMPROVE)도 낸다 — Owner 승인 후 PROCESS.md에 누적한다.
 critic은 planner 결정에 반론을 펴 합의를 만든다(7b). 명확하면 자율 진행, 모호·고위험은 Owner 합의로 올린다.
 reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12번). 보안 위험은 고위험으로 다룬다.
@@ -34,7 +35,7 @@ reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12�
 
 ## 계획
 {{#IF_LARGE}}
-4-0. lead를 호출한다. DIRECTION/PRIORITIES/GROOMING을 받는다.
+4-0. lead를 "방향" 모드로 호출한다. DIRECTION/PRIORITIES/GROOMING을 받는다.
      DIRECTION과 PRIORITIES를 dev-agent-team/DIRECTION.md에 적는다.
      GROOMING 제안을 dev-agent-team/BACKLOG.md에 반영한다. planner는 이 방향을 따른다.
 {{/IF_LARGE}}
@@ -51,8 +52,9 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 ## 단계 반복 (dev-agent-team/PLAN.json의 단계마다)
 6. git checkout -b stage/{번호}-{이름}
 {{#IF_LARGE}}
-7-0. lead를 호출한다. 백로그를 그루밍하고 이번 단계 초점을 정한다.
+7-0. lead를 "방향" 모드로 호출한다. 백로그를 그루밍하고 이번 단계 초점을 정한다.
      변경을 dev-agent-team/DIRECTION.md와 dev-agent-team/BACKLOG.md에 반영한다.
+     BACKLOG "할 일"에 [절차개선] 항목이 쌓여 있으면 lead가 그중 하나만 골라 IMPROVE로 낸다.
      IMPROVE가 있으면 팀 운영규칙 개선 제안이다. 절차 변경은 고위험이므로 C등급으로 올린다(14번).
      Owner가 승인하면 그 개정을 dev-agent-team/PROCESS.md에 P-번호 항목(대상·변경·근거·승인 참조)으로
      append한다. 폐기는 삭제가 아니라 새 항목으로 표현한다. 승인 못 받으면 반영하지 않는다.
@@ -89,14 +91,38 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       {{RETRY_LIMIT}}회를 넘으면 남은 지적을 dev-agent-team/BACKLOG.md에 적고 진행한다.
       security를 호출한다. RESULT가 RISK면 coder에게 FINDINGS를 주고 고치게 한다(테스트는 깨지 않는다)
       후 checker를 다시 부른다. ESCALATE가 있으면 그 항목을 C등급으로 올린다(14번, Owner 합의).
+      reviewer와 security의 FINDINGS는 **고쳤더라도** 유형을 한 줄씩
+      dev-agent-team/BACKLOG.md "메모·주의"에 "- 지적 유형 · 출처:stageN/reviewer" 형식으로 남긴다
+      (security면 역할명만 바꾼다). 처리 대상이 아니라 lead가 재발 여부를 보기 위한 기록이다.
 {{/IF_LARGE}}
-      커밋한다. main으로 merge한다. dev-agent-team/TEST_LOG.md를 갱신한다. 13번으로.
+      커밋한다. main으로 merge한다. dev-agent-team/TEST_LOG.md를 갱신한다.
+{{#IF_SMALL}}
+      13번으로.
+{{/IF_SMALL}}
+{{#IF_LARGE}}
+      12c로. (회고를 건너뛰지 않는다.)
+{{/IF_LARGE}}
     - NEW_FAIL: coder에게 REASON과 LOG를 주고 다시 시킨다.
       {{RETRY_LIMIT}}회 실패하면 C등급으로 올린다.
     - REGRESSION: coder에게 이렇게 준다:
       "이전 기능을 깨뜨렸다. 새 코드만 고쳐라. 테스트는 고치지 마라."
     - coder가 "기존 테스트가 틀렸다"고 주장한다: C등급이다.
     - 이 단계에서 checker 호출이 {{MAX_CHECKER_CALLS}}회를 넘었다: C등급이다.
+{{#IF_LARGE}}
+12c. merge가 끝나면 lead를 "단계 회고" 모드로 호출한다. 매 단계 빠짐없이 한다.
+     이번 단계의 증거를 함께 준다(메인 세션이 이미 세고 있는 값들이다):
+       STAGE: N
+       CHECKER_CALLS: n
+       NEW_FAIL: n회 / REGRESSION: n회
+       REVIEWER: CHANGES n회, 남은 지적 n건
+       SECURITY: OK 또는 RISK n건
+       CRITIC: REVISE n회 / ESCALATE n회
+       BACKLOG 신규: n건
+     IMPROVE가 있으면 dev-agent-team/BACKLOG.md "할 일"에
+     "- [ ] B-번호 [절차개선] 설명 · 출처:stageN/lead · 우선순위:중" 형식으로 적는다.
+     여기서는 Owner에게 묻지 않는다. 다음 7-0이나 17b에서 묶어 올린다.
+     GROOMING이 있으면 BACKLOG에 반영한다. ESCALATE(방향 차원)가 있으면 14번으로 간다.
+{{/IF_LARGE}}
 13. 단계가 끝났다. 컨텍스트를 정리한다.
     CLAUDE.md와 dev-agent-team/PLAN.json을 다시 읽고 다음 단계를 시작한다.
 
@@ -108,6 +134,7 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 ## C등급 처리
 14. planner에게 질문 작성을 시킨다. dev-agent-team/OWNER_QUESTION.md에 쓴다.
     선택지 2~3개. 각각 영향 표 5항목. 하나에 (추천) 표시.
+    기존 동작을 바꾸는 질문이면 맨 위에 "지금 → 앞으로"(AS-IS/TO-BE) 표를 먼저 둔다.
 15. Owner에게 알리고 멈춘다.
     Owner가 파일의 "답:"에 번호를 적으면 hook이 풀린다.
 16. 답을 dev-agent-team/DECISIONS.md에 기록한다.
@@ -115,6 +142,15 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 
 ## 종료
 17. documenter를 호출한다. 제품 README.md(소개·설치·실행·R번호별 기능)를 만든다/갱신한다.
+{{#IF_LARGE}}
+17b. lead를 "최종 회고" 모드로 호출한다. 프로젝트 전체를 돌아본다.
+     입력: dev-agent-team/TEST_LOG.md 전체, dev-agent-team/BACKLOG.md 두 섹션 전부,
+     dev-agent-team/DECISIONS.md, dev-agent-team/PROCESS.md(있으면),
+     그리고 12c에서 쌓인 [절차개선] 항목 전부.
+     IMPROVE가 있으면 절차 변경이므로 C등급으로 올린다(14번). Owner가 승인하면
+     dev-agent-team/PROCESS.md에 P-번호로 append한다. 승인 못 받으면 반영하지 않는다.
+     미처리 BACKLOG "할 일"은 지우지 않는다. 다음 개발에 그대로 넘긴다.
+{{/IF_LARGE}}
 18. 모든 단계가 끝났다. R번호별 통과 표와 dev-agent-team/TEST_LOG.md 요약을
     Owner에게 보여준다. "직접 실행해서 확인해 보세요"라고 안내한다. (Gate 4)
 {{#IF_SMALL}}

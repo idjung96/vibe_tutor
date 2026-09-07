@@ -80,6 +80,9 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
    dev-agent-team/selfcheck.py 의 보안 스캔으로 점검한다(하드코딩 비밀값·위험 호출, 결정적 검사).
    selfcheck는 제품 언어를 감지해 python/go/rust/node 소스를 스캔한다. 테스트 수집 확인은
    Python 전용이고, 다른 언어에서는 건너뛴다(테스트 실행은 checker가 제품 언어 러너로 한다).
+   selfcheck는 R번호 추적성(REQUIREMENTS→PLAN covers→테스트 이름→README)과 코드 규모
+   임계(함수 40줄·인자 5개·중첩 3단계)도 기계적으로 대조한다. 각 역할은 자기 산출물 안에서만
+   R번호를 확인하므로 끊어진 고리는 이 검사로만 드러난다.
 
 ## 가드레일 (자동 강제)
 - dev-agent-team/OWNER_QUESTION.md에 "답: 번호"가 없으면 도구 사용이 차단된다.

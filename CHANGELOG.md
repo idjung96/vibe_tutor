@@ -4,6 +4,51 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.21.0] - 2026-09-07
+
+외부 하네스(GitHub Spec Kit, BMAD) 조사와 다중 에이전트 실패 원인 분석에서 나온 반영이다.
+실세션 20,574건 분석 기준 실패 원인 1위는 **명세 실패 42%** — "어떤 에이전트도 상위 산출물을
+외부 진실 소스와 대조하지 않아 오류가 여러 핸드오프를 살아서 통과한다".
+
+### Added
+- **R번호 추적성 검사(`scan_trace`)** — Spec Kit의 `/speckit.analyze`·`/speckit.converge`에
+  해당한다. `REQUIREMENTS.md` → `PLAN.json` covers → 테스트 이름 → `README.md` 사슬을 대조한다.
+  지금까지 각 역할은 **자기 산출물 안에서만** R번호를 확인해서(planner=covers, tester=테스트
+  이름, documenter=README) 끊어진 고리는 아무도 보지 못했다.
+  **진행 상황을 안다** — `current_stage` 기준으로 이미 끝났어야 하는 것만 실패로 본다:
+  (a) 어느 covers에도 없는 R, (b) REQUIREMENTS에 없는 유령 R, (c) 완료된 단계인데 테스트 0건,
+  (d) 전 단계 종료 후 README에 없는 R. 진행 중·미래 단계는 정보로만 표시하고,
+  `REQUIREMENTS.md`/`PLAN.json`이 없으면 `SKIP`(프로젝트 초기).
+- **코드 규모 임계 검사(`scan_size`)** — `code-convention`의 함수 40줄·인자 5개·중첩 3단계를
+  기계적으로 확인한다. 지금까지 이 기준은 `reviewer`의 주관 판정이었고 reviewer는 large
+  전용이라, **small에는 확인 주체가 아예 없었다.** python은 표준 `ast`로 정확히, go/rust/node는
+  들여쓰기 기반으로 근사한다(gofmt·rustfmt·prettier가 들여쓰기를 강제해 중괄호를 파싱하지
+  않아도 안정적이다). 출력에 근사임을 밝힌다.
+
+### Changed
+- **pytest exit 5(no tests collected)를 수집 오류로 보지 않는다** — 아직 테스트를 만들지 않은
+  초기 상태에서 `[collect] FAIL`이 뜨던 거짓 실패를 없앴다.
+- selfcheck 자신이 `scan_size` 기준을 어기고 있어 리팩터했다(`scan_trace`·`_brace_sizes` 등).
+  기준을 강제하는 도구가 그 기준을 어기면 안 된다.
+- **`_py_depth`가 `elif`를 새 중첩 단계로 세던 버그를 고쳤다** — AST에서 `elif`는 `orelse` 안의
+  `If`라, `if/elif/elif`가 3단계로 계산됐다. 보기에는 같은 단계이므로 깊이를 늘리지 않는다.
+- **에이전트 오버레이 폴더를 제품 코드로 스캔하던 문제를 고쳤다** — 갓 설치한 트리에서
+  `.opencode/plugins/guard.js` 때문에 제품 언어가 `node`로 오판되고 guard.js가 스캔됐다.
+  `SKIP_DIRS`에 `.claude`·`.opencode`·`.codex`·`.agents` 추가.
+- **JS 위험 호출 패턴에서 `\.exec\(` 를 뺐다** — `RegExp.prototype.exec` 와 구분되지 않아
+  `re.exec(s)` 같은 정상 코드를 셸 실행으로 오탐했다. `execSync`/`execFileSync`/`spawnSync`,
+  `child_process.exec*`, `require("child_process")` 로 좁혔다.
+- R번호 인식 정규식을 실제 명명 규약에 맞췄다 — `\bR\d+\b`는 `test_r1_x`의 `_r1`을 못 잡는다
+  (`_`가 단어 문자라 경계가 없다). 구분자 뒤(`test_r1`, `fn r1_`, `"r1 "`)와 Go 캐멀케이스
+  (`TestR1_Save`)를 받되 `user1`·`Router1` 같은 우연한 일치는 배제한다.
+
+### Compatibility
+- selfcheck의 검사 범위가 헌법·README 계약 문구에 있어 `HARNESS_VERSION`을 1.21.0으로 올린다.
+- **절차는 바뀌지 않았다.** selfcheck는 지금처럼 coder 체크리스트의 "(선택)"으로 남는다.
+  `init.sh`/`init.ps1`, 역할 본문, team-dev 절차, 가드 훅, `verify_hooks.sh`(18항목)는
+  건드리지 않았다.
+- 양 프로파일이 같은 파일을 받는다 — 두 검사 모두 판단이 0이라 small에서도 안전하다.
+
 ## [1.20.0] - 2026-09-07
 
 ### Added

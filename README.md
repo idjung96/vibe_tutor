@@ -161,13 +161,15 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 
 **설계 원칙**: 주관적 판정(리뷰·결정 심의 = lead·critic·reviewer·security)은 작은 모델의
 과신·불안정 위험을 피해 **large 전용**. 객관적 검증(`checker`의 테스트 러너 실행 +
-`dev-agent-team/selfcheck.py` 정규식 스캔)은 **양쪽 공용**. 고위험·모호성은 양쪽 모두
+`dev-agent-team/selfcheck.py` 의 print·보안 스캔, R번호 추적성, 코드 규모 임계)은 **양쪽 공용**. 고위험·모호성은 양쪽 모두
 Owner 합의(C등급 정지)를 유지한다.
 
 > 보안: small은 `dev-agent-team/selfcheck.py`의 정규식 기반 보안 스캔(객관)으로 점검하고,
 > large는 여기에 security 에이전트(맥락 판단)를 더한다.
 > selfcheck는 제품 언어(python/go/rust/node)를 감지해 해당 소스만 스캔하며, 감지된 언어가
-> 없으면 점검을 건너뛴다.
+> 없으면 점검을 건너뛴다. 보안 스캔 외에 **R번호 추적성**(REQUIREMENTS→PLAN covers→테스트
+> 이름→README의 끊어진 고리)과 **코드 규모 임계**(함수 40줄·인자 5개·중첩 3단계)도 본다 —
+> 둘 다 판단이 없는 결정적 검사라 small에서도 reviewer 없이 쓸 수 있다.
 
 ## 프로파일 차이 (이 13가지만 다르다)
 

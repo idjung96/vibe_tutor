@@ -13,11 +13,16 @@
    (테스트 수집·실행은 checker가 제품 언어의 러너로 매 단계 수행한다).
 3. 감지된 언어의 소스에서 print 계열 사용처를 찾는다(logging-rule 위반 후보).
 4. 같은 소스에서 보안 패턴을 스캔한다(하드코딩 비밀값·위험 호출).
+5. R번호 추적성을 대조한다 — REQUIREMENTS -> PLAN.json covers -> 테스트 이름 -> README.
+   역할들은 각자 자기 산출물 안에서만 R번호를 확인해서 끊어진 고리는 아무도 못 본다.
+6. 코드 규모 임계를 검사한다(code-convention: 함수 40줄·인자 5개·중첩 3단계).
 
-3·4는 정규식 기반의 결정적 검사라 작은 모델에서도 안전하게 쓸 수 있다(주관 판단 없음).
+3~6은 모두 결정적 검사라 작은 모델에서도 안전하게 쓸 수 있다(주관 판단 없음).
 툴체인이 필요한 검사(go build / cargo check)는 느리고 네트워크·빌드 산출물을 만들어
 '읽기 전용·결정적' 성격을 깨므로 하지 않는다.
 """
+import ast
+import json
 import re
 import subprocess
 import sys
@@ -28,6 +33,8 @@ SKIP_DIRS = {
     "__pycache__", ".pytest_cache", ".venv", "venv",
     # 의존성·빌드 산출물 — 제품 코드가 아니다.
     "node_modules", "target", "vendor", "dist", "build", ".next", "coverage",
+    # 에이전트 오버레이 — 하니스 설정이지 제품 코드가 아니다(.opencode/plugins/guard.js 등).
+    ".claude", ".opencode", ".codex", ".agents",
 }
 
 # 하드코딩 비밀값 의심: key/secret/token/password 등에 문자열 리터럴을 바로 대입.
@@ -36,6 +43,29 @@ SECRET_PATTERNS = [
     r'(?i)(api[_-]?key|secret|token|password|passwd|pwd|access[_-]?key)'
     r'\s*[=:]\s*["\'`][^"\'`]+["\'`]',
 ]
+
+# 코드 규모 임계 — code-convention 스킬의 값과 같아야 한다.
+MAX_FUNC_LINES = 40
+MAX_FUNC_ARGS = 5
+MAX_NESTING = 3
+
+# R번호 추적성 대조 대상.
+REQUIREMENTS_PATH = Path("dev-agent-team/REQUIREMENTS.md")
+PLAN_PATH = Path("dev-agent-team/PLAN.json")
+README_PATH = Path("README.md")
+TESTS_DIR = Path("tests")
+# R번호 인식. 실제 명명 규약을 그대로 받는다:
+#   "R1: 저장한다"(요구사항·README), "R1"(covers), test_r1_x / r1_saves(구분자 뒤),
+#   TestR1_Save(Go 캐멀케이스 — 소문자 뒤 대문자 R).
+# user1·Router1 처럼 우연히 r+숫자가 붙는 식별자는 걸리지 않는다.
+R_NUM = re.compile(r"(?<![A-Za-z0-9])[rR](\d+)(?![0-9])|(?<=[a-z])R(\d+)(?![0-9])")
+# 테스트 '선언' 줄만 본다. 파일 전체에서 뽑으면 변수명·주석이 섞여 거짓 양성이 난다.
+TEST_DECL = re.compile(
+    r"\bdef\s+test\w*"              # python
+    r"|\bfunc\s+Test\w*"            # go
+    r"|\bfn\s+\w+"                  # rust
+    r"|\b(it|test|describe)\s*\("   # js/ts
+)
 
 # 언어별 정의. marker = 루트의 마커 파일(우선 근거), ext = 스캔할 확장자,
 # comment = 줄 시작 주석 접두사, printers = print 계열, danger = 위험 호출.
@@ -81,7 +111,9 @@ LANGS = {
         "danger": [
             (r'(?<![\w.])eval\s*\(', 'eval'),
             (r'\bnew\s+Function\s*\(', 'new Function'),
-            (r'\b(execSync|child_process\.exec|\.exec)\s*\(', '셸 경유 명령 실행'),
+            (r'\b(execSync|execFileSync|spawnSync)\s*\(', '셸 경유 명령 실행'),
+            (r'child_process\s*\.\s*exec\w*\s*\(', '셸 경유 명령 실행'),
+            (r'''require\s*\(\s*["']child_process["']''', 'child_process 사용'),
             (r'\.innerHTML\s*=', 'innerHTML 직접 대입'),
             (r'\bdangerouslySetInnerHTML\b', 'dangerouslySetInnerHTML'),
         ],
@@ -115,20 +147,30 @@ def iter_sources(exts):
         yield path
 
 
+def read_text(path):
+    """소스를 읽는다. 못 읽으면 None."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return None
+
+
+def _file_code_lines(name, path, text):
+    """한 파일의 코드 줄을 내놓는다. 주석 줄은 건너뛴다."""
+    comment = LANGS[name]["comment"]
+    for num, line in enumerate(text.splitlines(), 1):
+        stripped = line.lstrip()
+        if not stripped.startswith(comment):
+            yield name, path, num, line, stripped
+
+
 def iter_code_lines(langs):
     """(언어, 경로, 줄번호, 원문, 공백제거) 를 내놓는다. 주석 줄은 건너뛴다."""
     for name in langs:
-        spec = LANGS[name]
-        for path in iter_sources(spec["ext"]):
-            try:
-                text = path.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
-                continue
-            for num, line in enumerate(text.splitlines(), 1):
-                stripped = line.lstrip()
-                if stripped.startswith(spec["comment"]):
-                    continue
-                yield name, path, num, line, stripped
+        for path in iter_sources(LANGS[name]["ext"]):
+            text = read_text(path)
+            if text is not None:
+                yield from _file_code_lines(name, path, text)
 
 
 def collect_tests(langs, target):
@@ -140,6 +182,10 @@ def collect_tests(langs, target):
     if target:
         cmd.append(target)
     proc = subprocess.run(cmd, capture_output=True, text=True)
+    # pytest 5 = no tests collected. 아직 테스트를 안 만든 초기 상태이지 수집 오류가 아니다.
+    if proc.returncode == 5:
+        print("[collect] OK (수집된 테스트 0건 — 아직 테스트가 없다)")
+        return True
     ok = proc.returncode == 0
     print(f"[collect] {'OK' if ok else 'FAIL'}")
     if not ok:
@@ -183,6 +229,303 @@ def scan_security(langs):
     return not hits
 
 
+def _rs_in(text):
+    """텍스트에서 R번호 집합을 뽑는다."""
+    return {int(m.group(1) or m.group(2)) for m in R_NUM.finditer(text)}
+
+
+def _test_rs():
+    """tests/ 아래 테스트 '선언' 줄에서만 R번호를 뽑는다. {R번호: 건수}."""
+    counts = {}
+    if not TESTS_DIR.is_dir():
+        return counts
+    for path in TESTS_DIR.rglob("*"):
+        if not path.is_file() or any(part in {"__pycache__", "node_modules"} for part in path.parts):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for line in text.splitlines():
+            if not TEST_DECL.search(line):
+                continue
+            for num in _rs_in(line):
+                counts[num] = counts.get(num, 0) + 1
+    return counts
+
+
+def scan_trace():
+    """R번호가 REQUIREMENTS -> PLAN covers -> 테스트 -> README 로 이어지는지 대조한다.
+
+    개발 중간에 도는 도구라 '아직 안 만든 것'을 실패로 치지 않는다.
+    PLAN.json의 current_stage 를 기준으로 '이미 끝났어야 하는 것'만 실패로 본다.
+    """
+    if not REQUIREMENTS_PATH.is_file() or not PLAN_PATH.is_file():
+        print("[trace] SKIP (REQUIREMENTS.md 또는 PLAN.json 없음 — 프로젝트 초기)")
+        return True
+    plan = _read_plan()
+    if plan is None:
+        return False
+    stages, current = plan
+
+    problems = _trace_report({
+        "req_rs": _rs_in(REQUIREMENTS_PATH.read_text(encoding="utf-8")),
+        "readme_rs": _rs_in(README_PATH.read_text(encoding="utf-8")) if README_PATH.is_file() else set(),
+        "test_counts": _test_rs(),
+        "stage_of": _stage_of(stages),
+        "current": current,
+        "all_done": current > max((int(s.get("id", 0)) for s in stages), default=0),
+    })
+    if problems:
+        print(f"[trace] {len(problems)}건 문제:")
+        for detail, _ in problems:
+            print("  " + detail)
+    return not problems
+
+
+def _read_plan():
+    """PLAN.json 에서 (stages, current_stage) 를 읽는다. 못 읽으면 None."""
+    try:
+        plan = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
+        return plan["stages"], int(plan.get("current_stage", 1))
+    except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError) as exc:
+        print(f"[trace] FAIL (PLAN.json 을 읽을 수 없다: {exc})")
+        return None
+
+
+def _trace_report(ctx):
+    """R번호마다 한 줄씩 찍고 문제 목록을 모은다. ctx 키는 scan_trace 참조."""
+    req_rs, stage_of = ctx["req_rs"], ctx["stage_of"]
+    problems = []
+    for num in sorted(req_rs | set(stage_of)):
+        state = {
+            "sid": stage_of.get(num),
+            "tests": ctx["test_counts"].get(num, 0),
+            "in_readme": num in ctx["readme_rs"],
+            "in_req": num in req_rs,
+        }
+        found = _trace_problems(num, state, ctx["current"], ctx["all_done"])
+        problems.extend(found)
+        note = f"  <- {found[0][1]}" if found else ""
+        print(f"[trace] R{num} stage:{state['sid'] or '-'} tests:{state['tests']} "
+              f"readme:{'o' if state['in_readme'] else 'x'}{note}")
+    return problems
+
+
+def _covers_rs(stage):
+    """한 단계가 covers 하는 R번호 집합."""
+    out = set()
+    for item in stage.get("covers", []) or []:
+        out |= _rs_in(str(item))
+    return out
+
+
+def _stage_of(stages):
+    """R번호 -> 그 R을 covers 하는 가장 이른 단계 id."""
+    out = {}
+    for stage in stages:
+        sid = int(stage.get("id", 0))
+        for num in _covers_rs(stage):
+            if num not in out or sid < out[num]:
+                out[num] = sid
+    return out
+
+
+def _trace_problems(num, state, current, all_done):
+    """R번호 하나의 문제를 [(상세, 짧은 표시)] 로 낸다. 문제가 없으면 빈 목록."""
+    sid = state["sid"]
+    if not state["in_req"]:
+        return [(f"R{num}: PLAN covers에 있으나 REQUIREMENTS.md에 없다", "PLAN에만 있다(유령 요구사항)")]
+    if sid is None:
+        return [(f"R{num}: 어느 단계의 covers 에도 없다", "어느 단계도 covers 하지 않는다")]
+    out = []
+    if sid < current and state["tests"] == 0:
+        out.append((f"R{num}: stage{sid} 는 끝났는데 테스트 이름에 R{num} 이 없다",
+                    "완료된 단계인데 테스트가 없다"))
+    if all_done and not state["in_readme"]:
+        out.append((f"R{num}: 모든 단계가 끝났는데 README.md 에 없다",
+                    "개발이 끝났는데 README에 없다"))
+    return out
+
+
+def _py_sizes(path, text):
+    """python: 표준 ast 로 정확히 잰다."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        args = node.args
+        nargs = (len(args.posonlyargs) + len(args.args) + len(args.kwonlyargs)
+                 + (1 if args.vararg else 0) + (1 if args.kwarg else 0))
+        lines = (node.end_lineno or node.lineno) - node.lineno + 1
+        depth = _py_depth(node)
+        out.append((node.lineno, node.name, lines, nargs, depth))
+    return out
+
+
+def _child_blocks(node):
+    """블록 문의 하위 statement 목록을 (깊이를 늘리는가, stmts) 로 낸다."""
+    if isinstance(node, ast.If):
+        out = [(True, node.body)]
+        # elif 는 AST상 orelse 안의 If 지만 보기에는 같은 단계다. 깊이를 늘리지 않는다.
+        if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+            out.append((False, node.orelse))
+        elif node.orelse:
+            out.append((True, node.orelse))
+        return out
+    if isinstance(node, ast.Try):
+        blocks = [node.body, node.orelse, node.finalbody] + [h.body for h in node.handlers]
+        return [(True, b) for b in blocks if b]
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+        return [(True, b) for b in (node.body, node.orelse) if b]
+    if isinstance(node, (ast.With, ast.AsyncWith)):
+        return [(True, node.body)]
+    return []
+
+
+def _py_depth(func):
+    """함수 본문의 최대 블록 중첩 깊이. 중첩 함수·클래스는 세지 않는다."""
+    def walk(stmts, depth):
+        best = depth
+        for node in stmts:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            for deeper, sub in _child_blocks(node):
+                best = max(best, walk(sub, depth + 1 if deeper else depth))
+        return best
+    return walk(func.body, 0)
+
+
+# 들여쓰기 기반 함수 선언 인식 (go/rust/node). gofmt·rustfmt·prettier 가 들여쓰기를 강제해
+# 중괄호를 파싱하지 않고도 충분히 안정적이다. 근사임을 출력에 밝힌다.
+FUNC_DECL = {
+    "go": re.compile(r"^\s*func\s+(?:\([^)]*\)\s*)?(\w+)\s*\("),
+    "rust": re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*[(<]"),
+    "node": re.compile(
+        r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+        r"(?:function\s+(\w+)\s*\(|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\()"
+    ),
+}
+
+
+def _indent_of(line, tab=4):
+    expanded = line.replace("\t", " " * tab)
+    return len(expanded) - len(expanded.lstrip())
+
+
+def _sig_chars(line, depth):
+    """한 줄에서 시그니처 조각과 갱신된 괄호 깊이를 낸다."""
+    out = ""
+    for ch in line:
+        if ch == "(":
+            depth += 1
+            if depth == 1:
+                continue
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return out, 0
+        if depth >= 1:
+            out += ch
+    return out, depth
+
+
+def _signature(lines, start):
+    """선언 줄부터 괄호가 닫힐 때까지의 시그니처 문자열을 잇는다."""
+    sig, depth = "", 0
+    for line in lines[start:start + 10]:
+        piece, depth = _sig_chars(line, depth)
+        sig += piece
+        if depth == 0 and sig:
+            break
+    return sig
+
+
+def _count_args(sig):
+    """시그니처에서 최상위 콤마로 인자 수를 센다(제네릭·중첩 괄호는 건너뛴다)."""
+    inner, parts = 0, 0
+    for ch in sig:
+        if ch in "([{<":
+            inner += 1
+        elif ch in ")]}>":
+            inner -= 1
+        elif ch == "," and inner == 0:
+            parts += 1
+    return parts + 1 if sig.strip() else 0
+
+
+def _body_extent(lines, start, base, unit=4):
+    """선언 레벨로 들여쓰기가 돌아올 때까지를 본문으로 본다. (마지막 줄 index, 중첩 깊이)."""
+    end, max_indent = start, base
+    for j in range(start + 1, len(lines)):
+        if not lines[j].strip():
+            continue
+        indent = _indent_of(lines[j])
+        if indent <= base:
+            break
+        end = j
+        max_indent = max(max_indent, indent)
+    return end, max(0, (max_indent - base) // unit - 1)
+
+
+def _brace_sizes(lang, text):
+    """go/rust/node: 들여쓰기로 함수 길이·중첩을, 시그니처로 인자 수를 근사한다."""
+    pat = FUNC_DECL[lang]
+    lines = text.splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        m = pat.match(line)
+        if not m:
+            continue
+        name = next((g for g in m.groups() if g), "?")
+        base = _indent_of(line)
+        nargs = _count_args(_signature(lines, i))
+        end, depth = _body_extent(lines, i, base)
+        out.append((i + 1, name, end - i + 1, nargs, depth))
+    return out
+
+
+def _size_hits(path, funcs):
+    """임계를 넘은 함수만 표시 문자열로 만든다."""
+    out = []
+    for lineno, fname, nlines, nargs, depth in funcs:
+        over = []
+        if nlines > MAX_FUNC_LINES:
+            over.append(f"길이 {nlines}줄>{MAX_FUNC_LINES}")
+        if nargs > MAX_FUNC_ARGS:
+            over.append(f"인자 {nargs}개>{MAX_FUNC_ARGS}")
+        if depth > MAX_NESTING:
+            over.append(f"중첩 {depth}단계>{MAX_NESTING}")
+        if over:
+            out.append(f"{path}:{lineno}: {fname}() — " + ", ".join(over))
+    return out
+
+
+def scan_size(langs):
+    """코드 규모 임계 초과를 찾는다. 기준은 code-convention 스킬과 같다."""
+    hits = []
+    for name in langs:
+        for path in iter_sources(LANGS[name]["ext"]):
+            text = read_text(path)
+            if text is None:
+                continue
+            found = _py_sizes(path, text) if name == "python" else _brace_sizes(name, text)
+            hits.extend(_size_hits(path, found))
+    label = (f"기준: 함수 {MAX_FUNC_LINES}줄·인자 {MAX_FUNC_ARGS}개·중첩 {MAX_NESTING}단계, "
+             "python 외는 근사")
+    if hits:
+        print(f"[size] {len(hits)}건 발견 ({label}):")
+        for hit in hits:
+            print("  " + hit)
+    else:
+        print(f"[size] 0건 ({label})")
+    return not hits
+
+
 def main():
     target = sys.argv[1] if len(sys.argv) > 1 else None
     langs = detect_langs()
@@ -195,7 +538,9 @@ def main():
     ok_collect = collect_tests(langs, target)
     ok_print = scan_print(langs)
     ok_security = scan_security(langs)
-    return 0 if (ok_collect and ok_print and ok_security) else 1
+    ok_size = scan_size(langs)
+    ok_trace = scan_trace()
+    return 0 if (ok_collect and ok_print and ok_security and ok_size and ok_trace) else 1
 
 
 if __name__ == "__main__":

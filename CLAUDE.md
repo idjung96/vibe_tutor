@@ -103,7 +103,8 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 ## 호환성 계약 — 변경 시 `HARNESS_VERSION` 을 올릴 것
 
 프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
-dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md 형식
+dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md(7열 고정: 단계·신규·누적·전체 결과·재시도·리뷰지적·커밋,
+열 구성은 양 프로파일 동일) / dev-agent-team/OWNER_QUESTION.md 형식
 (기존 동작을 바꾸는 질문이면 영향 표 앞에 "지금 → 앞으로" AS-IS/TO-BE 표, DECISIONS에는 `- 변경:` 줄),
 dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원칙 / 로그 형식 /

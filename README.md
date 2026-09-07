@@ -193,6 +193,8 @@ Owner 합의(C등급 정지)를 유지한다.
 
 1. 파일 위치/형식: AGENTS.md(공통 헌법), dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
    dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md / dev-agent-team/libs/ 형식,
+   TEST_LOG.md 는 7열 고정(단계·신규·누적·전체 결과·재시도·리뷰지적·커밋)이며 열 구성은
+   양 프로파일 동일하다 — 리뷰 단계가 없는 프로파일은 리뷰지적을 `-`로 채운다,
    dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치 이름.
    OWNER_QUESTION.md는 기존 동작을 바꾸는 질문일 때 선택지별 영향 표보다 먼저
    "지금 → 앞으로"(AS-IS/TO-BE, 행 3개: 동작·Owner가 보는 것·데이터·파일) 표를 둔다.

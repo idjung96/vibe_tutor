@@ -50,6 +50,7 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 {{/IF_LARGE}}
 - dev-agent-team/libs/ : 라이브러리 사용법. import 전에 반드시 읽는다.
 - logs/app.log : 실행 로그. 디버깅할 때 먼저 읽는다.
+  형식은 `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value` 로 언어와 무관하게 같다.
 
 ## 결정 등급
 행위는 묻지 않는다. 설치, 테스트 실행, 파일 생성, 커밋은 그냥 한다.
@@ -69,9 +70,9 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 1. 단계마다 브랜치를 만든다. PASS 후에만 커밋한다.
 2. 기존 테스트를 수정하거나 삭제하지 않는다.
 3. 새 라이브러리는 dev-agent-team/libs/ 조사 후에 쓴다. API를 추측하지 않는다.
-4. print 금지. 구조화 로그만 쓴다. 제품이 Python이면 common/logger.py 의 logger를 쓴다
-   (common/logger.py 는 Python 전용이다). 다른 언어면 그 언어의 표준 로거를 같은 원칙으로 쓴다
-   — Go=log/slog, Rust=tracing/log, JS·TS=pino/winston (logging-rule).
+4. print 금지. common/ 의 공통 로거만 쓴다. 파일명은 언어를 따른다(logger.py/.go/.rs/.js).
+   Python 구현은 설치돼 있고, 다른 언어는 1단계에서 logging-rule 스킬의 최소 구현으로 만든다.
+   로그 한 줄 형식은 언어와 무관하게 같다(logging-rule "로그 한 줄 규격").
 5. rm -rf, 요구사항에 없는 기능 추가를 하지 않는다. git push는 작업(stage/feature) 브랜치에
    허용하되, main 직접 push와 force push(-f/--force)는 하지 않는다.
 6. 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md,

@@ -18,13 +18,87 @@ description: 코드에 로그를 넣는 규칙
 좋은 예: logger.info("회원 저장 완료 | user_id=%s", user_id)
 나쁜 예: logger.info("done")
 
-logger는 이렇게 만든다 (아래 예시는 Python 기준이다):
-from common.logger import get_logger
-logger = get_logger(__name__)
+## 로그 한 줄 규격 (계약 — 언어 무관)
 
-제품이 Python이 아니면 common/logger.py 대신 그 언어의 표준 로거를 쓴다 —
-Go=log/slog, Rust=tracing 또는 log, JS·TS=pino 또는 winston.
-이 문서의 나머지 규칙(무엇을 남기는가·형식·금지)은 언어와 무관하게 그대로 지킨다.
+    [HH:MM:SS] [LEVEL] [모듈] 동작 | key=value
+    예) [14:03:11] [ERROR] [user.service] 회원 저장 실패 | user_id=15 reason=duplicate
+
+- logs/app.log 에 append(UTF-8) 하고 표준출력에도 같은 줄을 낸다.
+- LEVEL은 INFO / WARN / ERROR 만 쓴다. (Python logging은 WARNING으로 찍는데 그대로 둔다 —
+  checker가 접두사로 찾는다. 다른 언어는 WARN으로 적는다.)
+- 모듈은 파일·패키지 이름. 메시지 본문은 위의 "동작 | key=value" 규칙을 따른다.
+- checker가 이 형식으로 ERROR/WARN 마지막 10줄을 뽑고, Owner도 이 형식을 보고 디버깅한다.
+  형식을 바꾸면 그 둘이 깨진다.
+
+## 공통 로거 만들기 (1단계)
+
+제품 언어의 공통 로거를 common/ 에 하나 만들고, 이후 모든 코드가 그것만 쓴다.
+아래는 의존성 없는 최소 구현이다. 그대로 써도 되고, 외부 로거 라이브러리
+(Go=log/slog, Rust=tracing, JS·TS=pino/winston)를 쓰고 싶으면 lib-research 절차를 거친 뒤
+위 규격을 그대로 내도록 설정한다.
+
+**python — common/logger.py 가 이미 설치돼 있다. 새로 만들지 말고 그대로 쓴다.**
+
+    from common.logger import get_logger
+    logger = get_logger(__name__)
+
+**go — common/logger.go**
+
+    package common
+
+    import (
+        "fmt"
+        "os"
+        "path/filepath"
+        "time"
+    )
+
+    func Log(level, module, msg string) {
+        line := fmt.Sprintf("[%s] [%s] [%s] %s\n",
+            time.Now().Format("15:04:05"), level, module, msg)
+        os.MkdirAll("logs", 0o755)
+        f, err := os.OpenFile(filepath.Join("logs", "app.log"),
+            os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+        if err == nil {
+            defer f.Close()
+            f.WriteString(line)
+        }
+        os.Stdout.WriteString(line)
+    }
+
+**rust — common/logger.rs**
+
+    use std::fs::{create_dir_all, OpenOptions};
+    use std::io::Write;
+
+    pub fn log(level: &str, module: &str, msg: &str) {
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs()).unwrap_or(0);
+        let (h, m, s) = (secs / 3600 % 24, secs / 60 % 60, secs % 60);
+        let line = format!("[{:02}:{:02}:{:02}] [{}] [{}] {}", h, m, s, level, module, msg);
+        let _ = create_dir_all("logs");
+        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open("logs/app.log") {
+            let _ = writeln!(f, "{}", line);
+        }
+        println!("{}", line);
+    }
+
+시각이 UTC로 나온다. 지역 시간이 필요하면 lib-research 후 chrono 를 쓴다.
+
+**node — common/logger.js**
+
+    const fs = require("fs");
+    const path = require("path");
+
+    function log(level, module, msg) {
+      const line = `[${new Date().toTimeString().slice(0, 8)}] [${level}] [${module}] ${msg}`;
+      fs.mkdirSync("logs", { recursive: true });
+      fs.appendFileSync(path.join("logs", "app.log"), line + "\n", "utf8");
+      process.stdout.write(line + "\n");
+    }
+
+    module.exports = { log };
 
 금지:
 - print를 쓰지 않는다. logger만 쓴다.

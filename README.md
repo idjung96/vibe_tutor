@@ -88,7 +88,9 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
 프로젝트에 재실행해도 계획·결정·테스트 이력·백로그가 사라지지 않는다.
 
 **주의:**
-- `common/logger.py` 는 **무조건 덮어쓴다**(고정 포맷 제품 로거). 직접 손댄 경우 먼저 백업한다.
+- `common/logger.py` 는 **무조건 덮어쓴다**(고정 포맷 제품 로거 — Python 구현이자 로그 형식의
+  참조 규격). 직접 손댄 경우 먼저 백업한다. 제품이 다른 언어면 1단계에서 `logging-rule` 의
+  최소 구현으로 `common/logger.go|rs|js` 를 만든다.
 - 기존 `.git` 이 있으면 init은 **자동 커밋하지 않는다**. 재실행 후 `git diff` 로 변경을
   검토하고 직접 커밋한다(하니스 파일만 바뀌었는지 확인하는 안전장치이기도 하다).
 - **처음과 같은 `--profile`·`--agent`** 로 실행한다. init은 *선택한* 역할·에이전트만
@@ -206,7 +208,8 @@ Owner 합의(C등급 정지)를 유지한다.
 4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통).
    Write/Edit·apply_patch뿐 아니라 **Bash 쓰기 명령**(`>` `>>`/tee/sed -i/mv/cp/rm/
    truncate/dd of=/patch)도 차단 대상이다. 읽기·실행은 통과시킨다.
-5. 로그 형식 `[LEVEL] [모듈] 메시지 | key=value`
+5. 로그 형식 `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value` — `logs/app.log` 에 append하고
+   표준출력에도 같은 줄을 낸다. 언어와 무관하게 동일하며 `logging-rule` 스킬이 정본이다.
 6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
    및 designer 산출물 dev-agent-team/DESIGN.md 형식. lead는 방향·백로그 외에 회고·절차 개선제안(IMPROVE)도 낸다(large 전용).
    lead 호출 모드 3종(방향·단계 회고·최종 회고)과 호출 시점(4-0/7-0/12c/17b), BACKLOG "메모·주의"의
@@ -241,9 +244,11 @@ Owner 합의(C등급 정지)를 유지한다.
   경로만 골라 막는다. 읽기·실행(`cat`, `grep`, `pytest`)은 통과시켜야 하므로 셸을 완전히
   파싱하지 않으며, 변수 확장·명령 치환·here-doc 조합으로 우회할 수 있다. 샌드박스가 아니라
   과속방지턱으로 보고 AGENTS.md 규칙을 병행한다.
-- **로깅 헬퍼는 Python 전용이다.** `common/logger.py` 는 Python 모듈이고 `logging-rule`
-  스킬의 예시도 Python 코드다. 제품이 Go·Rust·JS·TS면 그 언어의 표준 로거(log/slog, tracing,
-  pino 등)를 같은 규칙(print 금지·구조화 로그)으로 쓴다 — 규칙은 언어 무관, 헬퍼만 Python이다.
+- **로그 형식은 언어 무관, 설치되는 로거 구현은 Python 것뿐이다.** 형식
+  (`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`)은 `logging-rule` 스킬에 명시돼 있고, 설치
+  시점에는 제품 언어를 알 수 없어(0단계 인터뷰가 설치 후다) `common/logger.py` 만 깔린다.
+  Go·Rust·JS·TS 프로젝트는 **1단계에서** `logging-rule` 의 의존성 없는 최소 구현을 복사해
+  `common/logger.go|rs|js` 를 만든다. 그 전까지는 `logs/app.log` 가 없을 수 있다.
   `selfcheck.py` 의 print·보안 스캔은 네 언어를 모두 다루지만, **테스트 수집 확인은 Python
   전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
 - **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접

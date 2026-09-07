@@ -4,6 +4,46 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.23.0] - 2026-09-07
+
+1.20.0에서 문서로만 명시하고 넘어간 "로깅 헬퍼는 Python 전용" 제약을 해소한다.
+
+### Added
+- **로그 한 줄 규격을 글로 명시했다** — `logging-rule` 스킬에
+  `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value` 형식, `logs/app.log` append + 표준출력,
+  LEVEL 3종을 적었다. 지금까지 이 형식은 **`common/logger.py` 의 Formatter 코드 안에만**
+  있었다. `CLAUDE.md`·`README.md` 의 호환성 계약에 "로그 형식"이 항목으로 들어 있으면서도
+  정작 형식 자체는 어디에도 적혀 있지 않아, 비-Python 프로젝트의 coder는 추측할 수밖에
+  없었고 그러면 `checker` 의 `LOG:` 필드와 `DEBUG_GUIDE` 가 함께 무너진다.
+- **`## 공통 로거 만들기 (1단계)`** 절 — go/rust/node의 **의존성 없는 최소 구현**을 실었다.
+  설치 시점에는 제품 언어를 알 수 없어(0단계 인터뷰가 설치 후다) 파일로 깔 수 없으므로,
+  1단계 "기반 만들기"에서 coder가 복사해 `common/logger.go|rs|js` 를 만든다.
+  외부 로거(log/slog·tracing·pino)를 쓰려면 `lib-research` 를 거친 뒤 같은 규격을 내게 한다.
+
+### Changed
+- **절차에서 Python 전제를 걷어냈다** — `planner` 의 1단계 정의가
+  "common/logger.py 동작 확인" → "제품 언어의 공통 로거(common/logger.*) 생성·동작 확인",
+  `coder` 자체 점검이 "common/logger.py 의 logger만 썼는가" → "print 계열(print /
+  fmt.Print / println! / console.log) 없이 공통 로거만 썼는가".
+- `AGENTS.md` 4번 규칙과 파일 맵(`logs/app.log`)에 언어 무관 형식을 명시했다.
+- **`README.md` 의 로그 형식 계약이 실제와 달랐다** — `[LEVEL] [모듈] 메시지 | key=value` 로
+  적혀 있어 **시각이 빠져 있었다**. 실제 구현대로 고쳤다.
+- `DEBUG_GUIDE.md` 에 로그 한 줄의 각 칸이 무엇인지 보여주는 예시를 넣었다(Owner용).
+- "알려진 제약"의 로깅 항목을 해소된 내용으로 교체했다 — 형식은 언어 무관이고, 설치되는
+  구현만 Python이며, 다른 언어는 1단계에서 만든다는 사실로. (테스트 수집 확인이 Python
+  전용이라는 부분은 유지.)
+
+### Compatibility
+- 로그 형식이 호환성 계약이고 역할 본문(planner 1단계·coder 자체 점검)이 바뀌므로
+  `HARNESS_VERSION`을 1.23.0으로 올린다.
+- **`common/logger.py` 는 바꾸지 않았다.** 지금 형식이 곧 계약이라 고치면 기존 Python
+  프로젝트의 로그가 달라진다. 계속 무조건 설치되며, 역할이 "Python 구현이자 참조 규격"으로
+  재정의됐을 뿐이다.
+- Python의 `logging` 은 `WARNING` 으로 찍는데 `checker` 가 접두사로 찾으므로 그대로 두고,
+  다른 언어는 `WARN` 으로 적도록 규격에 못박았다.
+- `init.sh`/`init.ps1`, 가드 훅, `verify_hooks.sh`(18항목), `selfcheck.py`, `TEST_LOG` 형식은
+  건드리지 않았다.
+
 ## [1.22.0] - 2026-09-07
 
 ### Added

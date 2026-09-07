@@ -166,7 +166,9 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 
 **설계 원칙**: 주관적 판정(리뷰·결정 심의 = lead·critic·reviewer·security)은 작은 모델의
 과신·불안정 위험을 피해 **large 전용**. 객관적 검증(`checker`의 테스트 러너 실행 +
-`dev-agent-team/selfcheck.py` 의 print·보안 스캔, R번호 추적성, 코드 규모 임계)은 **양쪽 공용**. 고위험·모호성은 양쪽 모두
+`dev-agent-team/selfcheck.py` 의 print·보안 스캔, R번호 추적성, 코드 규모 임계)은 **양쪽 공용**이며,
+`selfcheck.py --gate` 로 **단계 merge 전 게이트**가 된다 — 결정적 3종(collect·print·trace)은
+병합을 막고, security·size는 후보·근사라 출력만 한다. 고위험·모호성은 양쪽 모두
 Owner 합의(C등급 정지)를 유지한다.
 
 > 보안: small은 `dev-agent-team/selfcheck.py`의 정규식 기반 보안 스캔(객관)으로 점검하고,
@@ -205,7 +207,8 @@ Owner 합의(C등급 정지)를 유지한다.
    "지금 → 앞으로"(AS-IS/TO-BE, 행 3개: 동작·Owner가 보는 것·데이터·파일) 표를 둔다.
    DECISIONS.md에는 그런 결정일 때 `- 변경: AS-IS → TO-BE` 줄이 들어간다.
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
-   정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제)
+   정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제).
+   단계 merge 전 `selfcheck.py --gate` 게이트(collect·print·trace 차단)도 절차 계약이다.
 3. deny/차단 목록 (force push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함).
    일반 git push는 allow(작업 브랜치); main 직접 push·force push 금지는 AGENTS.md 규칙으로 병행.
 4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통).

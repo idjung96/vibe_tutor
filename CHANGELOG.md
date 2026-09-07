@@ -4,6 +4,43 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.25.0] - 2026-09-07
+
+### Added
+- **`selfcheck.py --gate` — 단계 merge 전 게이트.** 1.20~1.21에서 언어 무관 스캔과 R번호
+  추적성·코드 규모 검사를 갖췄지만 절차상 위치는 `coder` 체크리스트의 "(선택) … 봐도 된다"
+  한 줄이라 아무도 안 돌려도 단계가 통과했다. 특히 **R번호 추적성은 이것 말고 확인할 주체가
+  없다** — planner는 covers만, tester는 자기 테스트 이름만, documenter는 README만 본다.
+  이제 12번 `- PASS:` 맨 앞에서 반드시 돌고, FAIL이면 coder가 고치고 checker를 다시 부른다
+  (`RETRY_LIMIT` 초과 시 C등급). **양 프로파일 공통**이다 — 판단이 0이라 large에서도 안전하고
+  reviewer가 놓치는 구조적 문제를 잡는다.
+- **`selfcheck: allow-print` 예외.** print를 차단으로 올리면 표준출력이 제품 기능인 CLI
+  도구를 막아버린다. 사용자에게 보여주는 출력은 로그가 아니므로 그 줄에 이 주석이 있으면
+  print 검사에서 뺀다. 주석이 필요하니 grep으로 전수 확인되고 large에서는 reviewer가 본다.
+
+### Changed
+- **차단은 결정적 3종만이다** — `collect`(문법·임포트 오류) / `print`(logging-rule 위반, 정확)
+  / `trace`(R번호 구조, 진행도 인식). `security` 와 `size` 는 검사하고 출력하되 **exit code에
+  반영하지 않는다** — security는 스스로 "후보 — 사람이 확인한다"라고 밝히고 있고(rust `unsafe`,
+  JS `innerHTML`), 비-Python size는 근사라 거짓 차단이 난다. 그 지적은 BACKLOG "메모·주의"에
+  `· 출처:stageN/selfcheck` 로 남긴다.
+- **게이트에서는 방금 끝난 단계도 완료로 본다.** `scan_trace(include_current=True)`.
+  게이트가 도는 12번 시점에는 `current_stage` 가 아직 안 올라가서, 그대로 두면 이번 단계의
+  R에 테스트가 없어도 다음 단계까지 안 잡힌다.
+- **기본 모드(플래그 없음)는 지금과 동일하다** — 5종 전부를 exit code에 반영한다. 회귀 없음.
+- `coder` 자체 점검이 "(선택) … 봐도 된다" → "`--gate` 를 돌려 `[gate] PASS` 인지 확인했는가"로
+  바뀐다. 고치는 지점을 앞으로 당겨 왕복을 줄인다.
+- **`TEST_LOG` 의 `리뷰지적` 열은 건드리지 않는다.** 그 열은 reviewer·security **역할**의
+  지적 수이고 selfcheck 지적은 BACKLOG "메모·주의"로만 간다. small에서 `-` 로 남는 규칙이
+  유지된다.
+
+### Compatibility
+- 절차에 게이트가 생기고 역할 본문(coder)이 바뀌므로 `HARNESS_VERSION` 을 1.25.0으로 올린다.
+  README·CLAUDE.md의 정지 메커니즘 계약에도 이 게이트를 넣었다.
+- 게이트 재시도 루프는 checker를 다시 부르므로 `MAX_CHECKER_CALLS` 에 함께 잡힌다(기존
+  reviewer 루프와 같은 회계). 한도에 닿으면 C등급으로 Owner에게 간다 — 무한 루프는 없다.
+- `init.sh`/`init.ps1`, 가드 훅, `verify_hooks.sh`(18항목), 나머지 역할 본문은 건드리지 않았다.
+
 ## [1.24.0] - 2026-09-07
 
 ### Added

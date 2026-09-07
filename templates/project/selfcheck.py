@@ -5,7 +5,13 @@
 
 사용법(프로젝트 루트에서):
     python dev-agent-team/selfcheck.py                          # 언어 감지 후 전체 점검
+    python dev-agent-team/selfcheck.py --gate                   # 단계 병합 게이트 (아래 참조)
     python dev-agent-team/selfcheck.py tests/stage_1_test.py    # 특정 테스트만 수집 확인(python)
+
+--gate 는 단계가 checker PASS를 받은 뒤 merge 전에 도는 모드다. 검사는 모두 그대로 하되
+exit code는 결정적 3종(collect / print / trace)만 반영한다. security 와 size 는 각각
+"후보"와 "근사"라 잘못 막을 수 있어 출력만 하고 차단하지 않는다.
+게이트에서는 방금 끝난 단계도 완료로 보고 R번호 추적성을 판정한다.
 
 하는 일(모두 읽기 전용):
 1. 제품 언어를 감지한다(마커 파일 우선). python / go / rust / node 를 안다.
@@ -43,6 +49,9 @@ SECRET_PATTERNS = [
     r'(?i)(api[_-]?key|secret|token|password|passwd|pwd|access[_-]?key)'
     r'\s*[=:]\s*["\'`][^"\'`]+["\'`]',
 ]
+
+# 사용자에게 보여주는 출력(CLI 제품)은 로그가 아니다. 그 줄에 이 표시가 있으면 print 검사에서 뺀다.
+ALLOW_PRINT = "selfcheck: allow-print"
 
 # 코드 규모 임계 — code-convention 스킬의 값과 같아야 한다.
 MAX_FUNC_LINES = 40
@@ -198,6 +207,8 @@ def scan_print(langs):
     """제품 코드에서 print 계열 사용처를 찾는다. common/ tests/ 등은 제외한다."""
     hits = []
     for name, path, num, line, stripped in iter_code_lines(langs):
+        if ALLOW_PRINT in line:
+            continue
         for pat in LANGS[name]["printers"]:
             if re.search(pat, line):
                 hits.append(f"{path}:{num}: {stripped}")
@@ -254,11 +265,12 @@ def _test_rs():
     return counts
 
 
-def scan_trace():
+def scan_trace(include_current=False):
     """R번호가 REQUIREMENTS -> PLAN covers -> 테스트 -> README 로 이어지는지 대조한다.
 
     개발 중간에 도는 도구라 '아직 안 만든 것'을 실패로 치지 않는다.
     PLAN.json의 current_stage 를 기준으로 '이미 끝났어야 하는 것'만 실패로 본다.
+    include_current 는 게이트용이다 — 방금 끝난 현재 단계도 완료로 본다.
     """
     if not REQUIREMENTS_PATH.is_file() or not PLAN_PATH.is_file():
         print("[trace] SKIP (REQUIREMENTS.md 또는 PLAN.json 없음 — 프로젝트 초기)")
@@ -273,7 +285,7 @@ def scan_trace():
         "readme_rs": _rs_in(README_PATH.read_text(encoding="utf-8")) if README_PATH.is_file() else set(),
         "test_counts": _test_rs(),
         "stage_of": _stage_of(stages),
-        "current": current,
+        "current": current + 1 if include_current else current,
         "all_done": current > max((int(s.get("id", 0)) for s in stages), default=0),
     })
     if problems:
@@ -527,20 +539,39 @@ def scan_size(langs):
 
 
 def main():
-    target = sys.argv[1] if len(sys.argv) > 1 else None
+    args = sys.argv[1:]
+    gate = "--gate" in args
+    rest = [a for a in args if a != "--gate"]
+    target = rest[0] if rest else None
+
     langs = detect_langs()
     if not langs:
         print("[lang] 감지된 제품 언어 없음 — 점검을 건너뛴다.")
         print("       (python/go/rust/node 만 안다. 마커: requirements.txt·pyproject.toml /")
         print("        go.mod / Cargo.toml / package.json)")
+        if gate:
+            print("[gate] PASS")
         return 0
+
     print(f"[lang] {', '.join(langs)}")
-    ok_collect = collect_tests(langs, target)
-    ok_print = scan_print(langs)
-    ok_security = scan_security(langs)
-    ok_size = scan_size(langs)
-    ok_trace = scan_trace()
-    return 0 if (ok_collect and ok_print and ok_security and ok_size and ok_trace) else 1
+    # 검사는 어느 모드에서나 전부 돌고 전부 출력한다. 모드는 exit code만 바꾼다.
+    results = {
+        "collect": collect_tests(langs, target),
+        "print": scan_print(langs),
+        "security": scan_security(langs),
+        "size": scan_size(langs),
+        "trace": scan_trace(include_current=gate),
+    }
+    if not gate:
+        return 0 if all(results.values()) else 1
+
+    # 게이트: 결정적 3종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
+    blocking = [name for name in ("collect", "print", "trace") if not results[name]]
+    if blocking:
+        print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")
+        return 1
+    print("[gate] PASS")
+    return 0
 
 
 if __name__ == "__main__":

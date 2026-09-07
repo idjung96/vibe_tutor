@@ -107,7 +107,8 @@ dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md(7열 고정: 단계·�
 열 구성은 양 프로파일 동일) / dev-agent-team/OWNER_QUESTION.md 형식
 (기존 동작을 바꾸는 질문이면 영향 표 앞에 "지금 → 앞으로" AS-IS/TO-BE 표, DECISIONS에는 `- 변경:` 줄),
 dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치명 /
-C등급 목록과 정지 메커니즘 / deny 목록 / append-only 테스트 원칙 /
+C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace 차단) /
+deny 목록 / append-only 테스트 원칙 /
 로그 형식(`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력, 언어 무관 — logging-rule이 정본) /
 역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security) / 단일 작성자 원칙).
 이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).

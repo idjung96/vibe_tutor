@@ -172,8 +172,9 @@ function Migrate-TestLog($f) {
         }
         else { $out.Add($line) }
     }
-    # 이 파일의 관행대로 BOM 없는 UTF-8 로 쓴다(Set-Content 는 PS5.1에서 BOM을 붙인다).
-    [System.IO.File]::WriteAllLines($f, $out, $Utf8NoBom)
+    # 이 파일의 관행대로 BOM 없는 UTF-8 + LF 로 쓴다. Set-Content 는 PS5.1에서 BOM을 붙이고,
+    # WriteAllLines 는 CRLF 를 써서 init.sh 의 awk 출력(LF)과 어긋난다.
+    [System.IO.File]::WriteAllText($f, ($out -join "`n") + "`n", $Utf8NoBom)
     Write-Host 'TEST_LOG.md를 7열로 갱신했습니다 (원본: dev-agent-team/TEST_LOG.md.bak).'
 }
 

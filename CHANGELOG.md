@@ -4,6 +4,25 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.25.1] - 2026-09-07
+
+### Fixed
+- **`init.ps1` 의 TEST_LOG 마이그레이션이 줄 끝을 CRLF로 바꿨다.** `[System.IO.File]::WriteAllLines`
+  는 Windows에서 `Environment.NewLine`(CRLF)을 쓰는데, 이 파일의 다른 렌더링(`Render-String`)과
+  `init.sh` 의 awk 출력은 모두 **LF** 다. Owner의 TEST_LOG 전체 줄 끝이 뒤집혀 `init.sh` 와
+  결과가 달라졌다. `WriteAllText($f, ($out -join "\`n") + "\`n", $Utf8NoBom)` 으로 바꿔
+  파일 관행과 `init.sh` 에 맞췄다.
+
+  pwsh가 없어 런타임 검증을 못 하므로, PowerShell 시맨틱(`-split '\|'` 인덱스,
+  `.ToCharArray()` 파이프 계수, `-match`/`-replace`, `-join`)을 그대로 옮긴 시뮬레이터로
+  `init.sh` 결과와 **바이트 단위 대조**했다 — 정상 표 / 빈 표 / 공백 없는 헤더 / 정렬
+  콜론(`:---`) / 이미 7열 / 헤더 없음 6가지 입력에서 모두 동일.
+- 같은 대조로 `Claude-Tools` 의 10개 역할 매핑이 `claude_tools` 와 전부 일치함을 확인했다
+  (1.20.0에서 넣은 `planner` 의 `Grep` 포함).
+
+### Compatibility
+- 렌더 결과와 파일 형식 계약은 바뀌지 않는다. Windows 설치기에서만 동작이 달라진다.
+
 ## [1.25.0] - 2026-09-07
 
 ### Added

@@ -119,7 +119,7 @@ function Role-Model($r) { switch ($r) {
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 function Role-Effort($r) { 'high' }
 function Claude-Tools($r) { switch ($r) {
-    'planner' { 'Read, Write' } 'tester' { 'Read, Write' }
+    'planner' { 'Read, Write, Grep' } 'tester' { 'Read, Write' }
     'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }
     'documenter' { 'Read, Write, Edit, Bash' }
     'designer' { 'Read, Write' }

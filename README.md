@@ -160,11 +160,14 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
 > 설치·커밋은 역할 본문에서 금지하고, tests/ 수정은 가드 훅이 기계적으로 막는다.
 
 **설계 원칙**: 주관적 판정(리뷰·결정 심의 = lead·critic·reviewer·security)은 작은 모델의
-과신·불안정 위험을 피해 **large 전용**. 객관적 검증(`checker`의 pytest + `dev-agent-team/selfcheck.py`
-보안 스캔)은 **양쪽 공용**. 고위험·모호성은 양쪽 모두 Owner 합의(C등급 정지)를 유지한다.
+과신·불안정 위험을 피해 **large 전용**. 객관적 검증(`checker`의 테스트 러너 실행 +
+`dev-agent-team/selfcheck.py` 정규식 스캔)은 **양쪽 공용**. 고위험·모호성은 양쪽 모두
+Owner 합의(C등급 정지)를 유지한다.
 
 > 보안: small은 `dev-agent-team/selfcheck.py`의 정규식 기반 보안 스캔(객관)으로 점검하고,
 > large는 여기에 security 에이전트(맥락 판단)를 더한다.
+> selfcheck는 제품 언어(python/go/rust/node)를 감지해 해당 소스만 스캔하며, 감지된 언어가
+> 없으면 점검을 건너뛴다.
 
 ## 프로파일 차이 (이 13가지만 다르다)
 
@@ -234,6 +237,11 @@ designer는 양 프로파일 공통이지만 UI/화면이 있는 단계에서만
   경로만 골라 막는다. 읽기·실행(`cat`, `grep`, `pytest`)은 통과시켜야 하므로 셸을 완전히
   파싱하지 않으며, 변수 확장·명령 치환·here-doc 조합으로 우회할 수 있다. 샌드박스가 아니라
   과속방지턱으로 보고 AGENTS.md 규칙을 병행한다.
+- **로깅 헬퍼는 Python 전용이다.** `common/logger.py` 는 Python 모듈이고 `logging-rule`
+  스킬의 예시도 Python 코드다. 제품이 Go·Rust·JS·TS면 그 언어의 표준 로거(log/slog, tracing,
+  pino 등)를 같은 규칙(print 금지·구조화 로그)으로 쓴다 — 규칙은 언어 무관, 헬퍼만 Python이다.
+  `selfcheck.py` 의 print·보안 스캔은 네 언어를 모두 다루지만, **테스트 수집 확인은 Python
+  전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
 - **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접
   push와 force push(`--force`/`-f`)는 금지 — force는 가드 deny로, main 금지는 AGENTS.md 규칙으로 강제한다.
 - **Codex는 `.codex` 설정이 trusted 프로젝트에서만 적용된다.** 설치 후 안내대로

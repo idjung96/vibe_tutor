@@ -4,6 +4,53 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.20.0] - 2026-09-07
+
+### Added
+- **`selfcheck.py`가 제품 언어를 감지한다** — 루트 마커 파일 우선(`requirements.txt`/
+  `pyproject.toml`/`setup.py`/`Pipfile`, `go.mod`, `Cargo.toml`, `package.json`), 없으면
+  소스 확장자 존재를 약한 근거로 쓴다. 감지된 언어가 없으면 세 검사를 모두 건너뛰고
+  **0으로 종료**한다.
+- **print·보안 스캔이 python/go/rust/node를 모두 다룬다.**
+  print 계열: `print(` / `fmt.Print*`·`println(` / `println!`·`print!`·`eprintln!`·`dbg!` /
+  `console.log|debug|info|warn|error|trace`.
+  위험 호출: (python 기존) + go `exec.Command("sh"…)`·`unsafe.Pointer` /
+  rust `unsafe {`·`Command::new("sh"…)` / node `eval(`·`new Function(`·`execSync(`·
+  `innerHTML =`·`dangerouslySetInnerHTML`. 주석 스킵도 언어별(`#`, `//`, `/*`, `*`)로 맞췄다.
+- `planner`에 **Grep** 부여(`Read, Write` → `Read, Write, Grep`, 양 프로파일).
+
+### Changed
+- **`selfcheck.py`는 Python 전용이었다.** 세 검사가 모두 `rglob("*.py")`와 pytest에
+  묶여 있어, 비-Python 프로젝트에서 **거짓 실패 1개**(`[collect] FAIL` — pytest 미설치이거나
+  수집 0건이면 항상)와 **거짓 통과 2개**(print·보안 스캔이 파일을 아예 안 읽음)를 냈다.
+  하니스의 나머지(`checker`의 언어별 러너, `tester`의 파일명 규약, `protect_tests` TEST_RE)는
+  언어 무관인데 selfcheck만 어긋나 있었다.
+- **테스트 수집 확인은 Python 전용으로 남긴다** — 다른 언어는 `[collect] SKIP`으로 건너뛰고
+  실패로 치지 않는다. `go build`/`cargo check`는 느리고 네트워크·빌드 산출물을 만들어
+  selfcheck의 "읽기 전용·결정적" 성격을 깨기 때문이다. 테스트 실행은 어차피 `checker`가
+  제품 언어 러너로 매 단계 전체 수행한다.
+- `SKIP_DIRS`에 `node_modules`·`target`·`vendor`·`dist`·`build`·`.next`·`coverage` 추가.
+  .js/.ts 스캔을 시작하면 `node_modules`가 폭발하므로 필수다.
+- 보안 스캔 출력에 "후보 — 사람이 확인한다"를 명시. rust `unsafe`, JS `innerHTML =`는
+  정당한 사용도 많아 거짓 양성이 나올 수 있다.
+- **planner의 Grep 부재는 기존 결함이었다** — large planner에는 1.19.0 이전부터
+  "파일 개수는 grep으로 실제 사용처를 세어 적는다"는 지시가 있는데 도구가 없었고,
+  1.19.0의 "AS-IS 칸은 코드에서 확인한다"도 탐색 수단이 없었다. 도구 매핑은 프로파일
+  공통이라(프로파일 차이는 `profiles/*.conf`와 `{{#IF_*}}` 두 경로로만 만든다) 양쪽에 적용했다.
+- 문서를 사실과 맞췄다 — `AGENTS.md`의 logger·selfcheck 항목에 언어 범위 명시,
+  `logging-rule` 스킬에 예시가 Python이며 타 언어는 표준 로거(log/slog·tracing·pino)를
+  같은 규칙으로 쓴다는 안내, `README.md` 설계 원칙 문구 조정,
+  **"알려진 제약"에 `common/logger.py`·`logging-rule`이 Python 전용이라는 항목 추가**.
+
+### Compatibility
+- 역할 경계(planner 도구)가 바뀌고 selfcheck의 검사 범위가 헌법·README 계약 문구에
+  적혀 있으므로 `HARNESS_VERSION`을 1.20.0으로 올린다.
+- **large의 절차·역할 본문·게이트는 바뀌지 않는다.** large에 닿는 변경은 공용 도구
+  `selfcheck.py`의 버그 수정과 planner frontmatter 한 줄, 문서 문구뿐이다.
+- `common/logger.py`, 가드 훅, `verify_hooks.sh`(18항목)는 건드리지 않았다.
+- selfcheck를 small의 필수 게이트로 올리는 건은 보류했다. 지금처럼 coder 체크리스트의
+  "(선택)"으로 남는다.
+
 ## [1.19.0] - 2026-09-07
 
 ### Added

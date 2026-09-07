@@ -18,9 +18,13 @@ description: 코드에 로그를 넣는 규칙
 좋은 예: logger.info("회원 저장 완료 | user_id=%s", user_id)
 나쁜 예: logger.info("done")
 
-logger는 이렇게 만든다:
+logger는 이렇게 만든다 (아래 예시는 Python 기준이다):
 from common.logger import get_logger
 logger = get_logger(__name__)
+
+제품이 Python이 아니면 common/logger.py 대신 그 언어의 표준 로거를 쓴다 —
+Go=log/slog, Rust=tracing 또는 log, JS·TS=pino 또는 winston.
+이 문서의 나머지 규칙(무엇을 남기는가·형식·금지)은 언어와 무관하게 그대로 지킨다.
 
 금지:
 - print를 쓰지 않는다. logger만 쓴다.

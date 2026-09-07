@@ -68,7 +68,9 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 1. 단계마다 브랜치를 만든다. PASS 후에만 커밋한다.
 2. 기존 테스트를 수정하거나 삭제하지 않는다.
 3. 새 라이브러리는 dev-agent-team/libs/ 조사 후에 쓴다. API를 추측하지 않는다.
-4. print 금지. common/logger.py 의 logger만 쓴다.
+4. print 금지. 구조화 로그만 쓴다. 제품이 Python이면 common/logger.py 의 logger를 쓴다
+   (common/logger.py 는 Python 전용이다). 다른 언어면 그 언어의 표준 로거를 같은 원칙으로 쓴다
+   — Go=log/slog, Rust=tracing/log, JS·TS=pino/winston (logging-rule).
 5. rm -rf, 요구사항에 없는 기능 추가를 하지 않는다. git push는 작업(stage/feature) 브랜치에
    허용하되, main 직접 push와 force push(-f/--force)는 하지 않는다.
 6. 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md,
@@ -76,6 +78,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
    subagent는 자기 산출물만 쓴다.
 7. 비밀값(키·토큰·비밀번호)을 코드에 넣지 않는다(code-convention).
    dev-agent-team/selfcheck.py 의 보안 스캔으로 점검한다(하드코딩 비밀값·위험 호출, 결정적 검사).
+   selfcheck는 제품 언어를 감지해 python/go/rust/node 소스를 스캔한다. 테스트 수집 확인은
+   Python 전용이고, 다른 언어에서는 건너뛴다(테스트 실행은 checker가 제품 언어 러너로 한다).
 
 ## 가드레일 (자동 강제)
 - dev-agent-team/OWNER_QUESTION.md에 "답: 번호"가 없으면 도구 사용이 차단된다.

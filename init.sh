@@ -106,7 +106,8 @@ esac; }
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 role_effort() { echo "high"; }
 claude_tools() { case "$1" in
-  planner|tester) echo "Read, Write" ;;
+  planner)        echo "Read, Write, Grep" ;;
+  tester)         echo "Read, Write" ;;
   coder)          echo "Read, Write, Edit, Bash" ;;
   checker)        echo "Bash, Read" ;;
   documenter)     echo "Read, Write, Edit, Bash" ;;

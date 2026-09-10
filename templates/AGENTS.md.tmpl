@@ -32,6 +32,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 
 ## 파일 맵
 에이전트 작업/상태 파일은 모두 dev-agent-team/ 아래에 있다. tests/ logs/ common/ 은 제품 디렉터리다.
+- dev-agent-team/PROJECT_RULES.md : 이 프로젝트 고유 규칙(Owner가 쓴다). 재설치해도 남는다.
+  에이전트는 읽기만 한다.
 - dev-agent-team/REQUIREMENTS.md : 전체 요구사항. 항목마다 R번호. 수정하지 않는다.
 - dev-agent-team/PLAN.json : 단계 목록과 현재 단계. 기계용 진실.
 - dev-agent-team/PLAN.md : 사람용 계획 요약. dev-agent-team/PLAN.json에서 만든다.
@@ -88,6 +90,11 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
    R번호를 확인하므로 끊어진 고리는 이 검사로만 드러난다.
    `selfcheck.py --gate` 는 단계 merge 전에 반드시 돈다(12번). 결정적 3종(collect·print·trace)은
    병합을 막고, security·size는 후보·근사라 출력만 하고 막지 않는다.
+8. dev-agent-team/PROJECT_RULES.md 에 이 프로젝트 고유 규칙이 있으면 읽고 따른다.
+   그 파일은 이 헌법을 **좁히는 방향으로만** 작동한다 — 규칙을 더 엄하게 만들 수는 있어도
+   느슨하게 만들 수 없고, 안전장치(가드레일·C등급 정지·append-only 테스트·단일 작성자 원칙)는
+   무효화하지 못한다. 헌법과 충돌하면 헌법이 이긴다.
+   (PROCESS.md 는 반대다 — Owner 승인을 거친 절차 개정이라 파라미터가 헌법보다 우선한다.)
 
 ## 가드레일 (자동 강제)
 - dev-agent-team/OWNER_QUESTION.md에 "답: 번호"가 없으면 도구 사용이 차단된다.

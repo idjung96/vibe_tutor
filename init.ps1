@@ -197,6 +197,7 @@ Copy-Item (Join-Path $Src 'templates\docs\OWNER_GUIDE.md') (Join-Path $Target 'd
 Copy-Item (Join-Path $Src 'templates\docs\DEBUG_GUIDE.md') (Join-Path $Target 'dev-agent-team\guides\DEBUG_GUIDE.md') -Force
 foreach ($pair in @(
         @('templates\project\DECISIONS.md', 'dev-agent-team\DECISIONS.md'),
+        @('templates\project\PROJECT_RULES.md', 'dev-agent-team\PROJECT_RULES.md'),
         @('templates\project\TEST_LOG.md', 'dev-agent-team\TEST_LOG.md'),
         @('templates\project\docs-libs-INDEX.md', 'dev-agent-team\libs\INDEX.md'),
         @('templates\project\BACKLOG.md', 'dev-agent-team\BACKLOG.md'))) {

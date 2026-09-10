@@ -92,7 +92,7 @@ security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락
 ## 생성된 프로젝트의 디렉터리 규약
 
 에이전트 작업/상태 파일은 모두 **`dev-agent-team/`** 아래에 둔다(REQUIREMENTS, PLAN.json/PLAN.md,
-DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, DIRECTION(large), PROCESS(large), DESIGN(UI 단계), `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
+DECISIONS, TEST_LOG, OWNER_QUESTION, BACKLOG, PROJECT_RULES, DIRECTION(large), PROCESS(large), DESIGN(UI 단계), `dev-agent-team/libs/`, `dev-agent-team/answered/`, `dev-agent-team/guides/`).
 **에이전트가 실행하는 코드·스크립트도 `dev-agent-team/` 안에 둔다** — 가드 훅(`dev-agent-team/hooks/*.sh`),
 자가점검 도구(`dev-agent-team/selfcheck.py`). generic depth-1 폴더에 두면 제품 폴더와 헷갈리므로 금지.
 `tests/` `logs/` `common/` 은 **제품 디렉터리**(만들고 있는 프로그램의 것 — pytest 표준 위치,
@@ -106,7 +106,10 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md(7열 고정: 단계·신규·누적·전체 결과·재시도·리뷰지적·커밋,
 열 구성은 양 프로파일 동일) / dev-agent-team/OWNER_QUESTION.md 형식
 (기존 동작을 바꾸는 질문이면 영향 표 앞에 "지금 → 앞으로" AS-IS/TO-BE 표, DECISIONS에는 `- 변경:` 줄),
-dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치명 /
+dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용),
+dev-agent-team/PROJECT_RULES.md(Owner가 쓰는 프로젝트 고유 규칙, 재설치해도 보존 — 헌법을 좁히는
+방향으로만 작동하고 안전장치는 무효화 못 한다. Claude=@import, opencode=instructions, codex=헌법 지시),
+커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace 차단) /
 deny 목록 / append-only 테스트 원칙 /
 로그 형식(`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력, 언어 무관 — logging-rule이 정본) /

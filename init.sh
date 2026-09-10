@@ -180,6 +180,7 @@ chmod +x "$TARGET/dev-agent-team/hooks/"*.sh
 cp "$SRC/templates/docs/OWNER_GUIDE.md"     "$TARGET/dev-agent-team/guides/OWNER_GUIDE.md"
 cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/dev-agent-team/guides/DEBUG_GUIDE.md"
 [ -f "$TARGET/dev-agent-team/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/dev-agent-team/DECISIONS.md"
+[ -f "$TARGET/dev-agent-team/PROJECT_RULES.md" ] || cp "$SRC/templates/project/PROJECT_RULES.md" "$TARGET/dev-agent-team/PROJECT_RULES.md"
 [ -f "$TARGET/dev-agent-team/TEST_LOG.md" ]  || cp "$SRC/templates/project/TEST_LOG.md"  "$TARGET/dev-agent-team/TEST_LOG.md"
 migrate_test_log "$TARGET/dev-agent-team/TEST_LOG.md"
 [ -f "$TARGET/dev-agent-team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/dev-agent-team/libs/INDEX.md"

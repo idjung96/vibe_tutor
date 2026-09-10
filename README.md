@@ -88,6 +88,9 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
 프로젝트에 재실행해도 계획·결정·테스트 이력·백로그가 사라지지 않는다.
 
 **주의:**
+- **프로젝트 고유 규칙은 `dev-agent-team/PROJECT_RULES.md` 에 적는다.** `AGENTS.md`·`CLAUDE.md`·
+  역할 프롬프트는 재설치 때 **덮어써지므로** 거기에 적은 규칙은 사라진다. `PROJECT_RULES.md` 는
+  한 번만 만들어지고 이후 건드리지 않으므로 재설치를 넘어 살아남는다.
 - `common/logger.py` 는 **무조건 덮어쓴다**(고정 포맷 제품 로거 — Python 구현이자 로그 형식의
   참조 규격). 직접 손댄 경우 먼저 백업한다. 제품이 다른 언어면 1단계에서 `logging-rule` 의
   최소 구현으로 `common/logger.go|rs|js` 를 만든다.
@@ -125,7 +128,7 @@ templates/
   opencode/              # opencode.json, plugins/guard.js (opencode 오버레이)
   common/logger.py       # 제품용 공통 로거 (고정 포맷) → 설치 시 common/
   docs/                  # OWNER_GUIDE, DEBUG_GUIDE → 설치 시 dev-agent-team/guides/
-  project/               # DECISIONS, TEST_LOG, BACKLOG, libs INDEX, selfcheck.py → 설치 시 dev-agent-team/
+  project/               # DECISIONS, TEST_LOG, BACKLOG, PROJECT_RULES, libs INDEX, selfcheck.py → 설치 시 dev-agent-team/
 samples/sample-task-todo # 표본 과제 (모델 전환 테스트용)
 tests/verify_hooks.sh    # hook 실동작 검증 (init.sh가 자동 실행)
 ```
@@ -259,6 +262,10 @@ Owner 합의(C등급 정지)를 유지한다.
   전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
 - **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접
   push와 force push(`--force`/`-f`)는 금지 — force는 가드 deny로, main 금지는 AGENTS.md 규칙으로 강제한다.
+- **`PROJECT_RULES.md` 자동 주입은 Codex에서만 안 된다.** Claude는 `CLAUDE.md` 의 `@import`,
+  opencode는 `opencode.json` 의 `instructions` 로 세션에 자동으로 들어간다. Codex에는 import
+  메커니즘이 없어 `AGENTS.md` 지시(항상 지킨다 8번)에 의존한다. 서브에이전트에는 세 도구 모두
+  메인 세션이 해당 규칙을 넘겨준다(team-dev 절차).
 - **Codex는 `.codex` 설정이 trusted 프로젝트에서만 적용된다.** 설치 후 안내대로
   `~/.codex/config.toml` 의 `[projects]` 에 프로젝트를 등록해야 한다.
 - **Codex에는 서브에이전트가 없다.** 역할(공통 5 + UI 단계 designer + large 전용 4)은

@@ -4,6 +4,37 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.26.0] - 2026-09-10
+
+### Added
+- **`dev-agent-team/PROJECT_RULES.md` — Owner가 쓰는 프로젝트 고유 규칙 파일.**
+  재설치 동작을 실측해 보니 작업 산출물(REQUIREMENTS·PLAN·DECISIONS·BACKLOG·TEST_LOG·
+  제품 코드·git 이력)은 전부 보존되지만 `AGENTS.md`·`CLAUDE.md`·역할 프롬프트는 **무조건
+  덮어써진다.** 그런데 Owner가 프로젝트 고유 규칙(사내 라이브러리 강제, DB 접근 경로, 도메인
+  용어)을 적을 자리가 그 덮어써지는 파일뿐이었다. `PROCESS.md` 는 large 전용이고 절차 개정
+  (P번호·append-only·Owner 승인) 전용이라 도메인 규칙을 넣을 곳이 아니다.
+  `DECISIONS.md`·`BACKLOG.md` 와 같은 `[ -f ] ||` 패턴이라 **한 번만 만들어지고 이후 건드리지
+  않는다.**
+- 헌법 "항상 지킨다" **8번** 신설 — 이 파일이 있으면 따르되, **헌법을 좁히는 방향으로만**
+  작동한다. 규칙을 더 엄하게 만들 수는 있어도 느슨하게 만들 수 없고, 안전장치(가드레일·
+  C등급 정지·append-only 테스트·단일 작성자 원칙)는 무효화하지 못한다. 헌법과 충돌하면
+  헌법이 이긴다. **`PROCESS.md` 와는 방향이 반대**라는 점을 함께 적었다 — 그쪽은 Owner 승인을
+  거친 절차 개정이라 파라미터가 헌법보다 우선한다.
+
+### Changed
+- 세 에이전트에 세 겹으로 건다 — Claude는 `CLAUDE.md` 의 `@dev-agent-team/PROJECT_RULES.md`
+  import, opencode는 `opencode.json` 의 `instructions` 배열, codex는 import 메커니즘이 없어
+  `AGENTS.md` 지시에 의존한다.
+- **서브에이전트에는 메인 세션이 전달한다** — `PROCESS.md` 가 이미 쓰는 방식을 그대로 따라
+  team-dev 공통 머리말에 "역할을 호출할 때 그 역할 대상(또는 전체) 규칙을 함께 전달한다"를
+  넣었다. 서브에이전트가 프로젝트 CLAUDE.md를 상속하는지에 의존하지 않는 경로다.
+
+### Compatibility
+- 파일 맵과 헌법 규칙이 늘어나므로 `HARNESS_VERSION` 을 1.26.0으로 올린다.
+- **기존 프로젝트도 재설치하면 파일이 생긴다**(없을 때만 생성). 이미 있으면 그대로 둔다.
+- 역할 본문 10종, 가드 훅, `verify_hooks.sh`(18항목), `selfcheck.py` 는 건드리지 않았다.
+  `dev-agent-team/` 은 selfcheck의 `SKIP_DIRS` 라 새 파일이 스캔에 잡히지 않는다.
+
 ## [1.25.2] - 2026-09-07
 
 전체 리뷰에서 나온 정합성 결함 3건.

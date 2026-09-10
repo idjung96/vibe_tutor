@@ -13,6 +13,8 @@ UI/화면이 있는 단계에서는 designer도 호출한다(양 프로파일 �
 만들고 코드는 coder가 그 명세대로 구현한다.
 lib-research는 메인 세션이 직접 수행하는 절차다. 전용 서브에이전트(researcher 등)는 없다 —
 coder/tester/designer는 "lib-research 필요: {이름}"만 보고하고 멈춘다.
+역할을 호출할 때, dev-agent-team/PROJECT_RULES.md 에 그 역할 대상(또는 "전체") 규칙이 있으면
+함께 전달한다. 서브에이전트는 그 파일을 자동으로 읽지 않으므로 메인 세션이 넘겨야 한다.
 {{#IF_LARGE}}
 large 프로파일에는 lead(팀장)·reviewer·critic·security 역할도 있다.
 lead는 방향·우선순위를 정하고 백로그를 그루밍한다 — 계획 전(4-0)과 단계 시작 시(7-0)에 호출한다.

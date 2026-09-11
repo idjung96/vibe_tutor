@@ -113,7 +113,8 @@ dev-agent-team/.harness-manifest(AGENTS.md·CLAUDE.md 의 설치 시 해시 — 
 가려 편집했으면 덮지 않고 .new 로 둔다(conffile). 강제 장치는 이 규칙을 쓰지 않고 무조건 덮어쓴다),
 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단,
-Gate 1 계획 승인은 3지선다: 1.시작 / 2.수정→4번 재호출 / 3.중단(PLAN은 보존)) /
+Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다: 1.진행 / 2.수정 / 3.중단(산출물 보존),
+답하기 전 다음 단계로 넘어가지 않음) /
 테스트 실행 범위(구현 직후 11번·merge 직전은 FULL, 그 사이 루프 재검사는 SCOPED) 와
 dev-agent-team/.last-full-test(소스+tests 트리 해시 — FULL 실행 뒤 코드가 바뀌면 게이트가 막는다) /
 deny 목록(force push는 deny가 아니라 ask — Owner 승인 후 에이전트가 실행. 평가 순서는 deny→ask→allow) /

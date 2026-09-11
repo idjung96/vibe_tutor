@@ -33,7 +33,14 @@ reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12�
    - 이게 안 되면 곤란하다 하는 상황은?
    - 외부에 배포하는가? (네/아니오)
 2. 답을 dev-agent-team/REQUIREMENTS.md로 정리한다. 항목마다 R1, R2 번호를 붙인다.
-3. Owner에게 보여주고 "맞나요? 1.네 2.수정"으로 확인받는다. (Gate 0)
+3. dev-agent-team/REQUIREMENTS.md를 Owner에게 보여주고 묻는다:
+   "맞나요?  1. 네, 이대로   2. 고칠 곳이 있다   3. 지금은 하지 않겠다"
+   1: 계획으로 넘어간다(4번).
+   2: 무엇이 틀렸는지·빠졌는지 듣고 1번으로 돌아가 다시 묻는다. REQUIREMENTS.md를
+      갱신하고 다시 3번으로 온다.
+   3: 멈춘다. REQUIREMENTS.md는 지우지 않는다 —
+      다시 "개발 시작"이라고 하면 3번부터 이어간다.
+   Owner가 답하기 전에는 4번으로 넘어가지 않는다. (Gate 0)
 
 ## 계획
 {{#IF_LARGE}}
@@ -186,7 +193,11 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 {{/IF_SMALL}}
 
 ## 금지
-- 작업(stage/feature) 브랜치 push는 허용한다. 단 main 직접 push·force push는 하지 않는다.
+- 작업(stage/feature) 브랜치 push는 허용한다. main 직접 push는 하지 않는다.
+- force push는 **Owner가 명시적으로 요청할 때만** 시도한다. 스스로 필요하다고 판단해서
+  하지 않는다. 요청받아 시도하면 도구가 승인을 물어보고, 승인이 나면 진행한다.
+  승인이 나지 않거나 승인 창이 뜨지 않는 환경이면 하지 않고 Owner에게 그대로 보고한다 —
+  이 절차의 어느 단계도 force push를 필요로 하지 않으므로 진행이 막히지 않는다.
 - 파일을 삭제하지 않는다.
 - 요구사항에 없는 기능을 만들지 않는다.
 - Owner가 이전 결정을 바꾸자고 한다: C등급으로 처리한다.

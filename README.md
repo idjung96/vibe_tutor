@@ -273,8 +273,9 @@ Owner 합의(C등급 정지)를 유지한다.
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
    정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제).
    단계 merge 전 `selfcheck.py --gate` 게이트(collect·print·trace·full-test 차단)도 절차 계약이다.
-   Gate 1(계획 승인)은 **3지선다**다 — 1.시작 / 2.계획 수정 / 3.지금은 하지 않음.
-   3을 골라도 PLAN.json·PLAN.md는 지우지 않는다.
+   Gate 0(요구사항 확인)과 Gate 1(계획 승인)은 **3지선다**다 — 1.진행 / 2.수정 / 3.지금은
+   하지 않음. 3을 골라도 REQUIREMENTS.md·PLAN.json·PLAN.md는 지우지 않는다.
+   Owner가 답하기 전에는 다음 단계로 넘어가지 않는다.
    테스트 실행 범위(구현 직후·merge 직전은 FULL, 그 사이 루프는 SCOPED)와
    `dev-agent-team/.last-full-test` 신선도 강제도 계약에 포함된다.
 3. deny/차단 목록 (rm -rf, hard reset, git branch -D, python -c·node -e inline 실행 우회,
@@ -316,6 +317,9 @@ Owner 합의(C등급 정지)를 유지한다.
   불안정하고 Windows에서 미지원이다. opencode는 `.opencode/plugins/guard.js`로 차단한다
   (bun/node 필요). 강제가 불완전할 수 있으므로 AGENTS.md의 규칙을 병행하고, 기관 배포
   시 devcontainer/Docker로 프로젝트 디렉토리만 마운트하는 것을 권장한다.
+  컨테이너로 돌릴 때는 **반드시 TTY를 붙인다** — `docker run -it -v "$PWD":/work -w /work ...`
+  (devcontainer는 기본으로 붙는다). 승인을 물어보는 규칙(`ask`)이 있어서, TTY가 없으면
+  그 질문이 뜰 곳이 없다.
 - **Bash 경유 테스트 수정 차단은 휴리스틱이다.** `protect_tests.sh`/`guard.js`는 명령문에서
   쓰기 위치(`>` `>>`, `tee`, `sed -i`, `mv`, `cp`, `rm`, `truncate`, `dd of=`, `patch`)에 온
   경로만 골라 막는다. 읽기·실행(`cat`, `grep`, `pytest`)은 통과시켜야 하므로 셸을 완전히
@@ -333,8 +337,12 @@ Owner 합의(C등급 정지)를 유지한다.
   물어보고, main 금지는 AGENTS.md 규칙으로 강제한다.
 - **force push는 Owner 승인을 물어본다(ask).** 승인 프롬프트가 뜨지 않는 환경에서는 완화가
   아니라 구멍이 된다 — 특히 **opencode의 `ask`는 UI나 터미널이 없는 headless 컨테이너에서
-  멈추거나 예측 불가하게 동작한다.** 이 저장소는 컨테이너 실행을 권장하므로, 그 환경에서는
-  force push가 진행되지 않고 대기할 수 있다. 그때는 Owner가 직접 실행한다.
+  멈추거나 예측 불가하게 동작한다.** 세 겹으로 막아 둔다:
+  1. **절차상 force push는 Owner가 요청할 때만 시도한다.** 에이전트가 스스로 판단해서 하지
+     않으므로, Owner가 없는 headless 환경에서는 애초에 일어나지 않는다.
+  2. **컨테이너는 TTY를 붙여 띄운다**(위 `docker run -it`). 승인 창이 뜰 곳을 만들어 준다.
+  3. 그래도 승인이 안 되면 **하지 않고 Owner에게 보고**한다 — 이 절차는 force push 없이
+     끝까지 돌기 때문에 진행이 막히지 않는다.
   `git -C . push --force` 같은 우회 형태는 규칙이 잡지 못한다(deny였을 때도 같았다) —
   가드 규칙은 샌드박스가 아니라 과속방지턱이다.
 - **Windows에서는 줄 끝과 파이썬 이름이 문제가 된다.** Git for Windows 기본값

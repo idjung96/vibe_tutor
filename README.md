@@ -273,6 +273,8 @@ Owner 합의(C등급 정지)를 유지한다.
 2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
    정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제).
    단계 merge 전 `selfcheck.py --gate` 게이트(collect·print·trace·full-test 차단)도 절차 계약이다.
+   Gate 1(계획 승인)은 **3지선다**다 — 1.시작 / 2.계획 수정 / 3.지금은 하지 않음.
+   3을 골라도 PLAN.json·PLAN.md는 지우지 않는다.
    테스트 실행 범위(구현 직후·merge 직전은 FULL, 그 사이 루프는 SCOPED)와
    `dev-agent-team/.last-full-test` 신선도 강제도 계약에 포함된다.
 3. deny/차단 목록 (rm -rf, hard reset, git branch -D, python -c·node -e inline 실행 우회,

@@ -42,9 +42,13 @@ reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12�
      GROOMING 제안을 dev-agent-team/BACKLOG.md에 반영한다. planner는 이 방향을 따른다.
 {{/IF_LARGE}}
 4. planner를 호출한다. dev-agent-team/PLAN.json과 dev-agent-team/PLAN.md를 받는다.
-5. dev-agent-team/PLAN.md를 Owner에게 보여준다. 이렇게 묻는다:
-   "이대로 진행할까요? 1. 네, 시작 (추천)  2. 수정하고 싶다"
-   1을 받으면 진행한다. (Gate 1)
+5. dev-agent-team/PLAN.md를 Owner에게 보여준다. 계획 전체를 보여주고 이렇게 묻는다:
+   "이대로 진행할까요?  1. 네, 시작 (추천)   2. 계획을 고치고 싶다   3. 지금은 하지 않겠다"
+   1: 6번으로 진행한다.
+   2: 무엇을 고칠지 듣고 4번으로 돌아가 planner를 다시 호출한다. 그 뒤 다시 5번으로 온다.
+   3: 개발을 시작하지 않고 멈춘다. dev-agent-team/PLAN.json과 PLAN.md는 지우지 않는다 —
+      Owner가 다시 "개발 시작"이라고 하면 5번부터 이어간다.
+   Owner가 답하기 전에는 6번으로 넘어가지 않는다. (Gate 1)
 
 ## 백로그 (에이전트 협업)
 subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-team/BACKLOG.md의

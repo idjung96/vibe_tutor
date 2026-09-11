@@ -120,9 +120,14 @@ Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단,
 Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다: 1.진행 / 2.수정 / 3.중단(산출물 보존),
 답하기 전 다음 단계로 넘어가지 않음) /
-테스트 실행 범위(구현 직후 11번·merge 직전은 FULL, 그 사이 루프 재검사는 SCOPED) 와
+검사 시점 3분할(team-dev "언제 무엇을 하나"가 정본): commit 전(테스트 커밋 전 [collect],
+구현 커밋 전 --gate 조기 필터·checker SCOPED) / push 시(remote 있을 때만, 작업 브랜치 확인) /
+PR 시(main 합치기 직전 단계당 1회: checker FULL·--record-full-test·--gate 4종, large면 reviewer·security).
+구현 직후 11번도 FULL 이다. main 합류 지점은 하나 — remote 있으면 PR, 없으면 로컬 merge이고 게이트 내용은 같다. 와
 dev-agent-team/.last-full-test(소스+tests 트리 해시 — FULL 실행 뒤 코드가 바뀌면 게이트가 막는다) /
-deny 목록(force push는 deny가 아니라 ask — Owner 승인 후 에이전트가 실행. 평가 순서는 deny→ask→allow) /
+deny/ask 목록(git push 전체와 gh pr 은 **ask** — Owner 승인 후 에이전트가 실행. 브랜치 생성은
+도구 allow 로 두고 Gate 1 계획 승인이 일괄 승인을 겸한다(절차 필수라 도구 ask 면 headless 에서
+멈춘다). 계획에 없는 브랜치는 C등급. 평가 순서는 deny→ask→allow) /
 append-only 테스트 원칙 /
 로그 형식(`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력, 언어 무관 — logging-rule이 정본) /
 역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security) / 단일 작성자 원칙).

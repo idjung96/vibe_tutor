@@ -332,6 +332,15 @@ Owner 합의(C등급 정지)를 유지한다.
   `common/logger.go|rs|js` 를 만든다. 그 전까지는 `logs/app.log` 가 없을 수 있다.
   `selfcheck.py` 의 print·보안 스캔은 네 언어를 모두 다루지만, **테스트 수집 확인은 Python
   전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
+- **검사는 세 시점으로 나뉜다.** *commit 전*은 싼 결정적 검사만(테스트 커밋 전 `[collect]`,
+  구현 커밋 전 `--gate` 조기 필터·checker SCOPED). *push 시*는 remote가 있을 때만 돌고 작업
+  브랜치인지 확인한다. *PR 시*(main 합치기 직전, 단계당 1회)에 checker FULL·`--record-full-test`·
+  `--gate` 4종·reviewer·security(large)가 모인다. main 합류 지점은 하나다 — remote가 있으면 PR,
+  없으면 로컬 merge이고 **게이트 내용은 같아서** 오프라인·온프레미스에서도 절차가 그대로 돈다.
+  정본은 team-dev 스킬의 "언제 무엇을 하나" 표다.
+- **git push와 PR 생성은 `ask`다** — 에이전트가 승인을 받고 직접 실행한다. 브랜치 생성은 도구
+  권한으로는 allow고, 승인은 Gate 1(계획 승인)이 계획째로 겸한다. 절차 필수라 도구 `ask`로
+  두면 승인 창이 없는 headless 환경에서 1단계에서 멈추기 때문이다. 계획에 없는 브랜치는 C등급.
 - **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접
   push는 금지하고 force push(`--force`/`-f`)는 **Owner 승인 후 허용**한다 — force는 가드 ask로
   물어보고, main 금지는 AGENTS.md 규칙으로 강제한다.

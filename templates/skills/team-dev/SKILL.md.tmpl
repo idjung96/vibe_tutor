@@ -26,6 +26,26 @@ reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12�
 역할은 그 개정을 따르고, 유효 파라미터(RETRY_LIMIT 등)는 헌법 기본값보다 PROCESS.md를 우선한다.
 {{/IF_LARGE}}
 
+## 언제 무엇을 하나
+
+검사는 시점마다 다르다. 싼 검사는 자주, 비싼 검사는 합칠 때 한 번만 한다.
+아래가 정본이고, 각 번호의 본문이 이 표를 따른다.
+
+| 시점 | 언제 | 하는 일 |
+|---|---|---|
+| **commit 전** | 단계 안에서 커밋할 때마다 | 테스트 커밋 전(9번): `selfcheck.py {테스트파일}` 의 `[collect]` 줄<br>구현 커밋 전(12번): `selfcheck.py --gate`(조기 필터)·checker SCOPED 재검사 |
+| **push 시** | 작업 브랜치를 원격에 올릴 때(remote 있을 때만) | 브랜치명이 `stage/{번호}-{이름}`인지·main이 아닌지 확인. 승인 창이 뜨면 답을 기다린다 |
+| **PR 시** | `main`에 합치기 직전, 단계당 1회 | checker FULL → `--record-full-test` → `selfcheck.py --gate`(4종 전부) |
+
+{{#IF_LARGE}}
+PR 시점에는 reviewer와 security도 이때 호출한다(12번). 단계당 1회다.
+{{/IF_LARGE}}
+`main`에 합치는 지점은 하나다 — remote가 있으면 PR을 열고, 없으면 로컬 merge 한다.
+**두 경우의 게이트 내용은 같다.** 네트워크가 없어도 절차가 그대로 돈다.
+
+싼 검사를 앞으로 당기는 것이지 뒤의 게이트를 덜어내는 게 아니다. PR 시점 게이트는
+collect·print·trace·full-test 4종을 그대로 막는다.
+
 ## 0단계: 인터뷰 (dev-agent-team/REQUIREMENTS.md가 없을 때)
 1. Owner에게 차례로 묻는다. 한 번에 하나씩.
    - 누가 쓰는 프로그램인가?
@@ -51,6 +71,9 @@ reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12�
 4. planner를 호출한다. dev-agent-team/PLAN.json과 dev-agent-team/PLAN.md를 받는다.
 5. dev-agent-team/PLAN.md를 Owner에게 보여준다. 계획 전체를 보여주고 이렇게 묻는다:
    "이대로 진행할까요?  1. 네, 시작 (추천)   2. 계획을 고치고 싶다   3. 지금은 하지 않겠다"
+   계획에 단계 목록이 보이므로, 1번은 **이 계획의 단계 브랜치(stage/{번호}-{이름})를
+   만들어도 좋다는 승인**을 겸한다. 그렇게 물었다는 것을 함께 알린다 — 단계마다 다시
+   묻지 않기 위해서다.
    1: 6번으로 진행한다.
    2: 무엇을 고칠지 듣고 4번으로 돌아가 planner를 다시 호출한다. 그 뒤 다시 5번으로 온다.
    3: 개발을 시작하지 않고 멈춘다. dev-agent-team/PLAN.json과 PLAN.md는 지우지 않는다 —
@@ -64,6 +87,9 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 
 ## 단계 반복 (dev-agent-team/PLAN.json의 단계마다)
 6. git checkout -b stage/{번호}-{이름}
+   브랜치 생성은 Gate 1에서 이미 승인받았으므로 단계마다 다시 묻지 않는다.
+   계획(dev-agent-team/PLAN.json)에 없는 브랜치를 만들어야 하면 승인 범위 밖이다 —
+   C등급으로 올린다(14번).
 {{#IF_LARGE}}
 7-0. lead를 "방향" 모드로 호출한다. 백로그를 그루밍하고 이번 단계 초점을 정한다.
      변경을 dev-agent-team/DIRECTION.md와 dev-agent-team/BACKLOG.md에 반영한다.
@@ -92,20 +118,29 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 8. tester를 호출하고, 새 라이브러리가 있으면 lib-research 절차를 함께 수행한다.
    둘 다 끝나면 진행한다.
 {{/IF_LARGE}}
-9. 테스트를 커밋한다. 메시지: "[stage-N] 테스트 추가"
+9. 테스트를 커밋하기 전에 수집되는지 본다(commit 전 시점).
+   python3 dev-agent-team/selfcheck.py {이번 단계 테스트 파일}
+   출력의 [collect] 줄만 본다. FAIL이면 tester에게 고치게 한 뒤 다시 본다 —
+   수집도 안 되는 테스트로 구현을 시작하면 구현이 끝난 뒤에야 알게 된다.
+   나머지 줄([print]/[security]/[size]/[trace])은 여기서는 참고만 한다. 구현 전이라
+   아직 맞을 수 없다.
+   [collect]가 OK면 커밋한다. 메시지: "[stage-N] 테스트 추가"
 10. coder를 호출한다. 현재 단계의 goal과 done_check만 준다.
 11. checker를 FULL 모드로 호출한다. 구현 직후가 회귀를 잡기 가장 좋은 지점이다.
     이후 루프의 재호출은 SCOPED로 한다 — 이번 단계 테스트 파일과, 직전 FAILED가 가리킨
     파일만 준다. 러너가 선택을 지원하지 않으면 checker가 FULL로 돌린다.
 12. 결과를 처리한다:
     - PASS:
+      **여기부터가 commit 전 시점이다.**
       python3 dev-agent-team/selfcheck.py --gate 를 실행한다(양 프로파일 공통).
       python3 가 없는 환경(Windows 등)에서는 python 으로 부른다.
-      여기서는 조기 필터로 쓴다 — print·trace 위반을 리뷰 앞에서 거른다.
+      여기서는 조기 필터로 쓴다 — print·trace 위반을 리뷰와 PR 앞에서 거른다.
       [gate] FAIL이면 출력을 coder에게 주고 고치게 한 뒤 checker를 SCOPED로 다시 부른다.
       {{RETRY_LIMIT}}회를 넘으면 C등급으로 올린다(14번).
       [security]·[size] 지적은 차단하지 않는다. 있으면 dev-agent-team/BACKLOG.md
       "메모·주의"에 "- 유형 · 출처:stageN/selfcheck" 로 적고 진행한다.
+      여기까지 통과하면 구현을 커밋한다.
+      **여기부터가 PR 시점이다** — main에 합치기 직전에 단계당 1회만 한다.
 {{#IF_LARGE}}
       reviewer를 호출한다. 코드 리뷰와 테스트코드 리뷰를 받는다.
       RESULT가 CHANGES면 coder에게 FINDINGS를 주고 고치게 한다(테스트는 깨지 않는다).
@@ -122,7 +157,26 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       FULL이 PASS하면 python3 dev-agent-team/selfcheck.py --record-full-test 를 실행한다.
       python3 dev-agent-team/selfcheck.py --gate 를 다시 실행한다. 최종 코드 기준이고
       전체 실행 신선도(full-test)까지 본다. FAIL이면 merge하지 않는다.
-      커밋한다. main으로 merge한다. dev-agent-team/TEST_LOG.md를 갱신한다.
+      리뷰·보안 수정이 있었으면 그것도 커밋한다.
+
+      **push 시점** — git remote 가 있을 때만 한다. `git remote` 출력이 비면 건너뛴다.
+      브랜치가 stage/{번호}-{이름} 이고 main이 아닌 것을 확인한 뒤
+      git push -u origin stage/{번호}-{이름} 을 한다.
+      도구가 승인을 물어본다. 답을 기다린다 — 승인 없이 우회하지 않는다.
+      승인이 안 나거나 승인 창이 뜨지 않는 환경이면 push하지 않고 로컬 merge로 간다.
+      절차는 push 없이도 끝까지 돈다.
+
+      main에 합친다. remote와 gh 가 있으면 PR로, 없으면 로컬 merge로 한다 — 둘 다
+      위 게이트를 통과한 뒤에만 한다.
+      - PR: gh pr create 로 연다(승인을 물어본다). 본문에 이번 단계의 R번호,
+        checker FULL 결과, [gate] 결과를 적는다.
+{{#IF_LARGE}}
+        reviewer·security 지적 건수도 함께 적는다.
+{{/IF_LARGE}}
+        PR을 연 뒤 merge까지 갔으면 로컬 main도 맞춘다.
+      - 로컬 merge: git checkout main && git merge stage/{번호}-{이름}
+
+      dev-agent-team/TEST_LOG.md를 갱신한다.
 {{#IF_SMALL}}
       재시도 열에 이 단계에서 checker를 다시 부른 횟수를 적는다. 리뷰지적 열은 "-"로 둔다.
       13번으로.
@@ -193,7 +247,9 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 {{/IF_SMALL}}
 
 ## 금지
-- 작업(stage/feature) 브랜치 push는 허용한다. main 직접 push는 하지 않는다.
+- push와 PR은 도구가 승인을 물어본다. 물어보면 답을 기다린다 — 우회하지 않는다.
+  작업(stage/feature) 브랜치 push만 한다. main 직접 push는 하지 않는다.
+- 브랜치 생성은 Gate 1에서 계획째로 승인받았다. 계획에 없는 브랜치는 C등급으로 올린다.
 - force push는 **Owner가 명시적으로 요청할 때만** 시도한다. 스스로 필요하다고 판단해서
   하지 않는다. 요청받아 시도하면 도구가 승인을 물어보고, 승인이 나면 진행한다.
   승인이 나지 않거나 승인 창이 뜨지 않는 환경이면 하지 않고 Owner에게 그대로 보고한다 —

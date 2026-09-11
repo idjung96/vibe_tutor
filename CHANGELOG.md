@@ -4,6 +4,33 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.33.0] — 검사를 생애주기 시점으로 나눔 + push·PR 승인
+
+검사가 한 곳에 몰려 있었다. 12번 하나에 `--gate` 2회, checker FULL 2회, reviewer, security 가
+전부 들어 있고, **테스트 커밋(9번) 전에는 아무 검사도 돌지 않았다** — 수집조차 안 되는 테스트로
+구현을 시작하고, 구현이 다 끝난 뒤에야 `collect` 로 발견했다.
+
+| 검사 | 지금(AS-IS) | 앞으로(TO-BE) |
+|---|---|---|
+| `selfcheck` collect | merge 직전에만 | **테스트 커밋 전(9번)** + PR 시 |
+| `--gate` 조기 필터·checker SCOPED | 12번 뭉텅이 안 | **commit 전**으로 명시 |
+| checker FULL·`--gate` 4종·reviewer·security | 12번 뭉텅이 안 | **PR 시**(main 합치기 직전, 단계당 1회) |
+| push·PR | 절차에 아예 없음 | **신설** — remote 있을 때만. 없으면 지금처럼 로컬 merge |
+
+싼 검사를 앞으로 **당긴 것**이지 뒤를 덜어낸 게 아니다. PR 시점 게이트는 collect·print·trace·
+full-test 4종을 그대로 막는다. main 합류 지점은 하나이고 PR/로컬 merge 양쪽의 게이트 내용이
+같아서, 오프라인·온프레미스(small)에서 절차가 그대로 돈다.
+
+- team-dev 스킬에 **"언제 무엇을 하나" 시점별 표**를 정본으로 신설. AGENTS.md 규칙 9를 시점 기준으로 재작성.
+- **`git push` 전체와 `gh pr` 을 `ask`** 로. `settings.json` allow 에서 `git push` 를 빼고
+  (`ask` 가 `allow` 를 이기므로 동작은 같지만 목록이 모순돼 보였다) `opencode.json` 도 맞췄다.
+- **브랜치 생성은 도구 allow 로 두고 Gate 1 이 일괄 승인을 겸한다.** 브랜치 생성은 매 단계
+  필요한 절차 필수 행위라, force push 와 달리 도구 `ask` 로 두면 승인 창이 없는 headless
+  환경에서 1단계에서 절차가 멈춘다. Gate 1 은 어차피 Owner 가 답하는 지점이라 새로 막히는
+  곳이 생기지 않는다. 계획에 없는 브랜치는 C등급.
+
+역할 본문 10종·가드 훅 2종·`guard.js`·`selfcheck.py` 는 불변.
+
 ## [1.32.0] — Windows 클론 경로로 새던 가드 구멍
 
 설치 시점은 보호되고 있었지만 **설치 이후 Windows 에서 클론하는 경로**가 무방비였다.

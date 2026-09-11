@@ -1,0 +1,17 @@
+# 줄 끝 고정. Git for Windows 기본값(core.autocrlf=true)으로 클론하면 .sh 가 CRLF가 되어
+# 가드 훅이 깨진다 — block_on_owner_question 은 조용히 통과하고(정지 메커니즘 무력화),
+# protect_tests 는 구문 오류로 모든 작업을 막는다. init.ps1 이 그 파일을 대상 프로젝트로
+# 그대로 복사하므로 생성되는 모든 프로젝트에 전파된다.
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.md   text eol=lf
+*.tmpl text eol=lf
+*.conf text eol=lf
+
+# PowerShell 은 CRLF 가 관행이고 Windows에서만 실행된다.
+*.ps1  text eol=crlf

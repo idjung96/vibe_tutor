@@ -87,6 +87,7 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 12. 결과를 처리한다:
     - PASS:
       python3 dev-agent-team/selfcheck.py --gate 를 실행한다(양 프로파일 공통).
+      python3 가 없는 환경(Windows 등)에서는 python 으로 부른다.
       [gate] FAIL이면 출력을 coder에게 주고 고치게 한 뒤 checker를 다시 부른다.
       {{RETRY_LIMIT}}회를 넘으면 C등급으로 올린다(14번).
       [security]·[size] 지적은 차단하지 않는다. 있으면 dev-agent-team/BACKLOG.md

@@ -158,7 +158,7 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
   `.opencode` 파일이, large→small 로 바꾸면 `lead`/`reviewer`/`critic`/`security`
   역할 파일과 `DIRECTION.md` 가 **고아로 남는다**. 의도적으로 줄일 때는 해당 파일을 직접 지운다.
   (small↔large 전환은 상태가 전부 파일에 있어 무손실이다 — "호환성 계약" 절 참조.)
-- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 18/18 PASS를 확인한다. 실패 시
+- 재실행 끝에 `verify_hooks.sh` 가 자동으로 돌아 가드레일 20/20 PASS를 확인한다. 실패 시
   종료 코드 1로 멈추므로, 그 상태로 쓰지 말고 점검한다.
 
 ## 저장소 구조
@@ -287,7 +287,7 @@ Owner 합의(C등급 정지)를 유지한다.
 ## 배포 전 검증 (관리자용)
 
 1. `./init.sh --profile small --agent claude,opencode /tmp/t1` 과 `--profile large /tmp/t2` 실행,
-   hook 검증 18항목 전부 PASS 확인 (init.sh가 자동 수행). small은 codex를 포함할 수 없다(에러).
+   hook 검증 20항목 전부 PASS 확인 (init.sh가 자동 수행). small은 codex를 포함할 수 없다(에러).
 2. samples/sample-task-todo 로 양 프로파일 실주행:
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰
@@ -316,6 +316,11 @@ Owner 합의(C등급 정지)를 유지한다.
   전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
 - **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접
   push와 force push(`--force`/`-f`)는 금지 — force는 가드 deny로, main 금지는 AGENTS.md 규칙으로 강제한다.
+- **Windows에서는 줄 끝과 파이썬 이름이 문제가 된다.** Git for Windows 기본값
+  (`core.autocrlf=true`)으로 클론하면 `.sh` 가 CRLF가 되어 가드 훅이 깨지므로
+  `.gitattributes` 로 LF를 고정한다. `protect_tests.sh` 는 `python3` → `python` 순으로
+  실행기를 찾고, **둘 다 없거나 추출이 실패하면 통과시키지 않고 차단한다**(fail-closed).
+  설치 시 `verify_hooks.sh` 19·20번이 이 두 상태를 탐지한다.
 - **`PROJECT_RULES.md` 자동 주입은 Codex에서만 안 된다.** Claude는 `CLAUDE.md` 의 `@import`,
   opencode는 `opencode.json` 의 `instructions` 로 세션에 자동으로 들어간다. Codex에는 import
   메커니즘이 없어 `AGENTS.md` 지시(항상 지킨다 8번)에 의존한다. 서브에이전트에는 세 도구 모두

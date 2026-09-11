@@ -4,6 +4,42 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.26.1] - 2026-09-11
+
+Windows 환경 리뷰에서 **가드가 무력화되는 경로 2개를 재현**해 고쳤다.
+
+### Fixed
+- **`.gitattributes` 신설 — CRLF로부터 가드 훅 보호.** Git for Windows 기본값
+  (`core.autocrlf=true`)으로 이 저장소를 클론하면 `.sh` 가 CRLF가 되고, `init.ps1` 이 그대로
+  대상 프로젝트에 복사해 **생성되는 모든 프로젝트로 전파**된다. 재현 결과 두 가드가 반대
+  방향으로 깨진다 — `protect_tests.sh` 는 구문 오류(exit 2)로 **모든 Write/Edit/Bash를 막고**,
+  `block_on_owner_question.sh` 는 exit 255로 크래시해 **C등급 정지가 강제되지 않는다**.
+  CRLF 상태의 bash 스크립트를 정상 동작시킬 방법은 없으므로 예방(`.gitattributes`)과
+  탐지(`verify_hooks` 19번)로 간다. `.ps1` 만 `eol=crlf`, 나머지는 `eol=lf`.
+- **`protect_tests.sh` 를 fail-closed 로.** `python3 -c` 로 경로를 추출하는데 실패 시
+  `[ -n "$FILES" ] || exit 0` 이라 **조용히 통과**했다. `python3` 만 없는 PATH에서 기존 테스트
+  수정이 exit 0으로 허용되는 것을 재현했다. Windows에서 이건 예외가 아니라 기본값에 가깝다 —
+  python.org 설치본은 `python.exe` 만 만들고 `python3.exe` 는 만들지 않는다.
+  이제 `python3` → `python` 순으로 실행기를 찾고, **둘 다 없거나 추출기가 비정상 종료하면
+  exit 2로 막는다.** "추출 성공 + 해당 없음"(정상 통과)과는 종료코드로 구분한다 — 섞으면
+  CRLF `protect_tests` 처럼 모든 작업이 막힌다.
+- 게이트 명령 두 곳(`team-dev` 12번, `coder` 자체 점검)에 `python3` 가 없으면 `python` 으로
+  부르라는 단서를 병기했다. 1.25.2에서 `python3` 로 통일하면서 Windows 대안을
+  `selfcheck.py` docstring에만 적어, **명령이 발행되는 자리에는 없었다.**
+
+### Added
+- `verify_hooks.sh` 18항목 → **20항목**.
+  19번은 설치된 훅에 CR 바이트가 있는지(= CRLF 체크아웃 탐지), 20번은 `python3`·`python` 이
+  없는 PATH에서 `protect_tests.sh` 가 **차단(2)** 하는지를 고정한다.
+
+### Compatibility
+- 가드 동작이 fail-open → fail-closed 로 바뀌므로 `HARNESS_VERSION` 을 1.26.1로 올린다.
+- `guard.js` 는 Node 내장 로직이라 이 문제가 없다 — 세 경로 동기화 규약상 동작이 갈리는
+  부분이 아님을 주석에 남겼다.
+- 정상 환경(파이썬 있음)의 기존 18항목은 그대로다. 특히 `pytest tests/x_test.py > /tmp/o`
+  (실행·리다이렉션)와 `cat tests/x_test.py`(조회)는 여전히 허용된다 — 여기서 막히면 checker가
+  죽는다.
+
 ## [1.26.0] - 2026-09-10
 
 ### Added

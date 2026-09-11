@@ -122,5 +122,35 @@ printf '{"tool_input":{"command":"cat %s"}}' "$T" | "$H/protect_tests.sh" >/dev/
 check "bash 테스트 파일 조회 허용" 0 $?
 rm -f "$T"
 
+# 19. (Windows 회귀) 설치된 훅이 LF 인가.
+#     Git for Windows 기본값(autocrlf=true)으로 클론하면 .sh 가 CRLF가 되고,
+#     init.ps1 이 그대로 복사해 모든 생성 프로젝트로 전파된다. CRLF면 bash가
+#     block_on_owner_question 을 조용히 통과시키고(정지 무력화) protect_tests 는
+#     구문 오류로 모든 작업을 막는다. CRLF 스크립트를 정상 동작시킬 방법은 없으므로
+#     .gitattributes 로 예방하고 여기서 그 상태를 탐지한다.
+CR_FOUND=0
+for hk in "$H/block_on_owner_question.sh" "$H/protect_tests.sh"; do
+  if LC_ALL=C grep -q "$(printf '\r')" "$hk" 2>/dev/null; then
+    echo "    CRLF 발견: $hk"
+    CR_FOUND=1
+  fi
+done
+check "설치된 가드 훅이 LF 줄끝" 0 $CR_FOUND
+
+# 20. (Windows 회귀) python3/python 이 없으면 통과시키지 않고 차단하는가(fail-closed).
+#     Windows(python.org 설치본)에는 python3 가 없다. 예전엔 추출 실패가 exit 0 이라
+#     기존 테스트 수정이 조용히 허용됐다.
+NOPY="$TARGET/dev-agent-team/.nopy-bin"
+mkdir -p "$NOPY"
+for c in bash sh cat grep sed awk printf ls dirname basename env command; do
+  p=$(command -v "$c" 2>/dev/null) && ln -sf "$p" "$NOPY/$c"
+done
+T2="$TARGET/tests/stage_9_test.py"
+mkdir -p "$TARGET/tests"; printf 'def test_r9():\n    assert True\n' > "$T2"
+printf '{"tool_name":"Write","tool_input":{"file_path":"tests/stage_9_test.py","content":"x"}}' \
+  | ( cd "$TARGET" && PATH="$NOPY" bash "$H/protect_tests.sh" ) >/dev/null 2>&1
+check "python 부재 시 테스트 보호를 차단으로 처리" 2 $?
+rm -f "$T2"; rm -rf "$NOPY"
+
 echo "[hook 검증] PASS $PASS / FAIL $FAIL"
 [ "$FAIL" -eq 0 ]

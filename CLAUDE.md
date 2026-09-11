@@ -37,13 +37,13 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh ~/projects/my-app                     # 자동 판별. 온프레미스→small이면 all에 codex가 있어 에러 → claude,opencode로
 
 # hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
-./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 18항목 PASS여야 함
+./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 20항목 PASS여야 함
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
 ```
 
-변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 18/18 PASS →
+변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 20/20 PASS →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
 TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
 

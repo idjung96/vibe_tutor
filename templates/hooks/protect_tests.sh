@@ -15,7 +15,17 @@
 #            셸 파싱은 휴리스틱이라 변수 확장·명령 치환으로 우회 가능하다(과속방지턱).
 # 출력은 "테스트 파일로 판정된 경로"만 — 판정 정규식·쓰기 대상 규칙은 guard.js 와 동기화한다.
 INPUT=$(cat)
-FILES=$(printf '%s' "$INPUT" | python3 -c '
+
+# 파이썬 실행기를 고른다. Windows(python.org 설치본)에는 python3 가 없고 python 만 있다.
+# 둘 다 없으면 추출기를 못 돌리므로 보호가 불가능하다 -> 통과시키지 않고 막는다(fail-closed).
+# guard.js 는 Node 내장 로직이라 이 분기가 필요 없다 — 동작이 갈리는 부분이 아니다.
+PY=$(command -v python3 || command -v python || true)
+if [ -z "$PY" ]; then
+  echo "protect_tests: python3/python 을 찾지 못해 테스트 보호를 확인할 수 없다. 파이썬을 설치하라." >&2
+  exit 2
+fi
+
+FILES=$(printf '%s' "$INPUT" | "$PY" -c '
 import sys, json, re, os, shlex
 raw = sys.stdin.read()
 out = []
@@ -91,6 +101,14 @@ for p in out:
     if TEST_RE.search(p.replace("\\", "/")):
         print(p)
 ' 2>/dev/null)
+EXTRACT_RC=$?
+
+# 추출기가 비정상 종료했으면(구문 오류·예외) 판정을 신뢰할 수 없다 -> 막는다.
+# "정상 종료 + 해당 파일 없음"과 반드시 구분한다. 섞으면 모든 작업이 막힌다.
+if [ "$EXTRACT_RC" -ne 0 ]; then
+  echo "protect_tests: 경로 추출에 실패해 테스트 보호를 확인할 수 없다(파이썬 오류)." >&2
+  exit 2
+fi
 
 [ -n "$FILES" ] || exit 0
 while IFS= read -r FILE; do

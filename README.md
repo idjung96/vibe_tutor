@@ -332,6 +332,14 @@ Owner 합의(C등급 정지)를 유지한다.
   `common/logger.go|rs|js` 를 만든다. 그 전까지는 `logs/app.log` 가 없을 수 있다.
   `selfcheck.py` 의 print·보안 스캔은 네 언어를 모두 다루지만, **테스트 수집 확인은 Python
   전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
+- **산출물을 점수로 재고, 그 점수로 재시도할지 정한다.** `selfcheck.py --score` 가 코드와
+  문서에 축별 0~100점을 매겨 `dev-agent-team/SCORE.json` 에 남긴다(test·rule·trace·doc·size,
+  기준 95). **점수는 아무것도 막지 않는다** — 막는 것은 `--gate` 4종이다. 점수가 정하는 건
+  하나다: 다시 시킬 것인가(retry), 더 시켜도 안 되니 Owner에게 올릴 것인가(escalate).
+  판정은 축 **합계**의 변화로 한다 — 최저가 아닌 축을 고쳐도 개선이 보이게 하기 위해서다.
+  `test` 축은 FULL 실행 기록이 없으면 **상한 75**라, 테스트를 실제로 돌리지 않으면 기준에
+  닿을 수 없다. large 에는 요구사항 충족도를 보는 `evaluator` 역할이 더해진다(품질은
+  reviewer, 결정은 critic — 보는 것이 겹치지 않는다).
 - **검사는 세 시점으로 나뉜다.** *commit 전*은 싼 결정적 검사만(테스트 커밋 전 `[collect]`,
   구현 커밋 전 `--gate` 조기 필터·checker SCOPED). *push 시*는 remote가 있을 때만 돌고 작업
   브랜치인지 확인한다. *PR 시*(main 합치기 직전, 단계당 1회)에 checker FULL·`--record-full-test`·

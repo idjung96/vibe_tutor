@@ -7,6 +7,7 @@
     python3 dev-agent-team/selfcheck.py                          # 언어 감지 후 전체 점검
     python3 dev-agent-team/selfcheck.py --gate                   # 단계 병합 게이트 (아래 참조)
     python3 dev-agent-team/selfcheck.py --record-full-test       # FULL 테스트 통과 상태를 기록
+    python3 dev-agent-team/selfcheck.py --score                  # 산출물 점수 -> SCORE.json (아래 참조)
     python3 dev-agent-team/selfcheck.py tests/stage_1_test.py    # 특정 테스트만 수집 확인
     (Windows에 python3 가 없으면 python 으로 부른다.)
 
@@ -17,7 +18,13 @@ exit code는 결정적 3종(collect / print / trace)만 반영한다. security �
 게이트는 full-test 도 본다 — checker 를 FULL 로 돌리고 --record-full-test 로 기록한 뒤
 코드나 테스트가 바뀌었으면 차단한다. 루프에서 선별 실행만 하고 merge 하는 것을 막는 장치다.
 
-하는 일(모두 읽기 전용):
+--score 는 코드와 문서에 축별 0~100 점을 매겨 dev-agent-team/SCORE.json 에 남긴다.
+**아무것도 막지 않는다** — 막는 것은 --gate 가 한다. 점수가 정하는 것은 하나뿐이다:
+다시 시켜볼 것인가(retry), 아니면 더 시켜도 안 되니 Owner에게 올릴 것인가(escalate).
+직전 점수와 비교해 오르지 않으면 escalate 다. test 축은 FULL 실행 기록이 없으면 75가
+상한이라, 테스트를 실제로 돌리지 않으면 기준(95)에 닿을 수 없다.
+
+하는 일(--score 의 SCORE.json 쓰기와 --record-full-test 외에는 읽기 전용):
 1. 제품 언어를 감지한다(마커 파일 우선). python / go / rust / node 를 안다.
 2. 테스트 수집 확인 — python이면 pytest --collect-only. 다른 언어는 건너뛴다
    (테스트 수집·실행은 checker가 제품 언어의 러너로 매 단계 수행한다).
@@ -70,6 +77,19 @@ README_PATH = Path("README.md")
 TESTS_DIR = Path("tests")
 # 마지막 FULL 테스트 실행의 소스 트리 해시. 기록자와 검증자가 같은 코드라 파리티 위험이 없다.
 FULL_TEST_MARK = Path("dev-agent-team/.last-full-test")
+
+# ── 점수(--score) ──────────────────────────────────────────────────────────
+# 점수는 **아무것도 막지 않는다**. 막는 것은 --gate 의 결정적 4종이 한다.
+# 점수가 정하는 것은 하나뿐이다 — "다시 시켜볼 것인가, 아니면 Owner에게 올릴 것인가".
+SCORE_PATH = Path("dev-agent-team/SCORE.json")
+SCORE_PASS = 95          # 이 값 미만인 축이 있으면 재시도 대상
+SCORE_TEST_CAP = 75      # FULL 실행 기록이 없거나 낡았으면 test 축 상한.
+#                          95에 닿을 수 없게 해서 "안 돌리고 done" 을 기계적으로 막는다.
+SCORE_MIN_GAIN = 5       # 재시도했는데 이만큼도 안 오르면 더 시키지 않는다(막힌 것이다)
+SCORE_PENALTY = {"rule": 10, "size": 5, "trace": 20, "doc": 20}   # 건당 감점
+SCORE_HISTORY = 20       # SCORE.json 에 남기는 추세 길이
+# 각 스캔이 건수를 남긴다. 반환값(bool)은 건드리지 않는다 — 게이트 동작이 바뀌면 안 된다.
+COUNTS = {}
 # R번호 인식. 실제 명명 규약을 그대로 받는다:
 #   "R1: 저장한다"(요구사항·README), "R1"(covers), test_r1_x / r1_saves(구분자 뒤),
 #   TestR1_Save(Go 캐멀케이스 — 소문자 뒤 대문자 R).
@@ -220,6 +240,7 @@ def scan_print(langs):
             if re.search(pat, line):
                 hits.append(f"{path}:{num}: {stripped}")
                 break
+    COUNTS["print"] = len(hits)
     if hits:
         print(f"[print] {len(hits)}건 발견 (logger 사용 권장):")
         for hit in hits:
@@ -295,6 +316,7 @@ def scan_trace(include_current=False):
         "current": current + 1 if include_current else current,
         "all_done": current > max((int(s.get("id", 0)) for s in stages), default=0),
     })
+    COUNTS["trace"] = len(problems)
     if problems:
         print(f"[trace] {len(problems)}건 문제:")
         for detail, _ in problems:
@@ -536,6 +558,7 @@ def scan_size(langs):
             hits.extend(_size_hits(path, found))
     label = (f"기준: 함수 {MAX_FUNC_LINES}줄·인자 {MAX_FUNC_ARGS}개·중첩 {MAX_NESTING}단계, "
              "python 외는 근사")
+    COUNTS["size"] = len(hits)
     if hits:
         print(f"[size] {len(hits)}건 발견 ({label}):")
         for hit in hits:
@@ -599,10 +622,106 @@ def check_full_test(langs):
     return True
 
 
+def _doc_gap():
+    """끝난 단계의 R번호 중 README.md 에 없는 것의 수. 문서 평가 축이다.
+
+    scan_trace 의 README 검사는 '모든 단계가 끝났을 때'만 문제로 친다(개발 중간에
+    아직 안 쓴 문서를 실패로 치면 안 되니까). 점수는 단계마다 보므로 여기서는
+    '이미 끝난 단계'의 R번호만 대상으로 따로 센다. 판정 기준을 바꾸는 게 아니라
+    같은 재료로 다른 것을 재는 것이다.
+    """
+    if not REQUIREMENTS_PATH.is_file() or not PLAN_PATH.is_file():
+        return None                      # 프로젝트 초기 — 잴 수 없다
+    plan = _read_plan()
+    if plan is None:
+        return None
+    stages, current = plan
+    stage_of = _stage_of(stages)
+    readme_rs = _rs_in(README_PATH.read_text(encoding="utf-8")) if README_PATH.is_file() else set()
+    done = [num for num, sid in stage_of.items() if sid <= current]
+    return sum(1 for num in done if num not in readme_rs)
+
+
+def _axis(count, penalty):
+    """건수를 0~100 점으로. 건수를 못 쟀으면(None) 만점으로 둔다 — 잴 수 없는 것으로 깎지 않는다."""
+    if count is None:
+        return 100
+    return max(0, 100 - penalty * count)
+
+
+def compute_score(langs):
+    """축별 점수를 낸다. 전부 기존 스캔이 이미 잰 값에서 나온다."""
+    full_ok = check_full_test(langs)
+    scores = {
+        "test": 100 if full_ok else SCORE_TEST_CAP,
+        "rule": _axis(COUNTS.get("print"), SCORE_PENALTY["rule"]),
+        "trace": _axis(COUNTS.get("trace"), SCORE_PENALTY["trace"]),
+        "doc": _axis(_doc_gap(), SCORE_PENALTY["doc"]),
+        "size": _axis(COUNTS.get("size"), SCORE_PENALTY["size"]),
+    }
+    return scores
+
+
+def write_score(scores):
+    """SCORE.json 을 쓰고 재시도 판정을 낸다. 직전 점수와 비교해야 '나아지는 중인지' 안다."""
+    # 추세는 SCORE.json 안에 누적한다. TEST_LOG 에 열을 하나 더 만들지 않은 이유는,
+    # 열 추가가 옛 프로젝트 마이그레이션(awk·PowerShell 양쪽)을 또 부르기 때문이다.
+    # 여기에 담으면 마이그레이션 없이 같은 것을 얻는다. lead 가 회고에서 읽는다.
+    prev, history = None, []
+    if SCORE_PATH.is_file():
+        try:
+            old = json.loads(SCORE_PATH.read_text(encoding="utf-8"))
+            prev = old.get("total")
+            history = old.get("history") or []
+        except (json.JSONDecodeError, OSError):
+            prev, history = None, []
+
+    # overall 은 '가장 나쁜 축'이라 보고용으로 좋지만, 진전 판정에는 못 쓴다 —
+    # 최저가 아닌 축을 고치면 overall 이 그대로여서 개선을 안 한 것처럼 보인다.
+    # 그래서 진전은 축 합계(total)로 본다. 어느 축이 나아지든 움직인다.
+    overall = min(scores.values())
+    total = sum(scores.values())
+    below = sorted(k for k, v in scores.items() if v < SCORE_PASS)
+    delta = None if prev is None else total - prev
+
+    if not below:
+        verdict = "pass"
+    elif delta is not None and delta < SCORE_MIN_GAIN:
+        verdict = "escalate"      # 다시 시켜도 안 오른다 — Owner에게 올린다
+    else:
+        verdict = "retry"
+
+    stage = None
+    if PLAN_PATH.is_file():
+        plan = _read_plan()
+        if plan is not None:
+            stage = plan[1]
+
+    history = (history + [{"stage": stage, "total": total, "verdict": verdict}])[-SCORE_HISTORY:]
+    out = {"stage": stage, "scores": scores, "overall": overall, "total": total,
+           "below": below, "prev_total": prev, "delta": delta, "verdict": verdict,
+           "history": history}
+    SCORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SCORE_PATH.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    print("[score] " + "  ".join(f"{k}={v}" for k, v in sorted(scores.items())))
+    print(f"[score] 최저축={overall} (기준 {SCORE_PASS})  합계={total}"
+          + (f" 직전합계={prev} 변화={delta:+d}" if delta is not None else " 직전=없음"))
+    if verdict == "pass":
+        print("[score] PASS — 모든 축이 기준 이상이다.")
+    elif verdict == "retry":
+        print(f"[score] RETRY — 기준 미달: {', '.join(below)}. 격차를 주고 다시 시킨다.")
+    else:
+        print(f"[score] ESCALATE — 기준 미달({', '.join(below)})인데 합계가 직전 대비 "
+              f"{SCORE_MIN_GAIN}점도 오르지 않았다. 더 시키지 말고 Owner에게 올린다(C등급).")
+    return out
+
+
 def main():
     args = sys.argv[1:]
     gate = "--gate" in args
     record = "--record-full-test" in args
+    score = "--score" in args
     rest = [a for a in args if not a.startswith("--")]
     target = rest[0] if rest else None
 
@@ -615,6 +734,8 @@ def main():
             record_full_test(langs)
         if gate:
             print("[gate] PASS")
+        if score:
+            print("[score] SKIP (제품 언어 없음 — 아직 잴 것이 없다)")
         return 0
 
     print(f"[lang] {', '.join(langs)}")
@@ -630,6 +751,11 @@ def main():
         "size": scan_size(langs),
         "trace": scan_trace(include_current=gate),
     }
+    if score:
+        # 점수는 아무것도 막지 않는다. 판정(pass/retry/escalate)만 남기고 exit 0.
+        write_score(compute_score(langs))
+        return 0
+
     if not gate:
         # 기본 모드는 개발 중 아무 때나 돌리는 용도라 전체 실행 신선도를 보지 않는다.
         return 0 if all(results.values()) else 1

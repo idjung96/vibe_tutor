@@ -162,11 +162,12 @@ role_desc() { case "$1" in
   lead)       echo "개발 방향·우선순위를 정하고 백로그를 그루밍하며, 단계·최종 회고로 절차 개선안을 낸다." ;;
   critic)     echo "결정과 계획에 반론을 펴고 고위험·모호성을 가린다." ;;
   security)   echo "코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다." ;;
+  evaluator)  echo "산출물이 요구한 것을 했는지 축별로 점수와 격차를 낸다." ;;
 esac; }
 role_model() { case "$1" in
   coder|tester|designer)      echo "opus" ;;
   checker|documenter)         echo "sonnet" ;;
-  planner|lead|reviewer|critic|security) echo "opus" ;;
+  planner|lead|reviewer|critic|security|evaluator) echo "opus" ;;
 esac; }
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 role_effort() { echo "high"; }
@@ -177,7 +178,7 @@ claude_tools() { case "$1" in
   checker)        echo "Bash, Read" ;;
   documenter)     echo "Read, Write, Edit, Bash" ;;
   designer)       echo "Read, Write" ;;
-  reviewer|lead|critic|security) echo "Read, Grep" ;;
+  reviewer|lead|critic|security|evaluator) echo "Read, Grep" ;;
 esac; }
 opencode_tools() { case "$1" in
   planner|tester) printf '  write: true\n  edit: false\n  bash: false' ;;
@@ -185,7 +186,7 @@ opencode_tools() { case "$1" in
   checker)        printf '  write: false\n  edit: false\n  bash: true' ;;
   documenter)     printf '  write: true\n  edit: true\n  bash: true' ;;
   designer)       printf '  write: true\n  edit: false\n  bash: false' ;;
-  reviewer|lead|critic|security) printf '  write: false\n  edit: false\n  bash: false' ;;
+  reviewer|lead|critic|security|evaluator) printf '  write: false\n  edit: false\n  bash: false' ;;
 esac; }
 
 # TEST_LOG.md 5열 -> 7열 마이그레이션 (v1.22.0에서 재시도·리뷰지적 열이 생겼다).
@@ -228,7 +229,7 @@ migrate_test_log() {
 # 역할 목록: designer는 양 프로파일 공통(UI 단계에서만 호출).
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 ROLES="planner tester coder checker documenter designer"
-[ "$PROFILE" = large ] && ROLES="$ROLES lead reviewer critic security"
+[ "$PROFILE" = large ] && ROLES="$ROLES lead reviewer critic security evaluator"
 
 echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
 

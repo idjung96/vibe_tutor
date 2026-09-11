@@ -4,6 +4,36 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.34.0] — 산출물 평가와 재시도 판단
+
+지금까지 재시도는 checker 의 PASS/FAIL 이진값과 RETRY_LIMIT 만 보고 정했다. 그래서
+**명백히 막혔어도 제한 횟수를 끝까지 태웠다.** 나아지고 있는지를 잴 방법이 없었기 때문이다.
+carve-harness 의 verify-loop(축별 0~100, 기준 95, 미달이면 격차를 주고 재생성)를 이 저장소의
+설계 원칙(*주관 판정은 large 전용, 객관 검증은 양 프로파일 공용*)에 맞춰 두 층으로 들여왔다.
+
+| | 지금(AS-IS) | 앞으로(TO-BE) |
+|---|---|---|
+| 재시도 판단 | checker PASS/FAIL + RETRY_LIMIT | 축별 점수와 **직전 대비 변화** |
+| 막혔을 때 | 제한 횟수를 다 쓸 때까지 반복 | 합계가 안 오르면 즉시 C등급(Owner) |
+| 문서 평가 | 없음(개발이 다 끝난 뒤 README 유무만) | `doc` 축 — 끝난 단계의 R번호가 README 에 있는가 |
+| "테스트 안 돌리고 done" | `--gate` 의 full-test 가 merge 때 막음 | 그대로 + `test` 축 **상한 75** 로 점수에서도 불가능 |
+
+- **층 A(양 프로파일, LLM 없음)**: `selfcheck.py --score` → `dev-agent-team/SCORE.json`.
+  test·rule·trace·doc·size 각 0~100. 전부 기존 스캔이 이미 재던 값에서 나온다 — 새 분석이 아니다.
+- **층 B(large 전용)**: `evaluator` 역할 신설. 요구사항 충족도(match·contract·doc)와 GAP 만 본다.
+  품질은 reviewer, 결정은 critic — 보는 것이 겹치지 않게 역할 본문에서 선을 그었다.
+- **점수는 아무것도 막지 않는다.** 막는 것은 `--gate` 의 결정적 4종 그대로다. 점수가 정하는
+  것은 재시도 여부뿐이다(pass / retry / escalate).
+- **진전은 최저축이 아니라 축 합계로 본다.** 구현 중 발견한 것이다 — 최저축으로 재면
+  최저가 아닌 축을 고쳤을 때 변화가 0으로 보여 **개선 중인데도 escalate** 했다.
+- 추세는 `SCORE.json` 의 `history` 에 누적한다. TEST_LOG 에 열을 더하면 옛 프로젝트
+  마이그레이션(awk·PowerShell 양쪽)을 또 불러야 해서, 같은 것을 마이그레이션 없이 얻는 쪽을 골랐다.
+
+golden-set / pass@k 는 들이지 않았다 — 같은 케이스를 k회 반복 실행하는 게 전제인데
+우리 절차는 단계당 1패스라 비용이 맞지 않는다.
+
+기존 역할 10종·가드 훅 2종·`guard.js`·권한 파일·TEST_LOG 는 불변.
+
 ## [1.33.0] — 검사를 생애주기 시점으로 나눔 + push·PR 승인
 
 검사가 한 곳에 몰려 있었다. 12번 하나에 `--gate` 2회, checker FULL 2회, reviewer, security 가

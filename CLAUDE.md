@@ -82,11 +82,12 @@ codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
-차이 13종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
+차이 14종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
 coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, reviewer 역할(large 전용 코드·테스트 리뷰),
 lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md; 회고 모드 2종(단계 12c·최종 17b)과 절차 자기개선 제안 IMPROVE),
 critic 역할(large 전용 결정 심의·합의; 명확하면 자율, 모호·고위험은 Owner),
-security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락 점검(large만),
+evaluator 역할(large 전용 요구사항 충족도 match·contract·doc 점수와 GAP — 품질은 reviewer, 결정은 critic 과 겹치지 않게),
+security 역할(large 전용 보안 점검), evaluator 역할(large 전용 충족도 평가), planner 요구사항 충돌·누락 점검(large만),
 절차 자기개선(large 전용 lead 회고→[절차개선] BACKLOG 누적→7-0/17b에서 Owner 승인→PROCESS.md 오버레이). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
 
 ## 생성된 프로젝트의 디렉터리 규약
@@ -117,6 +118,12 @@ git 이 줄끝을 바꾼 것을 Owner 편집으로 오인하면 헌법이 영영
 클론 시 block_on_owner_question 이 exit 255 로 실패해 정지 메커니즘이 무력화된다.
 Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 블록만 덧붙인다),
 커밋 메시지, 브랜치명 /
+산출물 점수(`selfcheck.py --score` → dev-agent-team/SCORE.json: test·rule·trace·doc·size 각 0~100,
+기준 95. **아무것도 막지 않는다** — 막는 것은 --gate 다. 정하는 것은 재시도 여부뿐이다:
+pass / retry / escalate(축 합계가 직전 대비 SCORE_MIN_GAIN 미만이면 더 시키지 않고 C등급).
+test 축은 FULL 실행 기록이 없으면 상한 75라 테스트를 실제로 돌리지 않으면 기준에 닿을 수 없다.
+진전 판정은 최저축이 아니라 **축 합계**로 본다 — 최저가 아닌 축을 고쳐도 개선이 보이게.
+추세는 SCORE.json 의 history 에 누적한다(TEST_LOG 는 7열 그대로) /
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단,
 Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다: 1.진행 / 2.수정 / 3.중단(산출물 보존),
 답하기 전 다음 단계로 넘어가지 않음) /

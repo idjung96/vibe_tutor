@@ -22,6 +22,8 @@ lead는 회고도 한다 — 단계가 merge된 뒤(12c)와 전체가 끝난 뒤
 lead는 팀의 일하는 방식에 반복 문제가 보이면 개선안(IMPROVE)도 낸다 — Owner 승인 후 PROCESS.md에 누적한다.
 critic은 planner 결정에 반론을 펴 합의를 만든다(7b). 명확하면 자율 진행, 모호·고위험은 Owner 합의로 올린다.
 reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12번). 보안 위험은 고위험으로 다룬다.
+evaluator는 같은 자리에서 산출물이 요구한 것을 했는지 점수와 격차(GAP)를 낸다 — 품질 지적이
+아니라 재시도 입력이다. reviewer(품질)·critic(결정)과 보는 것이 겹치지 않는다.
 역할을 호출할 때, PROCESS.md에 그 역할 대상(또는 "전체") 개정이 있으면 함께 전달한다.
 역할은 그 개정을 따르고, 유효 파라미터(RETRY_LIMIT 등)는 헌법 기본값보다 PROCESS.md를 우선한다.
 {{/IF_LARGE}}
@@ -35,10 +37,10 @@ reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12�
 |---|---|---|
 | **commit 전** | 단계 안에서 커밋할 때마다 | 테스트 커밋 전(9번): `selfcheck.py {테스트파일}` 의 `[collect]` 줄<br>구현 커밋 전(12번): `selfcheck.py --gate`(조기 필터)·checker SCOPED 재검사 |
 | **push 시** | 작업 브랜치를 원격에 올릴 때(remote 있을 때만) | 브랜치명이 `stage/{번호}-{이름}`인지·main이 아닌지 확인. 승인 창이 뜨면 답을 기다린다 |
-| **PR 시** | `main`에 합치기 직전, 단계당 1회 | checker FULL → `--record-full-test` → `selfcheck.py --gate`(4종 전부) |
+| **PR 시** | `main`에 합치기 직전, 단계당 1회 | checker FULL → `--record-full-test` → `selfcheck.py --gate`(4종 전부) → `selfcheck.py --score`(재시도 판정) |
 
 {{#IF_LARGE}}
-PR 시점에는 reviewer와 security도 이때 호출한다(12번). 단계당 1회다.
+PR 시점에는 reviewer·security·evaluator도 이때 호출한다(12번). 단계당 1회다.
 {{/IF_LARGE}}
 `main`에 합치는 지점은 하나다 — remote가 있으면 PR을 열고, 없으면 로컬 merge 한다.
 **두 경우의 게이트 내용은 같다.** 네트워크가 없어도 절차가 그대로 돈다.
@@ -157,7 +159,25 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       FULL이 PASS하면 python3 dev-agent-team/selfcheck.py --record-full-test 를 실행한다.
       python3 dev-agent-team/selfcheck.py --gate 를 다시 실행한다. 최종 코드 기준이고
       전체 실행 신선도(full-test)까지 본다. FAIL이면 merge하지 않는다.
-      리뷰·보안 수정이 있었으면 그것도 커밋한다.
+      **산출물 평가 — 다시 시킬지 여기서 정한다.**
+      python3 dev-agent-team/selfcheck.py --score 를 실행한다(양 프로파일 공통).
+      코드와 문서에 축별 점수를 매겨 dev-agent-team/SCORE.json 에 남긴다.
+      점수는 아무것도 막지 않는다 — 막는 것은 위의 [gate]다. 점수가 정하는 것은 하나다:
+      다시 시킬 것인가, 아니면 Owner에게 올릴 것인가.
+{{#IF_LARGE}}
+      evaluator도 호출한다. 요구사항 충족도(match·contract·doc)와 GAP을 받는다.
+      evaluator는 품질을 보지 않는다(그건 reviewer). 요구한 것을 했는지만 본다.
+{{/IF_LARGE}}
+      [score] 줄의 판정대로 한다:
+      - PASS: 그대로 진행한다.
+      - RETRY: 기준 미달인 축의 격차를 넘겨 다시 시킨다. 코드 축(test·rule·trace·size)은
+        coder에게, 문서 축(doc)은 documenter에게 준다. 고친 뒤 checker를 SCOPED로 부르고
+        --score를 다시 돌린다.
+      - ESCALATE: 다시 시켜도 합계가 오르지 않는다는 뜻이다. 더 시키지 않고 C등급으로
+        올린다(14번). SCORE.json의 below와 history를 질문에 함께 적는다.
+      재시도는 {{RETRY_LIMIT}}회를 넘기지 않는다. 넘으면 ESCALATE와 같이 처리한다.
+
+      리뷰·보안·평가 수정이 있었으면 그것도 커밋한다.
 
       **push 시점** — git remote 가 있을 때만 한다. `git remote` 출력이 비면 건너뛴다.
       브랜치가 stage/{번호}-{이름} 이고 main이 아닌 것을 확인한 뒤

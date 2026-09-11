@@ -166,6 +166,7 @@ function Role-Desc($r) { switch ($r) {
     'lead' { '개발 방향·우선순위를 정하고 백로그를 그루밍하며, 단계·최종 회고로 절차 개선안을 낸다.' }
     'critic' { '결정과 계획에 반론을 펴고 고위험·모호성을 가린다.' }
     'security' { '코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다.' }
+    'evaluator' { '산출물이 요구한 것을 했는지 축별로 점수와 격차를 낸다.' }
 } }
 function Role-Model($r) { switch ($r) {
     'coder' { 'opus' }
@@ -178,6 +179,7 @@ function Role-Model($r) { switch ($r) {
     'reviewer' { 'opus' }
     'security' { 'opus' }
     'critic' { 'opus' }
+    'evaluator' { 'opus' }
 } }
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 function Role-Effort($r) { 'high' }
@@ -190,6 +192,7 @@ function Claude-Tools($r) { switch ($r) {
     'lead' { 'Read, Grep' }
     'critic' { 'Read, Grep' }
     'security' { 'Read, Grep' }
+    'evaluator' { 'Read, Grep' }
 } }
 function Opencode-Tools($r) { switch ($r) {
     'planner' { "  write: true`n  edit: false`n  bash: false" }
@@ -202,6 +205,7 @@ function Opencode-Tools($r) { switch ($r) {
     'lead' { "  write: false`n  edit: false`n  bash: false" }
     'critic' { "  write: false`n  edit: false`n  bash: false" }
     'security' { "  write: false`n  edit: false`n  bash: false" }
+    'evaluator' { "  write: false`n  edit: false`n  bash: false" }
 } }
 
 # TEST_LOG.md 5열 -> 7열 마이그레이션 (v1.22.0에서 재시도·리뷰지적 열이 생겼다).
@@ -244,7 +248,7 @@ function Migrate-TestLog($f) {
 # 역할 목록: designer는 양 프로파일 공통(UI 단계에서만 호출).
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 $Roles = @('planner', 'tester', 'coder', 'checker', 'documenter', 'designer')
-if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security') }
+if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security', 'evaluator') }
 
 Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -join ' ') → $Target"
 

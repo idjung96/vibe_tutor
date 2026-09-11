@@ -137,9 +137,9 @@ rm -f "$T"
 # 19. (Windows 회귀) 설치된 훅이 LF 인가.
 #     Git for Windows 기본값(autocrlf=true)으로 클론하면 .sh 가 CRLF가 되고,
 #     init.ps1 이 그대로 복사해 모든 생성 프로젝트로 전파된다. CRLF면 bash가
-#     block_on_owner_question 을 조용히 통과시키고(정지 무력화) protect_tests 는
-#     구문 오류로 모든 작업을 막는다. CRLF 스크립트를 정상 동작시킬 방법은 없으므로
-#     .gitattributes 로 예방하고 여기서 그 상태를 탐지한다.
+#     block_on_owner_question 이 exit 255 로 실행 실패하는데, 그 값은 "차단"(exit 2)으로
+#     해석되지 않아 결국 통과된다(정지 무력화). CRLF 스크립트를 정상 동작시킬 방법은
+#     없으므로 .gitattributes 로 예방하고(21번) 여기서 그 상태를 탐지한다.
 CR_FOUND=0
 for hk in "$REAL_H/block_on_owner_question.sh" "$REAL_H/protect_tests.sh"; do
   if LC_ALL=C grep -q "$(printf '\r')" "$hk" 2>/dev/null; then
@@ -165,6 +165,15 @@ printf '{"tool_name":"Write","tool_input":{"file_path":"tests/stage_9_test.py","
   | ( cd "$SANDBOX" && PATH="$STUB:$PATH" bash "$H/protect_tests.sh" ) >/dev/null 2>&1
 check "파이썬 추출 실패 시 차단(fail-closed)" 2 $?
 rm -f "$T2"; rm -rf "$STUB"
+
+# 21. (Windows 회귀) 대상 프로젝트의 .gitattributes 가 가드 훅 줄끝을 고정하는가.
+#     19번이 "이미 CRLF 가 된 상태"를 잡는다면, 이건 "앞으로 CRLF 가 되지 않게" 하는
+#     예방 장치가 실제로 깔렸는지를 본다. 이게 없으면 Owner 가 이 프로젝트를 커밋한 뒤
+#     Windows 에서 클론하는 순간 훅이 깨지고, 설치 때만 도는 19번은 그걸 못 잡는다.
+GA_FILE="$TARGET/.gitattributes"
+GA_MISSING=1
+if [ -f "$GA_FILE" ] && grep -q 'team-dev-harness-eol-guard' "$GA_FILE"; then GA_MISSING=0; fi
+check ".gitattributes 가 가드 훅 줄끝을 고정" 0 $GA_MISSING
 
 echo "[hook 검증] PASS $PASS / FAIL $FAIL"
 [ "$FAIL" -eq 0 ]

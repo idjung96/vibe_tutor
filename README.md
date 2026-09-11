@@ -302,7 +302,7 @@ Owner 합의(C등급 정지)를 유지한다.
 ## 배포 전 검증 (관리자용)
 
 1. `./init.sh --profile small --agent claude,opencode /tmp/t1` 과 `--profile large /tmp/t2` 실행,
-   hook 검증 20항목 전부 PASS 확인 (init.sh가 자동 수행). small은 codex를 포함할 수 없다(에러).
+   hook 검증 21항목 전부 PASS 확인 (init.sh가 자동 수행). small은 codex를 포함할 수 없다(에러).
 2. samples/sample-task-todo 로 양 프로파일 실주행:
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰
@@ -346,10 +346,16 @@ Owner 합의(C등급 정지)를 유지한다.
   `git -C . push --force` 같은 우회 형태는 규칙이 잡지 못한다(deny였을 때도 같았다) —
   가드 규칙은 샌드박스가 아니라 과속방지턱이다.
 - **Windows에서는 줄 끝과 파이썬 이름이 문제가 된다.** Git for Windows 기본값
-  (`core.autocrlf=true`)으로 클론하면 `.sh` 가 CRLF가 되어 가드 훅이 깨지므로
-  `.gitattributes` 로 LF를 고정한다. `protect_tests.sh` 는 `python3` → `python` 순으로
+  (`core.autocrlf=true`)으로 클론하면 `.sh` 가 CRLF가 되어 가드 훅이 깨진다 —
+  `block_on_owner_question.sh` 는 exit 255로 실행 실패하는데 그 값은 "차단"(exit 2)으로
+  해석되지 않아 **Owner 질문 대기 중에도 에이전트가 그냥 진행한다**. 두 군데를 고정한다:
+  이 저장소는 자체 `.gitattributes` 로, **생성되는 프로젝트는 설치되는 `.gitattributes`**
+  로 막는다(Owner가 이미 쓰던 파일이면 덮지 않고 필요한 줄만 끝에 덧붙인다).
+  `AGENTS.md`·`CLAUDE.md` 는 줄 끝을 고정하지 않는 대신 **conffile 해시를 CR 제거 후**
+  계산한다 — 그러지 않으면 git이 바꾼 줄 끝을 Owner 편집으로 오인해 `.new` 만 쌓이고
+  헌법이 영영 갱신되지 않는다. `protect_tests.sh` 는 `python3` → `python` 순으로
   실행기를 찾고, **둘 다 없거나 추출이 실패하면 통과시키지 않고 차단한다**(fail-closed).
-  설치 시 `verify_hooks.sh` 19·20번이 이 두 상태를 탐지한다.
+  설치 시 `verify_hooks.sh` 19·20·21번이 이 세 상태를 탐지한다.
 - **`PROJECT_RULES.md` 자동 주입은 Codex에서만 안 된다.** Claude는 `CLAUDE.md` 의 `@import`,
   opencode는 `opencode.json` 의 `instructions` 로 세션에 자동으로 들어간다. Codex에는 import
   메커니즘이 없어 `AGENTS.md` 지시(항상 지킨다 8번)에 의존한다. 서브에이전트에는 세 도구 모두

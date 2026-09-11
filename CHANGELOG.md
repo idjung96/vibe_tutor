@@ -4,6 +4,27 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.32.0] — Windows 클론 경로로 새던 가드 구멍
+
+설치 시점은 보호되고 있었지만 **설치 이후 Windows 에서 클론하는 경로**가 무방비였다.
+생성된 프로젝트를 커밋한 뒤 Git for Windows 기본값(`core.autocrlf=true`)으로 클론하면:
+
+| | 지금(AS-IS) | 앞으로(TO-BE) |
+|---|---|---|
+| `dev-agent-team/hooks/*.sh` | CRLF 가 되어 `block_on_owner_question.sh` 가 exit 255. 그 값은 차단(exit 2)으로 해석되지 않아 **Owner 질문 대기 중에도 에이전트가 진행** | 설치되는 `.gitattributes` 가 LF 로 고정 → 클론해도 CRLF 가 되지 않음 |
+| `AGENTS.md`·`CLAUDE.md` | CRLF 가 되어 conffile 해시 불일치 → Owner 가 손댄 적 없는데 "직접 수정" 오탐 + `.new`. **이후 하네스 업데이트가 헌법에 영영 반영되지 않음** | 해시를 CR 제거 후 계산 → 줄끝 변화는 무시, 진짜 편집은 그대로 보존 |
+| 검증 | `verify_hooks` 19번이 *이미 CRLF 가 된 상태*만 탐지(설치 때만 돎) | 21번이 *예방 장치가 깔렸는지*를 함께 확인 |
+
+- `templates/project/gitattributes` 신설 → 설치 시 대상 프로젝트의 `.gitattributes` 로.
+  Owner 가 이미 쓰던 파일이면 **덮지 않고** `team-dev-harness-eol-guard` 블록만 끝에 덧붙인다(멱등).
+- `sha256_of`(init.sh)·`Sha256Of`(init.ps1) 이 CR 을 지우고 해시한다. LF 파일은 해시가
+  그대로라 **기존 manifest 와 호환**되고, 이미 CRLF 로 망가진 프로젝트는 재설치 때 복구된다.
+- 탐지 패턴을 ASCII 센티널로 뒀다 — PowerShell 5.1 의 `Select-String` 이 BOM 없는 UTF-8 의
+  한글을 못 읽어 매 설치마다 중복 추가될 수 있었다.
+- `verify_hooks.sh` 21항목으로. 19번 주석의 사실 오류(조용한 통과 → exit 255 실행 실패) 정정.
+
+역할 본문·권한 파일(`settings.json`·`opencode.json`)·가드 훅 로직·`selfcheck.py` 는 불변.
+
 ## [1.31.0] - 2026-09-11
 
 앞선 보고에서 남겨둔 두 가지를 고치되, 문서 경고가 아니라 **요구사항을 만족하는 방안**을 넣었다.

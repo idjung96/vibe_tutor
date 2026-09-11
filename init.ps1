@@ -86,9 +86,16 @@ function Render-String($SrcFile) {
 $Script:Manifest = $null
 $Script:ManifestNew = New-Object System.Collections.Generic.List[string]
 
+# init.sh 의 sha256_of 와 같게 CR 을 지우고 해시한다. Windows 에서 git 이 줄끝을 바꿔도
+# (core.autocrlf=true) Owner 편집으로 오인해 .new 를 남기지 않게 하려는 것이다.
 function Sha256Of($f) {
     if (-not (Test-Path -LiteralPath $f)) { return '' }
-    return (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash.ToLower()
+    $bytes = [System.IO.File]::ReadAllBytes($f)
+    $buf = New-Object System.Collections.Generic.List[byte]
+    foreach ($b in $bytes) { if ($b -ne 13) { $buf.Add($b) } }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $hash = $sha.ComputeHash($buf.ToArray()) } finally { $sha.Dispose() }
+    return (($hash | ForEach-Object { $_.ToString('x2') }) -join '')
 }
 
 function Manifest-Get($rel) {
@@ -250,6 +257,21 @@ foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team
 Copy-Item (Join-Path $Src 'templates\common\logger.py') (Join-Path $Target 'common\logger.py') -Force
 Copy-Item (Join-Path $Src 'templates\project\selfcheck.py') (Join-Path $Target 'dev-agent-team\selfcheck.py') -Force
 Copy-Item (Join-Path $Src 'templates\hooks\*.sh')       (Join-Path $Target 'dev-agent-team\hooks\') -Force
+# 가드 훅의 줄끝을 대상 프로젝트의 git 에서도 고정한다(init.sh 와 동작이 같아야 한다).
+# 없으면 Owner 가 커밋한 뒤 Windows 에서 클론할 때 .sh 가 CRLF 가 되어 정지 메커니즘이 깨진다.
+$ga = Join-Path $Target '.gitattributes'
+$gaSrc = Join-Path $Src 'templates\project\gitattributes'
+if (-not (Test-Path -LiteralPath $ga)) {
+    Copy-Item $gaSrc $ga -Force
+}
+elseif (-not (Select-String -LiteralPath $ga -Pattern 'team-dev-harness-eol-guard' -SimpleMatch -Quiet)) {
+    # Owner 파일은 덮지 않고 필요한 줄만 끝에 덧붙인다(뒤 규칙이 이긴다).
+    $cur = [System.IO.File]::ReadAllText($ga)
+    $adds = [System.IO.File]::ReadAllText($gaSrc)
+    [System.IO.File]::WriteAllText($ga, $cur + "`n" + $adds, $Utf8NoBom)
+    Write-Host '알림: .gitattributes 끝에 가드 훅 줄끝 고정 규칙을 추가했습니다.'
+}
+
 Copy-Item (Join-Path $Src 'templates\docs\OWNER_GUIDE.md') (Join-Path $Target 'dev-agent-team\guides\OWNER_GUIDE.md') -Force
 Copy-Item (Join-Path $Src 'templates\docs\DEBUG_GUIDE.md') (Join-Path $Target 'dev-agent-team\guides\DEBUG_GUIDE.md') -Force
 foreach ($pair in @(

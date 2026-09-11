@@ -37,13 +37,13 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh ~/projects/my-app                     # 자동 판별. 온프레미스→small이면 all에 codex가 있어 에러 → claude,opencode로
 
 # hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
-./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 20항목 PASS여야 함
+./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 21항목 PASS여야 함
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
 ```
 
-변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 20/20 PASS →
+변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 21/21 PASS →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
 TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
 
@@ -110,7 +110,12 @@ dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용),
 dev-agent-team/PROJECT_RULES.md(Owner가 쓰는 프로젝트 고유 규칙, 재설치해도 보존 — 헌법을 좁히는
 방향으로만 작동하고 안전장치는 무효화 못 한다. Claude=@import, opencode=instructions, codex=헌법 지시),
 dev-agent-team/.harness-manifest(AGENTS.md·CLAUDE.md 의 설치 시 해시 — 재설치 때 Owner 편집 여부를
-가려 편집했으면 덮지 않고 .new 로 둔다(conffile). 강제 장치는 이 규칙을 쓰지 않고 무조건 덮어쓴다),
+가려 편집했으면 덮지 않고 .new 로 둔다(conffile). 해시는 **CR 을 지우고** 계산한다: Windows 에서
+git 이 줄끝을 바꾼 것을 Owner 편집으로 오인하면 헌법이 영영 갱신되지 않는다.
+강제 장치는 이 규칙을 쓰지 않고 무조건 덮어쓴다),
+.gitattributes(가드 훅 `*.sh` 의 줄끝을 대상 프로젝트의 git 에서도 LF 로 고정 — 없으면 Windows
+클론 시 block_on_owner_question 이 exit 255 로 실패해 정지 메커니즘이 무력화된다.
+Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 블록만 덧붙인다),
 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단,
 Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다: 1.진행 / 2.수정 / 3.중단(산출물 보존),

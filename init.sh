@@ -87,11 +87,15 @@ render() {
 MANIFEST="$TARGET/dev-agent-team/.harness-manifest"
 rm -f "$MANIFEST.tmp"   # 이전 실행이 남긴 찌꺼기에 덧붙지 않게
 
+# CR 을 지우고 해시한다. Windows 에서 git 이 줄끝을 바꿔도(core.autocrlf=true) Owner 가
+# 편집한 것으로 오인해 .new 를 남기지 않게 하려는 것이다. 대상은 AGENTS.md·CLAUDE.md
+# 두 텍스트 문서뿐이라 CR 제거가 안전하다. LF 파일은 해시가 그대로라 기존 manifest 와 호환된다.
 sha256_of() {
+  [ -f "$1" ] || { echo ""; return; }
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | cut -d' ' -f1
+    tr -d '\r' < "$1" | sha256sum | cut -d' ' -f1
   elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | cut -d' ' -f1
+    tr -d '\r' < "$1" | shasum -a 256 | cut -d' ' -f1
   else
     echo ""   # 해시 도구가 없으면 비교를 포기하고 보수적으로 간다
   fi
@@ -249,6 +253,18 @@ migrate_test_log "$TARGET/dev-agent-team/TEST_LOG.md"
 if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/dev-agent-team/DIRECTION.md" ]; then
   cp "$SRC/templates/project/DIRECTION.md" "$TARGET/dev-agent-team/DIRECTION.md"
 fi
+# 가드 훅의 줄끝을 대상 프로젝트의 git 에서도 고정한다. 이게 없으면 Owner 가 이 프로젝트를
+# 커밋한 뒤 Windows 에서 클론할 때 .sh 가 CRLF 가 되어 정지 메커니즘이 무력화된다.
+# Owner 가 이미 쓰던 .gitattributes 는 덮지 않고 필요한 줄만 끝에 덧붙인다(뒤 규칙이 이긴다).
+GA="$TARGET/.gitattributes"
+if [ ! -f "$GA" ]; then
+  cp "$SRC/templates/project/gitattributes" "$GA"
+elif ! grep -q 'team-dev-harness-eol-guard' "$GA"; then
+  printf '\n' >> "$GA"
+  cat "$SRC/templates/project/gitattributes" >> "$GA"
+  echo "알림: .gitattributes 끝에 가드 훅 줄끝 고정 규칙을 추가했습니다."
+fi
+
 touch "$TARGET/logs/.gitkeep" "$TARGET/dev-agent-team/answered/.gitkeep"
 
 # ── 5. Claude Code 오버레이 ───────────────────────────────────

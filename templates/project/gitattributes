@@ -1,0 +1,7 @@
+# team-dev-harness-eol-guard : 줄 끝 고정 — 이 줄들은 지우지 마세요.
+# Git for Windows 기본값(core.autocrlf=true)으로 이 프로젝트를 클론하면 .sh 가 CRLF 가
+# 되어 dev-agent-team/hooks/ 의 가드 훅이 깨집니다. block_on_owner_question.sh 는 실행
+# 자체가 실패하고(exit 255), 그 값은 "차단"으로 해석되지 않으므로 Owner 질문 대기 중에도
+# 에이전트가 그냥 작업을 계속합니다 — 정지 메커니즘이 무력화됩니다.
+*.sh                   text eol=lf
+dev-agent-team/hooks/* text eol=lf

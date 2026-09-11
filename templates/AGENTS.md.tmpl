@@ -32,6 +32,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
 
 ## 파일 맵
 에이전트 작업/상태 파일은 모두 dev-agent-team/ 아래에 있다. tests/ logs/ common/ 은 제품 디렉터리다.
+- dev-agent-team/.last-full-test : 마지막 FULL 테스트 실행 시점의 소스+tests 해시.
+  게이트가 이걸로 '최종 코드로 전체를 돌았는지'를 확인한다. 메인 세션만 쓴다.
 - dev-agent-team/PROJECT_RULES.md : 이 프로젝트 고유 규칙(Owner가 쓴다). 재설치해도 남는다.
   에이전트는 읽기만 한다.
 - dev-agent-team/REQUIREMENTS.md : 전체 요구사항. 항목마다 R번호. 수정하지 않는다.
@@ -88,8 +90,12 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
    selfcheck는 R번호 추적성(REQUIREMENTS→PLAN covers→테스트 이름→README)과 코드 규모
    임계(함수 40줄·인자 5개·중첩 3단계)도 기계적으로 대조한다. 각 역할은 자기 산출물 안에서만
    R번호를 확인하므로 끊어진 고리는 이 검사로만 드러난다.
-   `selfcheck.py --gate` 는 단계 merge 전에 반드시 돈다(12번). 결정적 3종(collect·print·trace)은
-   병합을 막고, security·size는 후보·근사라 출력만 하고 막지 않는다.
+   `selfcheck.py --gate` 는 단계 merge 전에 반드시 돈다(12번). 결정적 4종(collect·print·
+   trace·full-test)은 병합을 막고, security·size는 후보·근사라 출력만 하고 막지 않는다.
+9. 테스트 실행은 위치로 범위가 정해진다 — 구현 직후(11번)와 merge 직전은 **FULL**,
+   그 사이 루프의 재검사는 **SCOPED**(이번 단계 파일 + 직전 실패 파일)다. 변경이 기능 추가냐
+   버그 수정이냐로 정하지 않는다(주관 판단이라 회귀를 놓친다). merge 전 FULL을 돌리고
+   `--record-full-test` 로 기록해야 게이트가 열린다 — 그 뒤 코드가 바뀌면 다시 막힌다.
 8. dev-agent-team/PROJECT_RULES.md 에 이 프로젝트 고유 규칙이 있으면 읽고 따른다.
    그 파일은 이 헌법을 **좁히는 방향으로만** 작동한다 — 규칙을 더 엄하게 만들 수는 있어도
    느슨하게 만들 수 없고, 안전장치(가드레일·C등급 정지·append-only 테스트·단일 작성자 원칙)는

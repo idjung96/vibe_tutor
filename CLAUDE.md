@@ -112,7 +112,9 @@ dev-agent-team/PROJECT_RULES.md(Owner가 쓰는 프로젝트 고유 규칙, 재�
 dev-agent-team/.harness-manifest(AGENTS.md·CLAUDE.md 의 설치 시 해시 — 재설치 때 Owner 편집 여부를
 가려 편집했으면 덮지 않고 .new 로 둔다(conffile). 강제 장치는 이 규칙을 쓰지 않고 무조건 덮어쓴다),
 커밋 메시지, 브랜치명 /
-C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace 차단) /
+C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단) /
+테스트 실행 범위(구현 직후 11번·merge 직전은 FULL, 그 사이 루프 재검사는 SCOPED) 와
+dev-agent-team/.last-full-test(소스+tests 트리 해시 — FULL 실행 뒤 코드가 바뀌면 게이트가 막는다) /
 deny 목록 / append-only 테스트 원칙 /
 로그 형식(`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력, 언어 무관 — logging-rule이 정본) /
 역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security) / 단일 작성자 원칙).

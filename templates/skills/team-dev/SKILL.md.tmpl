@@ -83,26 +83,34 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 {{/IF_LARGE}}
 9. 테스트를 커밋한다. 메시지: "[stage-N] 테스트 추가"
 10. coder를 호출한다. 현재 단계의 goal과 done_check만 준다.
-11. checker를 호출한다.
+11. checker를 FULL 모드로 호출한다. 구현 직후가 회귀를 잡기 가장 좋은 지점이다.
+    이후 루프의 재호출은 SCOPED로 한다 — 이번 단계 테스트 파일과, 직전 FAILED가 가리킨
+    파일만 준다. 러너가 선택을 지원하지 않으면 checker가 FULL로 돌린다.
 12. 결과를 처리한다:
     - PASS:
       python3 dev-agent-team/selfcheck.py --gate 를 실행한다(양 프로파일 공통).
       python3 가 없는 환경(Windows 등)에서는 python 으로 부른다.
-      [gate] FAIL이면 출력을 coder에게 주고 고치게 한 뒤 checker를 다시 부른다.
+      여기서는 조기 필터로 쓴다 — print·trace 위반을 리뷰 앞에서 거른다.
+      [gate] FAIL이면 출력을 coder에게 주고 고치게 한 뒤 checker를 SCOPED로 다시 부른다.
       {{RETRY_LIMIT}}회를 넘으면 C등급으로 올린다(14번).
       [security]·[size] 지적은 차단하지 않는다. 있으면 dev-agent-team/BACKLOG.md
       "메모·주의"에 "- 유형 · 출처:stageN/selfcheck" 로 적고 진행한다.
 {{#IF_LARGE}}
       reviewer를 호출한다. 코드 리뷰와 테스트코드 리뷰를 받는다.
       RESULT가 CHANGES면 coder에게 FINDINGS를 주고 고치게 한다(테스트는 깨지 않는다).
-      그 뒤 checker를 다시 부른다. RESULT가 OK가 될 때까지 반복하되,
+      그 뒤 checker를 SCOPED로 다시 부른다. RESULT가 OK가 될 때까지 반복하되,
       {{RETRY_LIMIT}}회를 넘으면 남은 지적을 dev-agent-team/BACKLOG.md에 적고 진행한다.
       security를 호출한다. RESULT가 RISK면 coder에게 FINDINGS를 주고 고치게 한다(테스트는 깨지 않는다)
-      후 checker를 다시 부른다. ESCALATE가 있으면 그 항목을 C등급으로 올린다(14번, Owner 합의).
+      후 checker를 SCOPED로 다시 부른다. ESCALATE가 있으면 그 항목을 C등급으로 올린다(14번, Owner 합의).
       reviewer와 security의 FINDINGS는 **고쳤더라도** 유형을 한 줄씩
       dev-agent-team/BACKLOG.md "메모·주의"에 "- 지적 유형 · 출처:stageN/reviewer" 형식으로 남긴다
       (security면 역할명만 바꾼다). 처리 대상이 아니라 lead가 재발 여부를 보기 위한 기록이다.
 {{/IF_LARGE}}
+      checker를 FULL 모드로 한 번 더 호출한다. 루프에서 선별 실행만 했으므로 여기서
+      최종 코드에 대한 회귀를 보장한다. FAIL이면 coder에게 넘기고(수렴은 SCOPED로) 다시 FULL을 받는다.
+      FULL이 PASS하면 python3 dev-agent-team/selfcheck.py --record-full-test 를 실행한다.
+      python3 dev-agent-team/selfcheck.py --gate 를 다시 실행한다. 최종 코드 기준이고
+      전체 실행 신선도(full-test)까지 본다. FAIL이면 merge하지 않는다.
       커밋한다. main으로 merge한다. dev-agent-team/TEST_LOG.md를 갱신한다.
 {{#IF_SMALL}}
       재시도 열에 이 단계에서 checker를 다시 부른 횟수를 적는다. 리뷰지적 열은 "-"로 둔다.
@@ -113,10 +121,11 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       FINDINGS 건수 합을 적는다.
       12c로. (회고를 건너뛰지 않는다.)
 {{/IF_LARGE}}
-    - NEW_FAIL: coder에게 REASON과 LOG를 주고 다시 시킨다.
+    - NEW_FAIL: coder에게 REASON과 LOG를 주고 다시 시킨다. 재검사는 SCOPED로 한다.
       {{RETRY_LIMIT}}회 실패하면 C등급으로 올린다.
     - REGRESSION: coder에게 이렇게 준다:
       "이전 기능을 깨뜨렸다. 새 코드만 고쳐라. 테스트는 고치지 마라."
+      재검사는 SCOPED로 하되 깨진 그 파일을 반드시 포함한다.
     - coder가 "기존 테스트가 틀렸다"고 주장한다: C등급이다.
     - 이 단계에서 checker 호출이 {{MAX_CHECKER_CALLS}}회를 넘었다: C등급이다.
 {{#IF_LARGE}}

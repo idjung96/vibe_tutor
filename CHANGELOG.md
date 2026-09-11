@@ -4,6 +4,58 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.28.0] - 2026-09-11
+
+Owner 지적: "코드를 조금만 고쳐도 테스트를 전부 실행하는 것은 과도하다."
+
+### Context
+`checker` 는 "항상 전체를 실행한다"였고 루프 재호출 지점이 4곳(게이트·reviewer·security·
+NEW_FAIL/REGRESSION), 한도가 단계당 15회(large)·10회(small)였다. 단계 5~7개면 전체 스위트를
+100회 가까이 돈다. 테스트는 append-only라 뒤로 갈수록 무거워진다.
+토큰 비용은 checker 출력 형식이 고정이라 이미 통제돼 있었고, 실제로 커지는 것은 **벽시계
+시간**이었다.
+
+### Added
+- **테스트 실행 범위를 위치로 가른다.** "기능 추가냐 버그 수정이냐"는 주관 판단이라 쓰지
+  않는다 — 작은 모델이 오분류하면 회귀 검사가 통째로 빠진다. 대신:
+
+  | 시점 | 범위 |
+  |---|---|
+  | 11번 구현 직후 | **FULL** — 회귀를 잡기 가장 좋은 지점. NEW_FAIL/REGRESSION 분류가 살아 있어야 coder가 올바로 고친다 |
+  | 루프 재검사 (최대 13회) | **SCOPED** — 이번 단계 파일 + 직전 FAILED가 가리킨 파일 |
+  | merge 직전 | **FULL** 1회 |
+
+  **그룹핑은 이미 하니스에 있었다.** `tester` 가 강제하는 파일명(`stage_N_test.py`)과 테스트
+  이름의 R번호가 네 러너 모두에서 네이티브로 선택 가능하다(`pytest tests/stage_3_test.py`,
+  `go test -run TestR3`, `cargo test r3_`, `jest <파일>`). 플러그인도 import 그래프 분석도
+  새 규약도 필요 없었다 — 안 쓰고 있었을 뿐이다.
+- **`selfcheck.py --record-full-test` 와 게이트 차단 4종째(full-test).**
+  프롬프트로 "전체를 돌려라"라고 적는 것만으로는 강제가 안 된다. FULL 통과 후 소스+tests
+  트리 해시를 `dev-agent-team/.last-full-test` 에 기록하고, 게이트가 현재 해시와 대조해
+  다르면 merge를 막는다. selfcheck가 해시를 스스로 계산하므로 기록자와 검증자가 같은
+  코드다(`.harness-manifest` 와 같은 방식). reviewer·security 지적으로 코드가 바뀌면
+  자동으로 다시 FULL을 요구한다 — 실제로 막아야 할 경우다.
+
+### Changed
+- `checker` 규칙 1이 모드 기반이 됐다. 모드를 안 주면 **FULL**(안전한 기본값)이고,
+  러너가 선택을 지원하지 않으면 **FULL로 폴백**한다(Owner 지침: 그룹핑 수단이 없으면 전체를
+  돌려도 된다). 출력에 `MODE:`·`ELAPSED:` 를 더했다.
+- SCOPED에서는 이전 단계 파일을 안 돌리므로 REGRESSION이 안 나올 수 있다는 단서를 달았다 —
+  "안 돌린 것을 통과로 보고하지 않는다".
+- 게이트가 단계당 두 번 돈다. 앞은 싼 조기 필터(print·trace를 리뷰 앞에서 거른다),
+  뒤는 최종 권위(최종 코드 + 전체 실행 신선도). 둘 다 정규식 스캔이라 비용이 무시할 수준이다.
+
+### Compatibility
+- **초기 상태는 막지 않는다** — `PLAN.json` 이 없으면 신선도 검사를 SKIP한다(`scan_trace` 와
+  같은 방식). 갓 설치한 트리에서 `--gate` 가 exit 0 인 것을 확인했다.
+- **기본 모드(플래그 없음)는 신선도를 보지 않는다.** 개발 중 아무 때나 돌리는 용도라
+  항상 걸리면 쓸모가 없다.
+- `dev-agent-team/.last-full-test` 가 파일 맵과 호환성 계약에 늘어 `HARNESS_VERSION` 을
+  1.28.0으로 올린다. 양 프로파일 공통이다(판단이 0이다).
+- **감수하는 것**: 루프 중간에 생긴 회귀는 merge 직전 FULL에서야 드러나 왕복이 한 번 늘 수
+  있다. 대신 13회의 전체 실행을 아낀다. 11번을 FULL로 둔 것이 가장 흔한 회귀를 즉시 잡는다.
+- `init.sh`/`init.ps1`, 가드 훅, `verify_hooks.sh`(20항목)는 건드리지 않았다.
+
 ## [1.27.2] - 2026-09-11
 
 Codex·Windows·기존 파일 보존 3축 리뷰에서 나온 결함 3건.

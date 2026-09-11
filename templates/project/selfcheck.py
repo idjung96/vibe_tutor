@@ -6,6 +6,7 @@
 사용법(프로젝트 루트에서):
     python3 dev-agent-team/selfcheck.py                          # 언어 감지 후 전체 점검
     python3 dev-agent-team/selfcheck.py --gate                   # 단계 병합 게이트 (아래 참조)
+    python3 dev-agent-team/selfcheck.py --record-full-test       # FULL 테스트 통과 상태를 기록
     python3 dev-agent-team/selfcheck.py tests/stage_1_test.py    # 특정 테스트만 수집 확인
     (Windows에 python3 가 없으면 python 으로 부른다.)
 
@@ -13,6 +14,8 @@
 exit code는 결정적 3종(collect / print / trace)만 반영한다. security 와 size 는 각각
 "후보"와 "근사"라 잘못 막을 수 있어 출력만 하고 차단하지 않는다.
 게이트에서는 방금 끝난 단계도 완료로 보고 R번호 추적성을 판정한다.
+게이트는 full-test 도 본다 — checker 를 FULL 로 돌리고 --record-full-test 로 기록한 뒤
+코드나 테스트가 바뀌었으면 차단한다. 루프에서 선별 실행만 하고 merge 하는 것을 막는 장치다.
 
 하는 일(모두 읽기 전용):
 1. 제품 언어를 감지한다(마커 파일 우선). python / go / rust / node 를 안다.
@@ -29,6 +32,7 @@ exit code는 결정적 3종(collect / print / trace)만 반영한다. security �
 '읽기 전용·결정적' 성격을 깨므로 하지 않는다.
 """
 import ast
+import hashlib
 import json
 import re
 import subprocess
@@ -64,6 +68,8 @@ REQUIREMENTS_PATH = Path("dev-agent-team/REQUIREMENTS.md")
 PLAN_PATH = Path("dev-agent-team/PLAN.json")
 README_PATH = Path("README.md")
 TESTS_DIR = Path("tests")
+# 마지막 FULL 테스트 실행의 소스 트리 해시. 기록자와 검증자가 같은 코드라 파리티 위험이 없다.
+FULL_TEST_MARK = Path("dev-agent-team/.last-full-test")
 # R번호 인식. 실제 명명 규약을 그대로 받는다:
 #   "R1: 저장한다"(요구사항·README), "R1"(covers), test_r1_x / r1_saves(구분자 뒤),
 #   TestR1_Save(Go 캐멀케이스 — 소문자 뒤 대문자 R).
@@ -539,10 +545,65 @@ def scan_size(langs):
     return not hits
 
 
+def tree_hash(langs):
+    """제품 소스 + tests/ 의 (상대경로, 내용해시)를 정렬해 하나의 해시로 만든다.
+
+    dev-agent-team/ 등 SKIP_DIRS 는 빠지므로 상태 파일이 바뀌어도 해시는 안 변한다.
+    """
+    entries = []
+    for name in langs:
+        for path in iter_sources(LANGS[name]["ext"]):
+            entries.append(_file_entry(path))
+    if TESTS_DIR.is_dir():
+        for path in sorted(TESTS_DIR.rglob("*")):
+            if path.is_file() and "__pycache__" not in path.parts:
+                entries.append(_file_entry(path))
+    digest = hashlib.sha256()
+    for item in sorted(set(entries)):
+        digest.update(item.encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _file_entry(path):
+    """해시 계산용 한 줄: 경로와 내용 해시."""
+    try:
+        body = path.read_bytes()
+    except OSError:
+        body = b""
+    return f"{path.as_posix()}:{hashlib.sha256(body).hexdigest()}"
+
+
+def record_full_test(langs):
+    """지금 소스 상태를 'FULL 테스트를 통과한 상태'로 기록한다."""
+    FULL_TEST_MARK.parent.mkdir(parents=True, exist_ok=True)
+    FULL_TEST_MARK.write_text(tree_hash(langs) + "\n", encoding="utf-8")
+    print(f"[full-test] 기록함 ({FULL_TEST_MARK})")
+    return True
+
+
+def check_full_test(langs):
+    """전체 테스트를 최종 코드로 돌았는지 본다. 게이트에서만 쓴다."""
+    if not PLAN_PATH.is_file():
+        print("[full-test] SKIP (PLAN.json 없음 — 프로젝트 초기)")
+        return True
+    if not FULL_TEST_MARK.is_file():
+        print("[full-test] FAIL (전체 테스트 실행 기록이 없다. checker를 FULL로 돌린 뒤 "
+              "--record-full-test 로 기록하라)")
+        return False
+    recorded = FULL_TEST_MARK.read_text(encoding="utf-8").strip()
+    if recorded != tree_hash(langs):
+        print("[full-test] FAIL (전체 테스트 실행 이후 코드나 테스트가 바뀌었다. "
+              "checker를 FULL로 다시 돌려라)")
+        return False
+    print("[full-test] OK")
+    return True
+
+
 def main():
     args = sys.argv[1:]
     gate = "--gate" in args
-    rest = [a for a in args if a != "--gate"]
+    record = "--record-full-test" in args
+    rest = [a for a in args if not a.startswith("--")]
     target = rest[0] if rest else None
 
     langs = detect_langs()
@@ -550,11 +611,17 @@ def main():
         print("[lang] 감지된 제품 언어 없음 — 점검을 건너뛴다.")
         print("       (python/go/rust/node 만 안다. 마커: requirements.txt·pyproject.toml /")
         print("        go.mod / Cargo.toml / package.json)")
+        if record:
+            record_full_test(langs)
         if gate:
             print("[gate] PASS")
         return 0
 
     print(f"[lang] {', '.join(langs)}")
+    if record:
+        record_full_test(langs)
+        return 0
+
     # 검사는 어느 모드에서나 전부 돌고 전부 출력한다. 모드는 exit code만 바꾼다.
     results = {
         "collect": collect_tests(langs, target),
@@ -564,10 +631,12 @@ def main():
         "trace": scan_trace(include_current=gate),
     }
     if not gate:
+        # 기본 모드는 개발 중 아무 때나 돌리는 용도라 전체 실행 신선도를 보지 않는다.
         return 0 if all(results.values()) else 1
 
-    # 게이트: 결정적 3종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
-    blocking = [name for name in ("collect", "print", "trace") if not results[name]]
+    results["full-test"] = check_full_test(langs)
+    # 게이트: 결정적 4종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
+    blocking = [n for n in ("collect", "print", "trace", "full-test") if not results[n]]
     if blocking:
         print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")
         return 1

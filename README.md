@@ -275,8 +275,11 @@ Owner 합의(C등급 정지)를 유지한다.
    단계 merge 전 `selfcheck.py --gate` 게이트(collect·print·trace·full-test 차단)도 절차 계약이다.
    테스트 실행 범위(구현 직후·merge 직전은 FULL, 그 사이 루프는 SCOPED)와
    `dev-agent-team/.last-full-test` 신선도 강제도 계약에 포함된다.
-3. deny/차단 목록 (force push, rm -rf, hard reset, python -c·node -e inline 실행 우회 포함).
-   일반 git push는 allow(작업 브랜치); main 직접 push·force push 금지는 AGENTS.md 규칙으로 병행.
+3. deny/차단 목록 (rm -rf, hard reset, git branch -D, python -c·node -e inline 실행 우회,
+   curl·wget 포함). 일반 git push는 allow(작업 브랜치). **force push는 deny가 아니라 ask** —
+   Owner가 그 자리에서 승인하면 에이전트가 실행한다. 규칙은 `deny → ask → allow` 순으로
+   평가되므로 `git push` allow 보다 force용 ask가 우선한다. main 직접 push 금지는 AGENTS.md
+   규칙으로 병행한다(규칙 문자열로는 브랜치를 가릴 수 없다).
 4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통).
    Write/Edit·apply_patch뿐 아니라 **Bash 쓰기 명령**(`>` `>>`/tee/sed -i/mv/cp/rm/
    truncate/dd of=/patch)도 차단 대상이다. 읽기·실행은 통과시킨다.
@@ -324,7 +327,14 @@ Owner 합의(C등급 정지)를 유지한다.
   `selfcheck.py` 의 print·보안 스캔은 네 언어를 모두 다루지만, **테스트 수집 확인은 Python
   전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
 - **git push는 작업(stage/feature) 브랜치에 허용**한다(개발팀 브랜치 워크플로). 단 main 직접
-  push와 force push(`--force`/`-f`)는 금지 — force는 가드 deny로, main 금지는 AGENTS.md 규칙으로 강제한다.
+  push는 금지하고 force push(`--force`/`-f`)는 **Owner 승인 후 허용**한다 — force는 가드 ask로
+  물어보고, main 금지는 AGENTS.md 규칙으로 강제한다.
+- **force push는 Owner 승인을 물어본다(ask).** 승인 프롬프트가 뜨지 않는 환경에서는 완화가
+  아니라 구멍이 된다 — 특히 **opencode의 `ask`는 UI나 터미널이 없는 headless 컨테이너에서
+  멈추거나 예측 불가하게 동작한다.** 이 저장소는 컨테이너 실행을 권장하므로, 그 환경에서는
+  force push가 진행되지 않고 대기할 수 있다. 그때는 Owner가 직접 실행한다.
+  `git -C . push --force` 같은 우회 형태는 규칙이 잡지 못한다(deny였을 때도 같았다) —
+  가드 규칙은 샌드박스가 아니라 과속방지턱이다.
 - **Windows에서는 줄 끝과 파이썬 이름이 문제가 된다.** Git for Windows 기본값
   (`core.autocrlf=true`)으로 클론하면 `.sh` 가 CRLF가 되어 가드 훅이 깨지므로
   `.gitattributes` 로 LF를 고정한다. `protect_tests.sh` 는 `python3` → `python` 순으로
@@ -375,7 +385,7 @@ Owner 합의(C등급 정지)를 유지한다.
 | C등급 Owner 질문 정지 | ✅ hook exit 2 | ✅ 파일 기반이라 발화 시 작동 | ✅ 플러그인 throw |
 | 기존 테스트 보호(py/go/rs/js·ts) | ✅ exit 2 | ⚠️ apply_patch 인식하나 전용 훅 미발화 가능(셸 경유만 보장) | ✅ 플러그인 throw |
 | 역할별 도구 격리(단일 작성자) | ✅ 서브에이전트 `tools` | ❌ 서브에이전트 없음 → 규율만 | ✅ 서브에이전트 `tools` |
-| 명령 deny(force push·rm -rf·python -c·node -e 등; 일반 git push는 allow) | ✅ settings.json allow/deny | ⚠️ deny 목록 없음 → sandbox+approval(거친 경계) | ✅ opencode.json deny |
+| 명령 deny(rm -rf·hard reset·python -c·node -e 등; 일반 git push는 allow, force push는 ask) | ✅ settings.json allow/ask/deny | ⚠️ deny 목록 없음 → sandbox+approval(거친 경계) | ✅ opencode.json allow/ask/deny |
 | 테스트 실행(pytest·go test·cargo test·npm test) | ✅ allow 등록(프롬프트 없음) | ✅ sandbox 안 자동 실행 | ✅ wildcard allow |
 | 선행 조건 / 런타임 | 없음(bash) | trusted 등록 필요·apply_patch/MCP 훅 불안정 | bun/node 필요(없으면 플러그인 미로딩) |
 | Windows | ✅ | ❌ 훅 미지원 | ✅ node 있으면 |

@@ -4,6 +4,35 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.29.0] - 2026-09-11
+
+### Changed
+- **force push 를 `deny` 에서 `ask` 로 옮겼다.** 지금까지는 막히면 끝이라, 정말 필요한
+  순간(작업 브랜치 정리, rebase 후 `--force-with-lease`)에 **Owner 가 터미널로 나가 직접
+  실행**해야 했다. 이제 그 자리에서 승인을 물어보고 에이전트가 실행한다.
+  - `.claude/settings.json` — `ask` 배열 신설, `deny` 에서 force push 3개 제거.
+    `allow` 의 `Bash(git push:*)` 는 그대로 둔다. Claude Code 의 평가 순서가
+    **deny → ask → allow** 이고 "a matching ask rule prompts even when a more specific
+    allow rule also matches the same call" 이라, 넓은 allow 가 있어도 force 용 ask 가 이긴다.
+  - `opencode.json` — force push 4패턴(`git push*--force*` 포괄 포함)을 `"ask"` 로.
+  - `AGENTS.md` 규칙 5 — "force push 는 하지 않는다" → "**Owner 승인을 받은 뒤에만** 한다".
+    프롬프트 규칙과 권한 설정이 어긋나면 에이전트가 승인 프롬프트를 받고도 스스로 물러선다.
+- **나머지 deny 는 그대로다** — `rm -rf`·`rm -r`·`git reset --hard`·`git branch -D`·
+  `python -c`·`python3 -c`·`node -e`·`node --eval`·`curl`·`wget`.
+- **main 직접 push 는 이번 범위가 아니다.** 규칙 문자열로는 `git push`(업스트림 생략)나
+  `git push origin HEAD` 의 대상 브랜치를 가릴 수 없어 부분적 강제밖에 안 된다.
+  지금처럼 AGENTS.md 프롬프트 규칙으로 남긴다.
+- Codex 는 바뀌지 않는다 — `.codex/config.toml` 에 deny 목록 자체가 없고 sandbox+approval 로 간다.
+
+### Compatibility
+- deny 목록은 호환성 계약이고 이번이 **완화**라 `HARNESS_VERSION` 을 1.29.0으로 올린다.
+- **완화의 근거는 "Owner 가 그 자리에서 승인한다"는 것이다.** 승인 프롬프트가 뜨지 않는
+  환경에서는 완화가 아니라 구멍이 된다 — 특히 **opencode 의 `ask` 는 UI·터미널이 없는
+  headless 컨테이너에서 멈추거나 예측 불가하게 동작한다.** 이 저장소가 컨테이너 실행을
+  권장하므로 "알려진 제약"에 명시했다.
+- `git -C . push --force` 같은 우회 형태는 규칙이 잡지 못한다(deny였을 때도 같았다).
+  가드 규칙은 샌드박스가 아니라 과속방지턱이라는 기존 서술과 일관된다.
+
 ## [1.28.0] - 2026-09-11
 
 Owner 지적: "코드를 조금만 고쳐도 테스트를 전부 실행하는 것은 과도하다."

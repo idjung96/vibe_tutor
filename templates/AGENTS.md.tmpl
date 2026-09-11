@@ -79,7 +79,8 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
    Python 구현은 설치돼 있고, 다른 언어는 1단계에서 logging-rule 스킬의 최소 구현으로 만든다.
    로그 한 줄 형식은 언어와 무관하게 같다(logging-rule "로그 한 줄 규격").
 5. rm -rf, 요구사항에 없는 기능 추가를 하지 않는다. git push는 작업(stage/feature) 브랜치에
-   허용하되, main 직접 push와 force push(-f/--force)는 하지 않는다.
+   허용하되, main 직접 push는 하지 않는다. force push(-f/--force)는 Owner 승인을 받은 뒤에만
+   한다 — 도구가 승인을 물어보면 그때 진행하고, 승인 없이 스스로 하지 않는다.
 6. 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md,
    dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md)은 메인 세션만 쓴다.
    subagent는 자기 산출물만 쓴다.

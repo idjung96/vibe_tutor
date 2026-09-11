@@ -115,7 +115,8 @@ dev-agent-team/.harness-manifest(AGENTS.md·CLAUDE.md 의 설치 시 해시 — 
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단) /
 테스트 실행 범위(구현 직후 11번·merge 직전은 FULL, 그 사이 루프 재검사는 SCOPED) 와
 dev-agent-team/.last-full-test(소스+tests 트리 해시 — FULL 실행 뒤 코드가 바뀌면 게이트가 막는다) /
-deny 목록 / append-only 테스트 원칙 /
+deny 목록(force push는 deny가 아니라 ask — Owner 승인 후 에이전트가 실행. 평가 순서는 deny→ask→allow) /
+append-only 테스트 원칙 /
 로그 형식(`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력, 언어 무관 — logging-rule이 정본) /
 역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security) / 단일 작성자 원칙).
 이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).
@@ -128,7 +129,8 @@ deny 목록 / append-only 테스트 원칙 /
   (기존 테스트 파일 수정 시 exit 2 — 언어 무관: py/go/rs/js·ts, `tests/` 밑 판정 정규식은
   `protect_tests.sh` 와 `guard.js` 가 동일). exit 2 + stderr 규약 — 바꾸면 `verify_hooks.sh` 도 함께.
 - **에이전트별 연결**: Claude=`.claude/settings.json` hooks가 `dev-agent-team/hooks/*.sh` 호출 +
-  allow/deny(force push(`--force`/`-f`)/`rm -rf`/`git reset --hard`/`python -c`/`node -e` 등 deny;
+  allow/ask/deny(`rm -rf`/`git reset --hard`/`git branch -D`/`python -c`/`node -e`/`curl`/`wget` 등 deny,
+  force push(`--force`/`-f`/`--force-with-lease`)는 **ask**;
   일반 `git push`(작업 브랜치)·go/cargo/npm/node 테스트 실행은 allow. main 직접 push·force 금지는
   AGENTS.md 규칙 병행). Codex=
   `.codex/hooks.json` 이 같은 `dev-agent-team/hooks/*.sh` 호출(단 apply_patch·MCP 훅 불안정·Windows 미지원).

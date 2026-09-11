@@ -112,7 +112,14 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
     mv "$TMP" "$2"
   else
     CURHASH=$(sha256_of "$2")
-    if RECORDED=$(manifest_get "$3"); then
+    # 해시 도구가 없으면 편집 여부를 가릴 수 없다. 갱신은 살리고 편집은 .bak 으로 남기는
+    # 보수적 경로(manifest 없음과 동일)로 간다. 비교를 시도하면 ""=="" 가 참이 되어
+    # 파일이 조용히 갱신되지 않는 쪽으로 샐 수 있다.
+    if [ -z "$CURHASH" ] || [ -z "$NEWHASH" ]; then
+      cp "$2" "$2.bak"
+      mv "$TMP" "$2"
+      echo "알림: 해시 도구(sha256sum/shasum)가 없어 $3 을(를) 백업 후 갱신했습니다($3.bak)."
+    elif RECORDED=$(manifest_get "$3"); then
       if [ -n "$CURHASH" ] && [ "$CURHASH" = "$RECORDED" ]; then
         mv "$TMP" "$2"                     # Owner가 안 건드림 → 갱신
       elif [ "$CURHASH" = "$NEWHASH" ]; then

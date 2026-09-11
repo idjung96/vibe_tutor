@@ -78,6 +78,60 @@ render() {
   render_stdout "$1" > "$2"
 }
 
+# ── conffile 방식 (dpkg 관행) ────────────────────────────────
+# AGENTS.md·CLAUDE.md 는 Owner가 손댈 수 있는 문서다. 무조건 덮어쓰면 편집이 사라지고,
+# 무조건 보존하면 헌법 갱신이 기존 프로젝트에 영원히 도달하지 않는다. 그래서
+# "손대지 않았으면 갱신하고, 손댔으면 덮지 않고 알린다".
+# 강제 장치(settings.json deny 목록·hooks·guard.js·역할·스킬)는 낡으면 안전 계약이
+# 깨지므로 이 규칙을 쓰지 않고 지금처럼 무조건 덮어쓴다.
+MANIFEST="$TARGET/dev-agent-team/.harness-manifest"
+rm -f "$MANIFEST.tmp"   # 이전 실행이 남긴 찌꺼기에 덧붙지 않게
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  else
+    echo ""   # 해시 도구가 없으면 비교를 포기하고 보수적으로 간다
+  fi
+}
+
+manifest_get() { # $1=상대경로
+  [ -f "$MANIFEST" ] || return 1
+  awk -v k="$1" '$2==k { print $1; found=1 } END { exit !found }' "$MANIFEST"
+}
+
+render_managed() { # $1=템플릿 $2=대상 $3=상대경로
+  mkdir -p "$(dirname "$2")" "$(dirname "$MANIFEST")"
+  TMP="$2.harness-tmp"
+  render_stdout "$1" > "$TMP"
+  NEWHASH=$(sha256_of "$TMP")
+
+  if [ ! -f "$2" ]; then
+    mv "$TMP" "$2"
+  else
+    CURHASH=$(sha256_of "$2")
+    if RECORDED=$(manifest_get "$3"); then
+      if [ -n "$CURHASH" ] && [ "$CURHASH" = "$RECORDED" ]; then
+        mv "$TMP" "$2"                     # Owner가 안 건드림 → 갱신
+      elif [ "$CURHASH" = "$NEWHASH" ]; then
+        rm -f "$TMP"                       # 이미 새 내용과 같음
+      else
+        mv "$TMP" "$2.new"                 # Owner가 편집함 → 덮지 않는다
+        echo "알림: $3 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $3.new 입니다."
+        echo "      프로젝트 고유 규칙은 dev-agent-team/PROJECT_RULES.md 에 적으면 이 알림이 안 뜹니다."
+      fi
+    else
+      cp "$2" "$2.bak"                     # manifest 이전 프로젝트 → 백업 후 갱신
+      mv "$TMP" "$2"
+      echo "알림: $3 을(를) 갱신했습니다. 이전 내용은 $3.bak 에 보관했습니다."
+    fi
+  fi
+  # 현재 파일 기준으로 기록한다(덮어썼으면 새 해시, 보존했으면 편집된 해시).
+  printf '%s  %s\n' "$(sha256_of "$2")" "$3" >> "$MANIFEST.tmp"
+}
+
 # 스킬 3종을 주어진 디렉터리에 렌더
 emit_skills() {
   for s in team-dev logging-rule lib-research code-convention test-design ui-design; do
@@ -169,7 +223,7 @@ echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
 
 # ── 4. 공통 파일 (모든 에이전트) ──────────────────────────────
 # AGENTS.md = 공통 헌법. dev-agent-team/ = 에이전트 작업/상태. tests/ logs/ common/ = 제품.
-render "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md"
+render_managed "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md" "AGENTS.md"
 mkdir -p "$TARGET/common" "$TARGET/tests" "$TARGET/logs" \
          "$TARGET/dev-agent-team/libs" "$TARGET/dev-agent-team/guides" "$TARGET/dev-agent-team/answered" "$TARGET/dev-agent-team/hooks"
 cp "$SRC/templates/common/logger.py"        "$TARGET/common/logger.py"
@@ -192,7 +246,7 @@ touch "$TARGET/logs/.gitkeep" "$TARGET/dev-agent-team/answered/.gitkeep"
 
 # ── 5. Claude Code 오버레이 ───────────────────────────────────
 if has_agent claude; then
-  render "$SRC/templates/CLAUDE.md.tmpl"     "$TARGET/CLAUDE.md"
+  render_managed "$SRC/templates/CLAUDE.md.tmpl" "$TARGET/CLAUDE.md" "CLAUDE.md"
   render "$SRC/templates/settings.json.tmpl" "$TARGET/.claude/settings.json"
   emit_skills ".claude/skills"
   mkdir -p "$TARGET/.claude/agents"
@@ -239,6 +293,9 @@ if has_agent opencode; then
       printf '%s\n' "$body"; } > "$TARGET/.opencode/agents/$r.md"
   done
 fi
+
+# manifest 확정. 하니스 소유라 매번 새로 쓴다.
+[ -f "$MANIFEST.tmp" ] && mv "$MANIFEST.tmp" "$MANIFEST"
 
 # ── 8. git 초기화 ─────────────────────────────────────────────
 if [ ! -d "$TARGET/.git" ]; then

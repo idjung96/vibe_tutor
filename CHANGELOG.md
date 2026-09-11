@@ -4,6 +4,41 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.27.0] - 2026-09-11
+
+### Added
+- **재설치가 `AGENTS.md`·`CLAUDE.md` 의 Owner 편집을 덮어쓰지 않는다 (dpkg conffile 방식).**
+  설치 시 렌더 결과의 SHA-256을 `dev-agent-team/.harness-manifest` 에 기록하고, 재설치 때
+  비교한다:
+
+  | 상황 | 동작 |
+  |---|---|
+  | 해시 == 기록값 (안 건드림) | 조용히 갱신 — 업그레이드가 산다 |
+  | 해시 != 기록값 (편집함) | 덮지 않고 `<파일>.new` + 알림 |
+  | manifest 없음 (1.27.0 이전) | `<파일>.bak` 백업 후 갱신 + 안내 |
+
+  **단순히 "덮어쓰지 않기"로 하지 않은 이유**: 이 둘은 헌법과 진입 문서라 안 덮으면 헌법
+  갱신이 기존 프로젝트에 영원히 도달하지 않는다. 이번 세션만 해도 헌법에 규칙 8번이 늘고
+  로그 규격·게이트가 들어갔다. "재실행이 곧 업그레이드다"가 깨진다.
+
+### Changed
+- **강제 장치는 예외 없이 덮어쓴다** — `.claude/settings.json`(deny 목록),
+  `dev-agent-team/hooks/*.sh`, `guard.js`, `opencode.json`, `.codex/*`, 역할·스킬,
+  `selfcheck.py`. 낡으면 안전 계약이 깨지므로 conffile 규칙을 쓰지 않는다. 이 구분을
+  README에 명시했다.
+- 편집 감지 알림에 "고유 규칙은 `PROJECT_RULES.md` 에 적으면 이 알림이 안 뜬다"를 넣어
+  올바른 자리로 유도한다. `AGENTS.md` 를 계속 편집하면 헌법 갱신이 `.new` 로만 쌓여
+  규칙이 낡은 채 고착되기 때문이다.
+
+### Compatibility
+- 파일 맵에 `dev-agent-team/.harness-manifest` 가 늘고 설치기 동작이 바뀌므로
+  `HARNESS_VERSION` 을 1.27.0으로 올린다.
+- `init.sh` 와 `init.ps1` 이 **같은 해시 문자열**을 내야 파리티가 성립한다 —
+  `sha256sum`/`shasum -a 256` 과 `Get-FileHash -Algorithm SHA256` + `.ToLower()`.
+  같은 파일에 대해 양쪽 결과가 바이트 단위로 일치함을 확인했다.
+- manifest가 손상·삭제되면 "1.27.0 이전 프로젝트"로 취급되어 `.bak` 을 만들고 덮어쓴다.
+  안전한 쪽이다.
+
 ## [1.26.1] - 2026-09-11
 
 Windows 환경 리뷰에서 **가드가 무력화되는 경로 2개를 재현**해 고쳤다.

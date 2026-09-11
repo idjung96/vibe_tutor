@@ -109,6 +109,8 @@ dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md(7열 고정: 단계·�
 dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용),
 dev-agent-team/PROJECT_RULES.md(Owner가 쓰는 프로젝트 고유 규칙, 재설치해도 보존 — 헌법을 좁히는
 방향으로만 작동하고 안전장치는 무효화 못 한다. Claude=@import, opencode=instructions, codex=헌법 지시),
+dev-agent-team/.harness-manifest(AGENTS.md·CLAUDE.md 의 설치 시 해시 — 재설치 때 Owner 편집 여부를
+가려 편집했으면 덮지 않고 .new 로 둔다(conffile). 강제 장치는 이 규칙을 쓰지 않고 무조건 덮어쓴다),
 커밋 메시지, 브랜치명 /
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace 차단) /
 deny 목록 / append-only 테스트 원칙 /

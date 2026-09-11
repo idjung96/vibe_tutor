@@ -142,9 +142,16 @@ Windows는 `.\init.ps1 -Profile small -Agent claude -Target C:\projects\my-app` 
 프로젝트에 재실행해도 계획·결정·테스트 이력·백로그가 사라지지 않는다.
 
 **주의:**
-- **프로젝트 고유 규칙은 `dev-agent-team/PROJECT_RULES.md` 에 적는다.** `AGENTS.md`·`CLAUDE.md`·
-  역할 프롬프트는 재설치 때 **덮어써지므로** 거기에 적은 규칙은 사라진다. `PROJECT_RULES.md` 는
-  한 번만 만들어지고 이후 건드리지 않으므로 재설치를 넘어 살아남는다.
+- **`AGENTS.md`·`CLAUDE.md` 는 손대지 않았을 때만 갱신된다.** 설치 시 해시를
+  `dev-agent-team/.harness-manifest` 에 기록해 두고, 재설치 때 **Owner가 편집했으면 덮어쓰지
+  않고** 새 버전을 `AGENTS.md.new` 로 두고 알린다(dpkg conffile 방식). manifest가 없는
+  1.27.0 이전 프로젝트는 `.bak` 백업 후 갱신한다.
+- **그래도 고유 규칙은 `dev-agent-team/PROJECT_RULES.md` 에 적는 것이 맞다.** `AGENTS.md` 를
+  편집하면 이후 헌법 갱신이 `.new` 로만 쌓여 규칙이 낡은 채 고착된다. `PROJECT_RULES.md` 는
+  애초에 덮어쓰기 대상이 아니라 이 문제가 없다.
+- **강제 장치는 예외 없이 덮어쓴다** — `.claude/settings.json`(deny 목록), `dev-agent-team/hooks/*.sh`,
+  `guard.js`, `opencode.json`, `.codex/*`, 역할·스킬, `selfcheck.py`. 낡으면 안전 계약이
+  깨지므로 편집해도 원복된다.
 - `common/logger.py` 는 **무조건 덮어쓴다**(고정 포맷 제품 로거 — Python 구현이자 로그 형식의
   참조 규격). 직접 손댄 경우 먼저 백업한다. 제품이 다른 언어면 1단계에서 `logging-rule` 의
   최소 구현으로 `common/logger.go|rs|js` 를 만든다.

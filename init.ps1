@@ -79,6 +79,62 @@ function Render-String($SrcFile) {
     }
     return ($out -join "`n") + "`n"
 }
+# ── conffile 방식 (init.sh 의 render_managed 와 동작이 같아야 한다) ──────────
+# AGENTS.md·CLAUDE.md 는 Owner가 손댈 수 있는 문서다. 손대지 않았으면 갱신하고,
+# 손댔으면 덮지 않고 .new 로 두고 알린다. 강제 장치(settings.json deny·hooks·guard.js·
+# 역할·스킬)는 낡으면 안전 계약이 깨지므로 이 규칙을 쓰지 않는다.
+$Script:Manifest = $null
+$Script:ManifestNew = New-Object System.Collections.Generic.List[string]
+
+function Sha256Of($f) {
+    if (-not (Test-Path -LiteralPath $f)) { return '' }
+    return (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash.ToLower()
+}
+
+function Manifest-Get($rel) {
+    if (-not (Test-Path -LiteralPath $Script:Manifest)) { return $null }
+    foreach ($line in (Get-Content -LiteralPath $Script:Manifest -Encoding UTF8)) {
+        $parts = $line -split '\s+', 2
+        if ($parts.Count -eq 2 -and $parts[1].Trim() -eq $rel) { return $parts[0] }
+    }
+    return $null
+}
+
+function Render-Managed($SrcFile, $DstFile, $Rel) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $DstFile) | Out-Null
+    New-Item -ItemType Directory -Force -Path (Split-Path $Script:Manifest) | Out-Null
+    $tmp = "$DstFile.harness-tmp"
+    [System.IO.File]::WriteAllText($tmp, (Render-String $SrcFile), $Utf8NoBom)
+    $newHash = Sha256Of $tmp
+
+    if (-not (Test-Path -LiteralPath $DstFile)) {
+        Move-Item -LiteralPath $tmp $DstFile -Force
+    }
+    else {
+        $curHash = Sha256Of $DstFile
+        $recorded = Manifest-Get $Rel
+        if ($null -ne $recorded) {
+            if ($curHash -eq $recorded) {
+                Move-Item -LiteralPath $tmp $DstFile -Force          # 안 건드림 -> 갱신
+            }
+            elseif ($curHash -eq $newHash) {
+                Remove-Item -LiteralPath $tmp -Force                 # 이미 새 내용
+            }
+            else {
+                Move-Item -LiteralPath $tmp "$DstFile.new" -Force    # 편집함 -> 보존
+                Write-Host "알림: $Rel 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $Rel.new 입니다."
+                Write-Host '      프로젝트 고유 규칙은 dev-agent-team/PROJECT_RULES.md 에 적으면 이 알림이 안 뜹니다.'
+            }
+        }
+        else {
+            Copy-Item -LiteralPath $DstFile "$DstFile.bak" -Force    # manifest 이전 -> 백업 후 갱신
+            Move-Item -LiteralPath $tmp $DstFile -Force
+            Write-Host "알림: $Rel 을(를) 갱신했습니다. 이전 내용은 $Rel.bak 에 보관했습니다."
+        }
+    }
+    $Script:ManifestNew.Add((Sha256Of $DstFile) + '  ' + $Rel)
+}
+
 function Render($SrcFile, $DstFile) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DstFile) | Out-Null
     [System.IO.File]::WriteAllText($DstFile, (Render-String $SrcFile), $Utf8NoBom)
@@ -186,7 +242,8 @@ if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security'
 Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -join ' ') → $Target"
 
 # ── 4. 공통 파일 (모든 에이전트) ──────────────────────────────
-Render (Join-Path $Src 'templates\AGENTS.md.tmpl') (Join-Path $Target 'AGENTS.md')
+$Script:Manifest = Join-Path $Target 'dev-agent-team\.harness-manifest'
+Render-Managed (Join-Path $Src 'templates\AGENTS.md.tmpl') (Join-Path $Target 'AGENTS.md') 'AGENTS.md'
 foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks') {
     New-Item -ItemType Directory -Force -Path (Join-Path $Target $d) | Out-Null
 }
@@ -214,7 +271,7 @@ foreach ($k in 'logs\.gitkeep', 'dev-agent-team\answered\.gitkeep') {
 
 # ── 5. Claude Code 오버레이 ───────────────────────────────────
 if (Has-Agent 'claude') {
-    Render (Join-Path $Src 'templates\CLAUDE.md.tmpl')     (Join-Path $Target 'CLAUDE.md')
+    Render-Managed (Join-Path $Src 'templates\CLAUDE.md.tmpl') (Join-Path $Target 'CLAUDE.md') 'CLAUDE.md'
     Render (Join-Path $Src 'templates\settings.json.tmpl') (Join-Path $Target '.claude\settings.json')
     Emit-Skills '.claude\skills'
     foreach ($r in $Roles) {
@@ -253,6 +310,11 @@ if (Has-Agent 'opencode') {
         $fm = "---`ndescription: $(Role-Desc $r)`nmode: subagent`ntools:`n$(Opencode-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".opencode\agents\$r.md") ($fm + $body)
     }
+}
+
+# manifest 확정. 하니스 소유라 매번 새로 쓴다.
+if ($Script:ManifestNew.Count -gt 0) {
+    [System.IO.File]::WriteAllText($Script:Manifest, ($Script:ManifestNew -join "`n") + "`n", $Utf8NoBom)
 }
 
 # ── 8. git 초기화 ─────────────────────────────────────────────

@@ -312,8 +312,19 @@ if (Has-Agent 'opencode') {
     }
 }
 
-# manifest 확정. 하니스 소유라 매번 새로 쓴다.
+# manifest 확정. 이번에 렌더하지 않은 항목(에이전트 구성을 바꿔 설치한 경우)은 그대로
+# 이어간다 — 안 그러면 다음 설치 때 "기록 없음"으로 보여 불필요한 .bak 이 생긴다.
 if ($Script:ManifestNew.Count -gt 0) {
+    $seen = @{}
+    foreach ($l in $Script:ManifestNew) { $seen[($l -split '\s+', 2)[1].Trim()] = $true }
+    if (Test-Path -LiteralPath $Script:Manifest) {
+        foreach ($l in (Get-Content -LiteralPath $Script:Manifest -Encoding UTF8)) {
+            $parts = $l -split '\s+', 2
+            if ($parts.Count -eq 2 -and -not $seen.ContainsKey($parts[1].Trim())) {
+                $Script:ManifestNew.Add($l)
+            }
+        }
+    }
     [System.IO.File]::WriteAllText($Script:Manifest, ($Script:ManifestNew -join "`n") + "`n", $Utf8NoBom)
 }
 

@@ -4,6 +4,37 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.27.2] - 2026-09-11
+
+Codex·Windows·기존 파일 보존 3축 리뷰에서 나온 결함 3건.
+
+### Fixed
+- **재설치가 대상 프로젝트의 실제 파일을 지우고 있었다.** `verify_hooks.sh` 가 `$TARGET` 에
+  직접 쓰고 지웠고, `init.sh`/`init.ps1` 이 설치 끝에 이걸 자동 실행하므로 **재설치할 때마다**
+  발생했다. 재현으로 확인한 피해:
+  `tests/conftest.py`(pytest 프로젝트에 거의 항상 있다), `tests/calc_test.go`,
+  `tests/calc.test.js`, `tests/calc_test.rs`, `tests/stage_9_test.py`(하니스 자신의 명명 규약과
+  충돌), 그리고 **`dev-agent-team/OWNER_QUESTION.md`** — 미답변 질문이 사라져 C등급 정지
+  상태가 통째로 유실됐다. append-only 테스트 보호를 내세우는 하니스가 자기 설치 과정에서
+  테스트를 지우고 있었던 셈이다.
+  이제 훅을 `mktemp -d` 샌드박스에 복사해 **거기서만** 돌린다. 대상 프로젝트는 한 번도
+  건드리지 않는다. CRLF 검사(19번)만 설치된 실제 훅을 본다(`$REAL_H`).
+- **`verify_hooks.sh` 20번이 Windows 설치를 중단시켰다.** 1.26.1에서 넣은 항목이 `ln -sf` 로
+  가짜 PATH를 만드는데, Git Bash 에서 심볼릭 링크는 **복사**로 처리돼 `bash.exe` 가 DLL 을
+  못 찾는다 → 항목 20 FAIL → `init.ps1` 이 `exit 1` 로 설치를 중단한다.
+  심링크·PATH 재구성 없이 **실패하는 python 스텁을 PATH 앞에 놓는** 방식으로 바꿨다.
+  검사 대상도 "python 부재"에서 "**추출 실패**"로 정확해졌다 — 실제로 막아야 할 상태다.
+- **에이전트 구성을 바꿔 재설치하면 불필요한 `.bak` 이 생겼다.** `--agent all` →
+  `--agent codex` → `--agent all` 순이면 manifest 에서 `CLAUDE.md` 항목이 빠져 다음 설치 때
+  "기록 없음"으로 보였다. 이번에 렌더하지 않은 항목은 manifest 에 **이월**한다
+  (`init.sh`/`init.ps1` 양쪽).
+
+### Compatibility
+- 설치기 동작만 바뀐다. 렌더 결과·파일 형식·역할 경계는 그대로다.
+- Codex 경로는 이상이 없었다 — 단독 설치 시 역할 10 + 스킬 6 + 훅 + 상태 파일이 모두 깔리고
+  `.claude`/`.opencode` 는 생기지 않으며, `.codex/hooks.json` 이 같은 훅을 `bash` 로 호출하고
+  `AGENTS.md` 가 `PROJECT_RULES.md` 와 게이트를 지시한다.
+
 ## [1.27.1] - 2026-09-11
 
 Windows를 실행하지 못하는 대신 하니스 쪽에서 검증하다가 나온 수정.

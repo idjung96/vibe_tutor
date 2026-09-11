@@ -301,8 +301,19 @@ if has_agent opencode; then
   done
 fi
 
-# manifest 확정. 하니스 소유라 매번 새로 쓴다.
-[ -f "$MANIFEST.tmp" ] && mv "$MANIFEST.tmp" "$MANIFEST"
+# manifest 확정. 이번에 렌더하지 않은 항목(에이전트 구성을 바꿔 설치한 경우)은 그대로
+# 이어간다 — 안 그러면 다음 설치 때 "기록 없음"으로 보여 불필요한 .bak 이 생긴다.
+if [ -f "$MANIFEST.tmp" ]; then
+  if [ -f "$MANIFEST" ]; then
+    awk 'NR==FNR { seen[$2]=1; next } !($2 in seen)' "$MANIFEST.tmp" "$MANIFEST" > "$MANIFEST.keep"
+    cat "$MANIFEST.tmp" "$MANIFEST.keep" > "$MANIFEST.merged"
+    mv "$MANIFEST.merged" "$MANIFEST"
+    rm -f "$MANIFEST.keep"
+  else
+    mv "$MANIFEST.tmp" "$MANIFEST"
+  fi
+  rm -f "$MANIFEST.tmp"
+fi
 
 # ── 8. git 초기화 ─────────────────────────────────────────────
 if [ ! -d "$TARGET/.git" ]; then

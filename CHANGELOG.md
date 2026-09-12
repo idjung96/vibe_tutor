@@ -4,6 +4,19 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.34.1] — 역할 목록에서 evaluator 누락 정정
+
+1.34.0 에서 evaluator 역할을 추가하면서 **역할을 나열하는 문서 7군데를 갱신하지 않았다.**
+init 의 매핑은 전부 맞았고(파리티 검증 10/10 PASS) 실제 emit 도 정상이라 동작은 문제가
+없었지만, 문서만 읽으면 large 전용 역할이 4종으로 보였다.
+
+- `templates/skills/team-dev/SKILL.md.tmpl` 머리말 역할 소개에 evaluator 추가(렌더 대상)
+- `CLAUDE.md`: 역할 본문 단일 소스 "10개" → "11개", emit 대상 목록, 호환성 계약의 역할 경계,
+  단일 작성자 원칙의 subagent 목록
+- `README.md`: 역할 경계 2곳
+- `CLAUDE.md` 차이 목록에 evaluator 가 **두 번** 들어가 있던 것 정정(14종 선언과 어긋났다)
+- `CLAUDE.md` 검사 시점 항목 끝에 치환 흔적으로 남은 "와" 제거
+
 ## [1.34.0] — 산출물 평가와 재시도 판단
 
 지금까지 재시도는 checker 의 PASS/FAIL 이진값과 RETRY_LIMIT 만 보고 정했다. 그래서

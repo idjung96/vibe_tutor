@@ -288,7 +288,7 @@ Owner 합의(C등급 정지)를 유지한다.
    truncate/dd of=/patch)도 차단 대상이다. 읽기·실행은 통과시킨다.
 5. 로그 형식 `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value` — `logs/app.log` 에 append하고
    표준출력에도 같은 줄을 낸다. 언어와 무관하게 동일하며 `logging-rule` 스킬이 정본이다.
-6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
+6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security·evaluator)
    및 designer 산출물 dev-agent-team/DESIGN.md 형식. lead는 방향·백로그 외에 회고·절차 개선제안(IMPROVE)도 낸다(large 전용).
    lead 호출 모드 3종(방향·단계 회고·최종 회고)과 호출 시점(4-0/7-0/12c/17b), BACKLOG "메모·주의"의
    출처 표기 형식(`- 설명 · 출처:stageN/역할`)도 계약에 포함된다.
@@ -438,7 +438,7 @@ AGENTS.md 규칙 병행과 컨테이너 격리를 권장한다(아래 "설계에
   끌어오거나 심볼릭으로 연결한다.
 - **스킬은 `.agents/skills/` + `.claude/skills/` 두 곳**에 두면 셋 다 커버된다
   (`.agents/`=Codex 네이티브+opencode 호환, `.claude/`=Claude Code+opencode 호환).
-- **5-에이전트(planner/tester/coder/checker/documenter) + UI 단계 designer + large 전용 lead·reviewer·critic·security**: Claude·opencode는
+- **5-에이전트(planner/tester/coder/checker/documenter) + UI 단계 designer + large 전용 lead·reviewer·critic·security·evaluator**: Claude·opencode는
   서브에이전트로 둘 수 있으나, **Codex는 별도 서브에이전트 프로세스가 없다** → team-dev 스킬이
   "단일 에이전트가 역할을 순차 수행"하도록 기술해야 한다.
 - **가드레일(C등급 정지·테스트 보호)**: Claude=shell hook, Codex=동일 `exit 2` `hook.json`

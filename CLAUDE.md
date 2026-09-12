@@ -64,7 +64,7 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 `templates/docs/*`·`templates/project/*`·`templates/codex/hooks.json`·
 `templates/opencode/plugins/guard.js` 는 그대로 복사된다(`init.sh` §4–7 참조).
 
-3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 10개(planner/tester/coder/checker/documenter/designer, +lead/reviewer/critic/security)가 단일 소스다. designer는 양 프로파일 공통(UI 단계에서만 호출)이고, lead·reviewer·critic·security는 large 프로파일에서만 emit된다(`init.sh`/`init.ps1`의 `$ROLES`/`$Roles`). init이
+3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 11개(planner/tester/coder/checker/documenter/designer, +lead/reviewer/critic/security/evaluator)가 단일 소스다. designer는 양 프로파일 공통(UI 단계에서만 호출)이고, lead·reviewer·critic·security·evaluator는 large 프로파일에서만 emit된다(`init.sh`/`init.ps1`의 `$ROLES`/`$Roles`). init이
    에이전트별 frontmatter를 붙여 렌더한다 — Claude=`.claude/agents/<role>.md`(name/description/
    tools), Codex=`.agents/skills/<role>/SKILL.md`(name/description), opencode=
    `.opencode/agents/<role>.md`(description/mode/tools). frontmatter 매핑(설명·tools)은
@@ -93,7 +93,7 @@ coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, revie
 lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md; 회고 모드 2종(단계 12c·최종 17b)과 절차 자기개선 제안 IMPROVE),
 critic 역할(large 전용 결정 심의·합의; 명확하면 자율, 모호·고위험은 Owner),
 evaluator 역할(large 전용 요구사항 충족도 match·contract·doc 점수와 GAP — 품질은 reviewer, 결정은 critic 과 겹치지 않게),
-security 역할(large 전용 보안 점검), evaluator 역할(large 전용 충족도 평가), planner 요구사항 충돌·누락 점검(large만),
+security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락 점검(large만),
 절차 자기개선(large 전용 lead 회고→[절차개선] BACKLOG 누적→7-0/17b에서 Owner 승인→PROCESS.md 오버레이). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
 
 ## 생성된 프로젝트의 디렉터리 규약
@@ -136,14 +136,14 @@ Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다: 1.진행 / 2.수
 검사 시점 3분할(team-dev "언제 무엇을 하나"가 정본): commit 전(테스트 커밋 전 [collect],
 구현 커밋 전 --gate 조기 필터·checker SCOPED) / push 시(remote 있을 때만, 작업 브랜치 확인) /
 PR 시(main 합치기 직전 단계당 1회: checker FULL·--record-full-test·--gate 4종, large면 reviewer·security).
-구현 직후 11번도 FULL 이다. main 합류 지점은 하나 — remote 있으면 PR, 없으면 로컬 merge이고 게이트 내용은 같다. 와
+구현 직후 11번도 FULL 이다. main 합류 지점은 하나 — remote 있으면 PR, 없으면 로컬 merge이고 게이트 내용은 같다. /
 dev-agent-team/.last-full-test(소스+tests 트리 해시 — FULL 실행 뒤 코드가 바뀌면 게이트가 막는다) /
 deny/ask 목록(git push 전체와 gh pr 은 **ask** — Owner 승인 후 에이전트가 실행. 브랜치 생성은
 도구 allow 로 두고 Gate 1 계획 승인이 일괄 승인을 겸한다(절차 필수라 도구 ask 면 headless 에서
 멈춘다). 계획에 없는 브랜치는 C등급. 평가 순서는 deny→ask→allow) /
 append-only 테스트 원칙 /
 로그 형식(`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력, 언어 무관 — logging-rule이 정본) /
-역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security) / 단일 작성자 원칙).
+역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security·evaluator) / 단일 작성자 원칙).
 이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).
 계약을 바꾸면 README "호환성 계약" 절과 `HARNESS_VERSION` 을 함께 갱신한다.
 
@@ -169,7 +169,7 @@ append-only 테스트 원칙 /
 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md, dev-agent-team/DIRECTION.md, dev-agent-team/PROCESS.md)은 **메인 세션만**
 쓴다. subagent는 자기 산출물만 쓴다(planner=계획/질문, tester=tests/, coder=구현,
 checker=pytest 실행·판정, documenter=제품 README/문서, designer=dev-agent-team/DESIGN.md(UI 단계),
-lead·reviewer·critic·security(large)=제안만 출력. dev-agent-team/는 읽기만).
+lead·reviewer·critic·security·evaluator(large)=제안만 출력. dev-agent-team/는 읽기만).
 절차 전체는 `templates/skills/team-dev/SKILL.md.tmpl` 가 정본이다.
 
 ## 알려진 제약

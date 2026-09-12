@@ -129,13 +129,16 @@ Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 
 pass / retry / escalate(축 합계가 직전 대비 SCORE_MIN_GAIN 미만이면 더 시키지 않고 C등급).
 test 축은 FULL 실행 기록이 없으면 상한 75라 테스트를 실제로 돌리지 않으면 기준에 닿을 수 없다.
 진전 판정은 최저축이 아니라 **축 합계**로 본다 — 최저가 아닌 축을 고쳐도 개선이 보이게.
+doc 축은 완료 단계의 R번호가 README 에 있는지 보므로 **documenter 가 단계마다 돌아야 채워진다**
+(PR 시점, --score 앞. README 는 .md 라 .last-full-test 를 무효화하지 않는다).
+trace 와 doc 은 같은 창(현재 단계 포함)으로 채점한다.
 추세는 SCORE.json 의 history 에 누적한다(TEST_LOG 는 7열 그대로) /
 C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단,
 Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다: 1.진행 / 2.수정 / 3.중단(산출물 보존),
 답하기 전 다음 단계로 넘어가지 않음) /
 검사 시점 3분할(team-dev "언제 무엇을 하나"가 정본): commit 전(테스트 커밋 전 [collect],
 구현 커밋 전 --gate 조기 필터·checker SCOPED) / push 시(remote 있을 때만, 작업 브랜치 확인) /
-PR 시(main 합치기 직전 단계당 1회: checker FULL·--record-full-test·--gate 4종, large면 reviewer·security).
+PR 시(main 합치기 직전 단계당 1회: checker FULL·--record-full-test·--gate 4종·documenter(그 단계 R번호)·--score, large면 reviewer·security·evaluator).
 구현 직후 11번도 FULL 이다. main 합류 지점은 하나 — remote 있으면 PR, 없으면 로컬 merge이고 게이트 내용은 같다. /
 dev-agent-team/.last-full-test(소스+tests 트리 해시 — FULL 실행 뒤 코드가 바뀌면 게이트가 막는다) /
 deny/ask 목록(git push 전체와 gh pr 은 **ask** — Owner 승인 후 에이전트가 실행. 브랜치 생성은
@@ -166,9 +169,9 @@ append-only 테스트 원칙 /
 
 ## 에이전트 역할 경계 (단일 작성자 원칙)
 
-공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md, dev-agent-team/DIRECTION.md, dev-agent-team/PROCESS.md)은 **메인 세션만**
+공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md, dev-agent-team/SCORE.json, dev-agent-team/DIRECTION.md, dev-agent-team/PROCESS.md)은 **메인 세션만**
 쓴다. subagent는 자기 산출물만 쓴다(planner=계획/질문, tester=tests/, coder=구현,
-checker=pytest 실행·판정, documenter=제품 README/문서, designer=dev-agent-team/DESIGN.md(UI 단계),
+checker=pytest 실행·판정, documenter=제품 README/문서(단계마다 그 단계 R번호 + 17번 최종 정리), designer=dev-agent-team/DESIGN.md(UI 단계),
 lead·reviewer·critic·security·evaluator(large)=제안만 출력. dev-agent-team/는 읽기만).
 절차 전체는 `templates/skills/team-dev/SKILL.md.tmpl` 가 정본이다.
 

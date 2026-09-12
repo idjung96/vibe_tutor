@@ -749,7 +749,10 @@ def main():
         "print": scan_print(langs),
         "security": scan_security(langs),
         "size": scan_size(langs),
-        "trace": scan_trace(include_current=gate),
+        # gate 와 score 는 둘 다 "방금 끝난 단계" 시점에 돈다. doc 축(_doc_gap)이
+        # 현재 단계를 포함하므로 trace 도 같은 창을 써야 한다 — 안 그러면 같은 PLAN 에서
+        # 두 축이 다른 기준으로 채점된다.
+        "trace": scan_trace(include_current=(gate or score)),
     }
     if score:
         # 점수는 아무것도 막지 않는다. 판정(pass/retry/escalate)만 남기고 exit 0.

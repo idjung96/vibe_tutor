@@ -117,7 +117,11 @@ dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용),
 dev-agent-team/PROJECT_RULES.md(Owner가 쓰는 프로젝트 고유 규칙, 재설치해도 보존 — 헌법을 좁히는
 방향으로만 작동하고 안전장치는 무효화 못 한다. Claude=@import, opencode=instructions, codex=헌법 지시),
 dev-agent-team/.harness-manifest(AGENTS.md·CLAUDE.md 의 설치 시 해시 — 재설치 때 Owner 편집 여부를
-가려 편집했으면 덮지 않고 .new 로 둔다(conffile). 해시는 **CR 을 지우고** 계산한다: Windows 에서
+가려 편집했으면 덮지 않고 .new 로 둔다(conffile). **.new 가 남아 있으면 그 파일만 옛 버전에
+묶인 '헌법 동결' 상태다** — 절차·역할·권한은 새 버전이라 규칙이 어긋난다. 세 곳에서 보인다:
+설치 시 두 버전을 숫자로 안내, `selfcheck` 의 `[constitution]` 줄(차단은 안 한다),
+team-dev "시작할 때" 절이 Owner 에게 3지선다로 묻는다. 해소는 Owner 규칙을 PROJECT_RULES.md 로
+옮기고 .new 를 본파일로 옮긴 뒤 **설치를 한 번 더** 돌리는 것이다(그래야 manifest 가 맞는다). 해시는 **CR 을 지우고** 계산한다: Windows 에서
 git 이 줄끝을 바꾼 것을 Owner 편집으로 오인하면 헌법이 영영 갱신되지 않는다.
 강제 장치는 이 규칙을 쓰지 않고 무조건 덮어쓴다),
 .gitattributes(가드 훅 `*.sh` 의 줄끝을 대상 프로젝트의 git 에서도 LF 로 고정 — 없으면 Windows

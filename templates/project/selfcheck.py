@@ -33,6 +33,8 @@ exit code는 결정적 3종(collect / print / trace)만 반영한다. security �
 5. R번호 추적성을 대조한다 — REQUIREMENTS -> PLAN.json covers -> 테스트 이름 -> README.
    역할들은 각자 자기 산출물 안에서만 R번호를 확인해서 끊어진 고리는 아무도 못 본다.
 6. 코드 규모 임계를 검사한다(code-convention: 함수 40줄·인자 5개·중첩 3단계).
+7. 헌법(AGENTS.md·CLAUDE.md)이 옛 버전에 묶여 있는지 본다 — .new 가 남아 있으면 동결이다.
+   보고만 하고 차단하지 않는다(고칠 사람은 Owner 다).
 
 3~6은 모두 결정적 검사라 작은 모델에서도 안전하게 쓸 수 있다(주관 판단 없음).
 툴체인이 필요한 검사(go build / cargo check)는 느리고 네트워크·빌드 산출물을 만들어
@@ -74,6 +76,10 @@ MAX_NESTING = 3
 REQUIREMENTS_PATH = Path("dev-agent-team/REQUIREMENTS.md")
 PLAN_PATH = Path("dev-agent-team/PLAN.json")
 README_PATH = Path("README.md")
+# 헌법 동결 탐지. 재설치가 Owner 편집을 덮지 않으려고 .new 를 남기면, 그 파일만 옛 버전에
+# 묶이고 절차·역할·권한은 새 버전이 된다 — 규칙이 서로 어긋난 채로 돈다. 설치 때 한 번
+# 스쳐 지나가는 알림 말고, 게이트를 돌 때마다 보이게 한다.
+CONSTITUTION = [Path("AGENTS.md"), Path("CLAUDE.md")]
 TESTS_DIR = Path("tests")
 # 마지막 FULL 테스트 실행의 소스 트리 해시. 기록자와 검증자가 같은 코드라 파리티 위험이 없다.
 FULL_TEST_MARK = Path("dev-agent-team/.last-full-test")
@@ -622,6 +628,49 @@ def check_full_test(langs):
     return True
 
 
+def check_constitution():
+    """헌법이 옛 버전에 묶여 있는지 본다. 차단하지 않는다 — 고칠 사람은 Owner 다.
+
+    코드 결함이 아니라 설치 상태 문제라서 merge 를 막지 않는다. 막으면 Owner 가 자리를
+    비운 동안 팀 전체가 멈춘다. 강제는 절차(team-dev "시작할 때")가 Owner 에게 물어서 한다.
+    """
+    frozen = []
+    for path in CONSTITUTION:
+        new = Path(str(path) + ".new")
+        if path.is_file() and new.is_file():
+            cur = _version_in(path)
+            nxt = _version_in(new)
+            frozen.append((path.name, cur, nxt))
+    if not frozen:
+        print("[constitution] OK")
+        return True
+    behind = False
+    for name, cur, nxt in frozen:
+        if cur == nxt:
+            # 같은 버전에서 Owner 가 고친 것이다. 버전이 뒤처진 건 아니라 급하지 않다.
+            print(f"[constitution] {name} 에 직접 수정한 내용이 있다(v{cur}, 버전은 최신).")
+            print(f"               {name}.new 와 내용이 다르다. 고유 규칙은 "
+                  "dev-agent-team/PROJECT_RULES.md 로 옮기는 것이 낫다.")
+        else:
+            behind = True
+            print(f"[constitution] 동결 — {name} 는 v{cur} 인데 절차·역할·권한은 v{nxt} 다.")
+            print(f"               규칙이 어긋난 채로 돌고 있다. {name}.new 를 확인하라.")
+    if behind:
+        print("               (차단하지 않는다. Owner 가 정할 일이다 — team-dev '시작할 때' 참조)")
+    return False
+
+
+def _version_in(path):
+    """파일 머리의 HARNESS_VERSION 줄을 읽는다. 없으면 '?'."""
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines()[:20]:
+            if line.startswith("HARNESS_VERSION:"):
+                return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return "?"
+
+
 def _doc_gap():
     """끝난 단계의 R번호 중 README.md 에 없는 것의 수. 문서 평가 축이다.
 
@@ -724,6 +773,11 @@ def main():
     score = "--score" in args
     rest = [a for a in args if not a.startswith("--")]
     target = rest[0] if rest else None
+
+    # 헌법 동결은 제품 언어와 무관하다. 언어 미감지로 조기 반환하기 전에 먼저 본다 —
+    # --record-full-test 만 돌릴 때는 조용해야 하므로 그때는 건너뛴다.
+    if not record:
+        check_constitution()
 
     langs = detect_langs()
     if not langs:

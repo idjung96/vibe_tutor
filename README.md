@@ -342,6 +342,12 @@ Owner 합의(C등급 정지)를 유지한다.
   `test` 축은 FULL 실행 기록이 없으면 **상한 75**라, 테스트를 실제로 돌리지 않으면 기준에
   닿을 수 없다. large 에는 요구사항 충족도를 보는 `evaluator` 역할이 더해진다(품질은
   reviewer, 결정은 critic — 보는 것이 겹치지 않는다).
+- **헌법이 옛 버전에 묶이면(동결) 그 사실이 보인다.** 재설치는 Owner가 고친 `AGENTS.md`를
+  덮지 않고 `.new`를 남기는데, 그러면 그 파일만 옛 버전이고 절차·역할·권한은 새 버전이라
+  규칙이 어긋난다. 설치 시 두 버전을 숫자로 알리고, `selfcheck`가 `[constitution]` 줄로
+  매번 보고하며(차단은 하지 않는다 — 고칠 사람은 Owner다), team-dev "시작할 때"가 Owner에게
+  묻는다. 해소는 직접 쓴 규칙을 `PROJECT_RULES.md`로 옮기고 `.new`를 본파일로 옮긴 뒤
+  **설치를 한 번 더** 돌리는 것이다.
 - **검사는 세 시점으로 나뉜다.** *commit 전*은 싼 결정적 검사만(테스트 커밋 전 `[collect]`,
   구현 커밋 전 `--gate` 조기 필터·checker SCOPED). *push 시*는 remote가 있을 때만 돌고 작업
   브랜치인지 확인한다. *PR 시*(main 합치기 직전, 단계당 1회)에 checker FULL·`--record-full-test`·

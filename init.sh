@@ -130,8 +130,15 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
         rm -f "$TMP"                       # 이미 새 내용과 같음
       else
         mv "$TMP" "$2.new"                 # Owner가 편집함 → 덮지 않는다
+        # 편집을 지키는 건 맞지만, 그 대가로 이 파일만 옛 버전에 묶인다. 절차·역할·권한은
+        # 새 버전으로 갱신되므로 규칙이 서로 어긋난다. 몇 버전 뒤처졌는지 숫자로 말해 준다.
+        OLDV=$(sed -n 's/^HARNESS_VERSION: *//p' "$2" | head -1)
         echo "알림: $3 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $3.new 입니다."
-        echo "      프로젝트 고유 규칙은 dev-agent-team/PROJECT_RULES.md 에 적으면 이 알림이 안 뜹니다."
+        echo "      주의: $3 는 v${OLDV:-?} 에 묶입니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
+        echo "      규칙이 서로 어긋난 상태로 돌게 됩니다. 둘 중 하나를 하세요:"
+        echo "        (1) 권장 — 직접 쓴 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고,"
+        echo "            mv $3.new $3 한 다음 이 설치 명령을 한 번 더 실행하세요."
+        echo "        (2) 지금 헌법을 유지 — 그러면 이 알림은 계속 뜹니다(어긋남이 남아 있다는 뜻)."
       fi
     else
       cp "$2" "$2.bak"                     # manifest 이전 프로젝트 → 백업 후 갱신

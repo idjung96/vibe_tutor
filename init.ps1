@@ -129,8 +129,17 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
             }
             else {
                 Move-Item -LiteralPath $tmp "$DstFile.new" -Force    # 편집함 -> 보존
+                # init.sh 와 같은 안내여야 한다. 편집은 지키되 그 파일만 옛 버전에 묶이므로
+                # 절차·역할·권한과 어긋난다는 것을 숫자로 말해 준다.
+                $oldv = (Select-String -LiteralPath $DstFile -Pattern '^HARNESS_VERSION: *(.+)$' |
+                         Select-Object -First 1).Matches.Groups[1].Value
+                if (-not $oldv) { $oldv = '?' }
                 Write-Host "알림: $Rel 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $Rel.new 입니다."
-                Write-Host '      프로젝트 고유 규칙은 dev-agent-team/PROJECT_RULES.md 에 적으면 이 알림이 안 뜹니다.'
+                Write-Host "      주의: $Rel 는 v$oldv 에 묶입니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
+                Write-Host '      규칙이 서로 어긋난 상태로 돌게 됩니다. 둘 중 하나를 하세요:'
+                Write-Host "        (1) 권장 — 직접 쓴 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고,"
+                Write-Host "            $Rel.new 를 $Rel 로 옮긴 다음 이 설치 명령을 한 번 더 실행하세요."
+                Write-Host '        (2) 지금 헌법을 유지 — 그러면 이 알림은 계속 뜹니다(어긋남이 남아 있다는 뜻).'
             }
         }
         else {

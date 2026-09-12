@@ -36,8 +36,9 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh --profile small --agent claude,opencode /tmp/t3  # small(온프레미스): codex 불가
 ./init.sh ~/projects/my-app                     # 신규면 자동 판별. **재설치면 기존 프로파일·에이전트를 유지**한다
 
-# hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
-./tests/verify_hooks.sh /tmp/t1       # 24항목 PASS여야 함(21은 .sh, 3은 guard.js — node 없으면 SKIP)
+# 설치 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
+./tests/verify_install.sh /tmp/t1     # 구성·파일·설정·헌법 동결 + 가드 훅 실동작까지
+./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 24항목(21은 .sh, 3은 guard.js — node 없으면 SKIP)
 
 # init.sh ↔ init.ps1 파리티 검증 (pwsh 없이 코드리뷰를 자동화한 것)
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
@@ -56,7 +57,7 @@ python3 tests/test_install.py             # 16항목. init.sh 를 고치면 반�
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
 ```
 
-변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 24/24 PASS →
+변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_install.sh` FAIL 0 →
 `verify_parity.py <대상>` PASS(init.sh/init.ps1 을 고쳤으면 반드시) →
 `test_selfcheck.py` PASS(selfcheck.py 를 고쳤으면) → `test_install.py` PASS(init.sh 를 고쳤으면) →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`

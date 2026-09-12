@@ -348,8 +348,10 @@ Owner 합의(C등급 정지)를 유지한다.
 ## 배포 전 검증 (관리자용)
 
 1. `./init.sh --profile small --agent claude,opencode /tmp/t1` 과 `--profile large /tmp/t2` 실행,
-   hook 검증 24항목 전부 PASS 확인 (init.sh가 자동 수행). 22~24번은 guard.js 를 .sh 와
-   대조하는 항목이라 node 가 없으면 SKIP 된다. small은 codex를 포함할 수 없다(에러).
+   **설치 검증 FAIL 0** 확인 (init.sh가 끝에서 `tests/verify_install.sh` 를 자동 수행).
+   구성·파일·설정 파싱·헌법 동결을 보고, 가드 훅 24항목도 그 안에서 돈다(22~24번은 guard.js 를
+   .sh 와 대조하는 항목이라 node 가 없으면 SKIP). small은 codex를 포함할 수 없다(에러).
+   Owner 도 설치·업데이트 뒤에 `./tests/verify_install.sh <프로젝트>` 로 직접 확인할 수 있다.
 2. samples/sample-task-todo 로 양 프로파일 실주행:
    - small: C등급 과잉 에스컬레이션, JSON 형식 파손율 관찰
    - large: 과소 에스컬레이션(애매한 요구를 스스로 해석), 범위 초과 관찰

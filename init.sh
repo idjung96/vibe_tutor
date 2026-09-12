@@ -448,8 +448,10 @@ if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; 
   echo ""
 fi
 
-# ── 9. hook 실동작 검증 (공통 dev-agent-team/hooks) ─────────────────────
-if bash "$SRC/tests/verify_hooks.sh" "$TARGET"; then
+# ── 9. 설치 검증 (가드 훅 실동작 + 구성·파일·설정 건강검진) ──────────────
+# verify_install.sh 가 verify_hooks.sh 를 품는다. 설치가 "깔리긴 했는데 못 쓰는" 상태로
+# 끝나지 않게 여기서 한 번 다 본다. Owner 가 나중에 직접 돌려도 된다.
+if bash "$SRC/tests/verify_install.sh" "$TARGET"; then
   echo ""
   echo "설치 완료 (v$VERSION, $PROFILE, [$AGENTS])."
   echo "다음: $TARGET 에서 코딩 에이전트를 열고 '개발 시작'이라고 입력하세요."

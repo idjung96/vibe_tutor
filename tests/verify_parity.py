@@ -126,6 +126,48 @@ def check_mappings(sh, ps):
     return roles
 
 
+# ── 5b. 설치기 로직 파리티 (역할 매핑 밖) ───────────────────────────────────
+def check_installer_logic(sh, ps):
+    """재설치 구성 추론·버전 차이·헌법 채택처럼 역할 매핑이 아닌 로직도 양쪽이 같아야 한다.
+
+    이것들은 렌더 결과에 안 나타나서 6번(바이트 비교)으로는 안 잡힌다. 손으로 대조하면
+    반드시 언젠가 빠뜨린다 — 실제로 이 검사를 만들기 전까지는 매번 손으로 봤다.
+    """
+    # 재설치 시 프로파일을 가리는 마커 파일(large 전용 lead 역할)
+    a = re.findall(r"\$TARGET/(\.[\w./-]*lead[\w./-]*)", sh)
+    b = [x.replace("\\", "/") for x in
+         re.findall(r"'(\.[\w.\\-]*lead[\w.\\-]*)'", ps)]
+    check("프로파일 추론 마커가 같다(lead 역할 3경로)", a == b, f"sh={a}\nps={b}")
+
+    # 에이전트를 가리는 마커 파일과 순서
+    a = re.findall(r'\$TARGET/([\w./-]+)"?\s*\]\s*&&\s*out="\$out,(\w+)"', sh)
+    b = [(f.replace("\\", "/"), n) for f, n in
+         re.findall(r"Join-Path \$Target '([\w.\\]+)'\)\)\s*\{\s*\$out \+= '(\w+)' \}", ps)]
+    check("에이전트 추론 마커와 순서가 같다", a == b, f"sh={a}\nps={b}")
+
+    # "버전 차이가 크다" 임계값
+    a = re.search(r'\[ "\$GAP" -ge (\d+) \]', sh)
+    b = re.search(r"\$gap -ge (\d+)", ps)
+    ok = a and b and a.group(1) == b.group(1)
+    check("버전 차이 경고 임계값이 같다", ok,
+          "" if ok else f"sh={a and a.group(1)} ps={b and b.group(1)}")
+
+    # 헌법 채택이 만드는 파일 접미사
+    a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))
+    b = sorted(set(re.findall(r'"\$File\.([\w-]+)"', ps)))
+    check("헌법 채택이 다루는 파일 접미사가 같다", a == b, f"sh={a}\nps={b}")
+
+    # 파이썬 필수 경고가 양쪽에 있는가
+    check("파이썬 필수 경고가 양쪽에 있다",
+          "python3/python 을 찾지" in sh and "python3/python 을 찾지" in ps)
+
+    # PowerShell 7+ 전용 구문을 쓰지 않았는가(#Requires -Version 5.1 이다).
+    # 주석은 뺀다 — "?? 는 7+ 전용" 같은 설명까지 잡으면 자기 주석에 걸린다.
+    code = "\n".join(ln for ln in ps.splitlines() if not ln.lstrip().startswith("#"))
+    bad = [op for op in ("??", "?.", "-Parallel") if op in code]
+    check("init.ps1 이 PowerShell 5.1 호환 구문만 쓴다", not bad, f"7+ 전용: {bad}")
+
+
 # ── 5. 템플릿 끝 빈 줄 ──────────────────────────────────────────────────────
 def check_trailing_blank():
     bad = []
@@ -214,6 +256,7 @@ def main():
     sh, ps = read(SH), read(PS)
     try:
         roles = check_mappings(sh, ps)
+        check_installer_logic(sh, ps)
         check_trailing_blank()
         if len(sys.argv) > 1:
             check_rendered(sys.argv[1], sh, ps, roles)

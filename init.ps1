@@ -490,7 +490,7 @@ if (-not (Get-Command python3 -ErrorAction SilentlyContinue) -and
     Write-Host ''
 }
 
-# ── 9. hook 실동작 검증 (Git Bash 필요) ───────────────────────
+# ── 9. 설치 검증 (Git Bash 필요) — verify_install.sh 가 verify_hooks.sh 를 품는다 ──
 $bash = $null
 $cmd = Get-Command bash -ErrorAction SilentlyContinue
 if ($cmd) { $bash = $cmd.Source }
@@ -503,7 +503,7 @@ else {
 if ($bash) {
     $srcU = $Src -replace '\\', '/'
     $tgtU = $Target -replace '\\', '/'
-    & $bash "$srcU/tests/verify_hooks.sh" "$tgtU"
+    & $bash "$srcU/tests/verify_install.sh" "$tgtU"
     if ($LASTEXITCODE -ne 0) {
         Write-Host ''
         Write-Host '경고: hook 검증 실패. 안전장치가 동작하지 않을 수 있습니다.'
@@ -512,9 +512,9 @@ if ($bash) {
     }
 }
 else {
-    Write-Host '경고: Git Bash를 찾지 못해 hook 검증을 건너뛰었습니다.'
+    Write-Host '경고: Git Bash를 찾지 못해 설치 검증을 건너뛰었습니다.'
     Write-Host '      Claude Code Windows 버전은 Git Bash가 필요하므로 먼저 설치하세요.'
-    Write-Host '      설치 후 검증: bash tests/verify_hooks.sh <프로젝트경로>'
+    Write-Host '      설치 후 검증: bash tests/verify_install.sh <프로젝트경로>'
 }
 
 Write-Host ''

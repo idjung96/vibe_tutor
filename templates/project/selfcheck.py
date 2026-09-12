@@ -314,9 +314,13 @@ def scan_trace(include_current=False):
     """
     if not REQUIREMENTS_PATH.is_file() or not PLAN_PATH.is_file():
         print("[trace] SKIP (REQUIREMENTS.md 또는 PLAN.json 없음 — 프로젝트 초기)")
+        COUNTS["trace"] = 0          # 아직 잴 게 없다 — 문제 0건과 같다
         return True
     plan = _read_plan()
     if plan is None:
+        # 재려다 실패했다. 이걸 '문제 0건'으로 두면 점수가 만점이 나온다 — 검사가 죽었는데
+        # 깨끗하다고 보고하는 것이 이 도구가 저지를 수 있는 최악의 실패다.
+        COUNTS["plan_broken"] = True
         return False
     stages, current = plan
 
@@ -340,7 +344,12 @@ def _read_plan():
     """PLAN.json 에서 (stages, current_stage) 를 읽는다. 못 읽으면 None."""
     try:
         plan = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
-        return plan["stages"], int(plan.get("current_stage", 1))
+        stages = plan["stages"]
+        # 타입까지 본다. 리스트가 아니거나 원소가 dict 가 아니면 아래에서 .get 을 부르다
+        # AttributeError 로 죽는다 — 상태 파일이 망가졌을 때 크래시가 아니라 판정이 나야 한다.
+        if not isinstance(stages, list) or any(not isinstance(x, dict) for x in stages):
+            raise TypeError("stages 는 객체의 리스트여야 한다")
+        return stages, int(plan.get("current_stage", 1))
     except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError) as exc:
         print(f"[trace] FAIL (PLAN.json 을 읽을 수 없다: {exc})")
         return None
@@ -750,6 +759,18 @@ def write_score(scores):
     # escalate 직후도 여전히 실패 시퀀스 안이다. retry 만 보면 RETRY→ESCALATE→RETRY 로
     # 진동해서, 막혀 있는데도 계속 다시 시키는 것처럼 보인다.
     in_retry = prev_verdict in ("retry", "escalate")
+    if COUNTS.get("plan_broken"):
+        # PLAN.json 을 못 읽으면 trace·doc 을 잴 수 없다. 그 상태를 점수로 덮지 않는다.
+        # 고칠 수 있는 건 메인 세션·Owner 지 coder 가 아니므로 곧바로 올린다.
+        print("[score] ESCALATE — dev-agent-team/PLAN.json 을 읽을 수 없어 trace·doc 을 "
+              "잴 수 없다. 점수를 믿지 마라. PLAN.json 부터 고쳐야 한다.")
+        out = {"stage": None, "scores": scores, "overall": 0, "total": total,
+               "below": ["trace", "doc"], "prev_total": prev, "prev_verdict": prev_verdict,
+               "delta": delta, "verdict": "escalate", "plan_broken": True,
+               "history": history}
+        SCORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        SCORE_PATH.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return out
     if not below:
         verdict = "pass"
     elif in_retry and delta is not None and delta < SCORE_MIN_GAIN:

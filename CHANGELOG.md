@@ -4,6 +4,24 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.38.1] — 상태 파일이 망가졌을 때 점수가 만점을 내던 것
+
+전체 리뷰에서 비정상 입력을 넣어 보다 찾았다. 에이전트가 잘못 쓴 상태 파일은 현실적인 상황이다.
+
+| 상황 | 지금(AS-IS) | 앞으로(TO-BE) |
+|---|---|---|
+| `PLAN.json` 이 깨진 JSON | `[trace] FAIL` 을 찍고도 `[score] trace=100 doc=100` — **검사가 죽었는데 만점** | `[score] ESCALATE — PLAN.json 을 읽을 수 없어 trace·doc 을 잴 수 없다. 점수를 믿지 마라.` |
+| `stages` 가 리스트가 아님 | `AttributeError: 'str' object has no attribute 'get'` **크래시** | `[trace] FAIL (stages 는 객체의 리스트여야 한다)` + exit 0 |
+| `stages` 원소가 dict 가 아님 | 같은 크래시 | 같은 판정, `--gate` 는 trace 로 차단 |
+| 프로젝트 초기(PLAN 없음) | SKIP | 그대로 SKIP(변화 없음) |
+
+원인은 `scan_trace` 가 조기 반환하면서 `COUNTS["trace"]` 를 남기지 않은 것이다. `_axis` 는
+"못 잰 값(None)"을 만점으로 처리하는데(잴 수 없는 것으로 깎지 않는다는 원칙), **"아직 잴 게
+없다"와 "재려다 실패했다"를 구분하지 않았다.** 앞은 만점이 맞고 뒤는 아니다.
+`검사가 죽었는데 깨끗하다고 보고하는 것`은 이 저장소가 fail-closed 로 다뤄 온 실패 유형이다.
+
+타입 검증은 `_read_plan` 한 곳에 두어 `_stage_of`·`_covers_rs` 양쪽이 함께 산다.
+
 ## [1.38.0] — 재시도 판정이 과하게 Owner 를 부르던 것
 
 "팀이 스스로 검토하고 낮은 등급은 스스로 해결하며 계속 개발하는가"를 리뷰하다 찾았다.

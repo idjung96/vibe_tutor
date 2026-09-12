@@ -4,6 +4,40 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.39.0] — 파이썬이 요구사항인데 어디에도 안 적혀 있던 것
+
+Owner 지적: "`.py` 를 dev-agent-team 에서 쓴다면 파이썬 실행 환경이 필요하다고 적어야 한다.
+자바 개발이면 `.py` 를 실행할 수 없기 때문이다."
+
+맞다. 그리고 실측해 보니 단순한 불편이 아니라 **완전히 못 쓰는 상태**가 된다.
+
+| | 지금(AS-IS) | 앞으로(TO-BE) |
+|---|---|---|
+| 파이썬 요구사항 | 어디에도 없음 | README "요구되는 환경" 절, 헌법 규칙 7, OWNER_GUIDE 0번, CLAUDE.md 제약 |
+| 파이썬 없이 설치 | 조용히 설치됨 | `init.sh`/`init.ps1` 이 **설치 끝에 경고** |
+| 파이썬 없이 작업 | `protect_tests: 경로 추출에 실패…` exit 2 — **자바 소스 한 줄도 못 쓴다** | 같음(fail-closed 는 옳다). 다만 왜 그런지 미리 안다 |
+| 자바 프로젝트의 게이트 | `[lang] 감지된 제품 언어 없음` → `[gate] PASS` 무조건 | 같음. **게이트가 사실상 비어 있다는 것을 제약으로 명시** |
+
+파이썬을 쓰는 곳은 둘이다 — 가드 훅이 훅 입력(JSON)에서 경로를 뽑을 때, 그리고
+`selfcheck.py`(게이트·점수). 둘 다 **제품 언어와 무관**하다. 가드는 fail-closed 라
+확인이 불가능하면 통과시키지 않고 막는데, 그 대상이 테스트 파일만이 아니라 **모든 편집**이다.
+
+`selfcheck` 가 아는 제품 언어가 python/go/rust/node 뿐이라는 것도 함께 적었다. 자바는
+collect·print·trace·size·security 가 전부 건너뛰어지고, checker 의 테스트 실행·판정만
+남는다. 개발은 돌지만 결정적 검사는 걸리지 않는다.
+
+### 같은 리뷰에서 나온 문서 정합성 3건
+
+- `CLAUDE.md`·`README.md` 제목이 "프로파일 차이 **13**가지" 인데 실제는 14개였다(1.34.0 에서
+  evaluator 를 넣고 제목을 안 고쳤다). 항목을 세어 14로 맞췄다.
+- **README 의 프로파일 차이 표에 evaluator 행이 통째로 빠져 있었다.** 1.34.1 에서 나열 7곳을
+  고치면서 이 표를 놓쳤다 — README 만 읽으면 large 에 evaluator 가 있는 줄 모른다.
+- `reviewer` 역할이 `evaluator` 와의 선을 안 그었다. evaluator 는 "품질은 reviewer 의 일"이라
+  적는데 reviewer 는 evaluator 를 몰랐다 — 한쪽만 그은 선이다. 양쪽에서 긋게 했다.
+
+헌법 규칙에 7번을 끼우면서 번호가 밀렸다(PROJECT_RULES 8→10). README 의 "항상 지킨다 8번"
+참조 2곳도 함께 고쳤다.
+
 ## [1.38.2] — selfcheck 가 자기 규칙을 지키게 (테스트 먼저)
 
 `selfcheck.py` 가 팀에게 "함수 40줄" 을 강제하면서 자기는 `write_score()` 81줄,

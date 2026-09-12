@@ -381,6 +381,19 @@ if (-not (Test-Path (Join-Path $Target '.git'))) {
     finally { Pop-Location }
 }
 
+# ── 8b. 파이썬 필수 확인 (init.sh 와 같은 안내여야 한다) ─────────────────
+if (-not (Get-Command python3 -ErrorAction SilentlyContinue) -and
+    -not (Get-Command python -ErrorAction SilentlyContinue)) {
+    Write-Host ''
+    Write-Host '경고: python3/python 을 찾지 못했습니다.'
+    Write-Host '      이 하네스는 만들려는 제품의 언어와 무관하게 파이썬이 필요합니다:'
+    Write-Host '        - dev-agent-team/hooks/protect_tests.sh 가 훅 입력에서 경로를 뽑을 때'
+    Write-Host '        - dev-agent-team/selfcheck.py (단계 merge 게이트·산출물 점수)'
+    Write-Host '      가드는 확인이 불가능하면 통과시키지 않고 막습니다(fail-closed).'
+    Write-Host '      파이썬 없이는 파일 편집이 전부 차단됩니다. 먼저 파이썬을 설치하세요.'
+    Write-Host ''
+}
+
 # ── 9. hook 실동작 검증 (Git Bash 필요) ───────────────────────
 $bash = $null
 $cmd = Get-Command bash -ErrorAction SilentlyContinue

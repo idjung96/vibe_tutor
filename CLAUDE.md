@@ -88,7 +88,7 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
 스킬 6종(team-dev/logging-rule/lib-research/code-convention/test-design/ui-design)은 claude면 `.claude/skills/`,
 codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
-## 프로파일은 이 13가지만 다르다
+## 프로파일은 이 14가지만 다르다
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
@@ -195,6 +195,13 @@ lead·reviewer·critic·security·evaluator(large)=제안만 출력. dev-agent-t
 - `AGENTS.md` 는 이제 **심볼릭 링크가 아니라 렌더된 실파일**(공통 헌법)이다. Claude는
   `CLAUDE.md` 가 `@AGENTS.md` 로 import 한다.
 - Codex `.codex` 설정은 trusted 프로젝트에서만 적용된다(설치 후 안내 참조).
+- **파이썬은 제품 언어와 무관하게 필수다.** 가드 훅이 훅 입력(JSON)에서 경로를 뽑을 때와
+  `selfcheck.py`(게이트·점수)에 쓴다. 없으면 `protect_tests.sh` 가 fail-closed 라 **파일
+  편집이 전부 막힌다**. 자바·C# 팀이 특히 걸린다 — `init.sh`/`init.ps1` 이 설치 끝에 경고한다.
+- **selfcheck 가 아는 제품 언어는 python/go/rust/node 뿐이다.** 자바 프로젝트는 `[lang] 감지된
+  제품 언어 없음` 이 되어 collect·print·trace·size·security 가 전부 건너뛰어지고 `[gate] PASS`
+  가 무조건 난다 — 게이트가 사실상 비어 있다. 테스트 실행·판정은 checker 가 제품 언어 러너로
+  하므로 개발 자체는 돌지만, 결정적 검사는 걸리지 않는다.
 - pwsh가 없는 환경에선 `init.ps1` 파리티를 **런타임** 검증할 수 없다. `tests/verify_parity.py`
   가 매핑·목록·렌더 결과를 정적으로 대조하지만, 그건 PowerShell 의미론을 파이썬으로 흉내 낸
   것이라 시뮬레이터가 틀리면 같이 틀린다. 실제 Windows 실행이 파리티 확인의 상한이다.

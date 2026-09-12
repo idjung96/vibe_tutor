@@ -19,6 +19,21 @@ Owner(사용자)는 시작 승인, C등급 질문 답변, 최종 인수 — 3개
 - 소형 모델(온프레미스 LLM)과 대형 모델(Claude) 모두 지원
 - 컴퓨터 초보자의 바이브코딩을 전제로 설계
 
+## 요구되는 환경
+
+**파이썬이 반드시 필요하다 — 만들려는 제품의 언어와 무관하다.** 자바·C#·PHP 처럼 파이썬을
+쓰지 않는 팀도 마찬가지다. 두 곳에서 쓴다:
+
+| 쓰는 곳 | 없으면 |
+|---|---|
+| `dev-agent-team/hooks/protect_tests.sh` 가 훅 입력(JSON)에서 경로를 뽑을 때 | 가드가 fail-closed 라 **파일 편집이 전부 차단된다**(테스트 파일만이 아니다) |
+| `dev-agent-team/selfcheck.py` — 단계 merge 게이트·산출물 점수 | 게이트와 점수를 돌릴 수 없다 |
+
+설치 자체는 파이썬 없이도 되지만 **쓸 수 없다.** `init.sh`/`init.ps1` 이 설치 끝에 경고한다.
+`python3` 가 없고 `python` 만 있는 환경(Windows python.org 설치본)도 지원한다.
+
+그 밖: `bash`(Windows는 Git Bash), `git`. opencode 를 쓰면 `bun`/`node` 도 필요하다.
+
 ## 설치
 
 macOS / Linux:
@@ -106,7 +121,7 @@ Owner가 쓰고 에이전트는 읽기만 한다. 에이전트가 규칙을 추�
 |---|---|
 | Claude | `CLAUDE.md` 의 `@dev-agent-team/PROJECT_RULES.md` — 세션에 자동 주입 |
 | opencode | `opencode.json` 의 `instructions` — 세션에 자동 주입 |
-| Codex | import 메커니즘이 없어 `AGENTS.md` 지시(항상 지킨다 8번)로 읽는다 |
+| Codex | import 메커니즘이 없어 `AGENTS.md` 지시(항상 지킨다 10번)로 읽는다 |
 | 서브에이전트 (세 도구 공통) | 메인 세션이 역할 호출 시 해당 규칙을 넘긴다 |
 
 ## 업그레이드 (기존 프로젝트를 새 하니스 버전으로 갱신)
@@ -242,7 +257,7 @@ Owner 합의(C등급 정지)를 유지한다.
 > 이름→README의 끊어진 고리)과 **코드 규모 임계**(함수 40줄·인자 5개·중첩 3단계)도 본다 —
 > 둘 다 판단이 없는 결정적 검사라 small에서도 reviewer 없이 쓸 수 있다.
 
-## 프로파일 차이 (이 13가지만 다르다)
+## 프로파일 차이 (이 14가지만 다르다)
 
 | 항목 | small | large |
 |---|---|---|
@@ -257,6 +272,7 @@ Owner 합의(C등급 정지)를 유지한다.
 | 팀장 방향·백로그 그루밍 (lead 역할) | 없음 | 있음 (계획 전·단계 시작) |
 | 결정 심의·합의 (critic 역할) | 없음 | 있음 (planner 결정 직후, 모호·고위험만 Owner) |
 | 보안 점검 (security 역할) | 없음 | 있음 (PASS 후 merge 전, 심각하면 Owner) |
+| 요구사항 충족도 평가 (evaluator 역할) | 없음 | 있음 (PR 시점, match·contract·doc 점수와 GAP) |
 | 요구사항 충돌·누락 점검 (planner) | 없음 | 있음 (단계 나누기 전) |
 | 절차 자기개선 (lead 회고 → Owner 승인 → PROCESS.md) | 없음 | 있음 (단계 회고 12c·최종 회고 17b, 재발 신호 있을 때) |
 
@@ -387,7 +403,7 @@ Owner 합의(C등급 정지)를 유지한다.
   설치 시 `verify_hooks.sh` 19·20·21번이 이 세 상태를 탐지한다.
 - **`PROJECT_RULES.md` 자동 주입은 Codex에서만 안 된다.** Claude는 `CLAUDE.md` 의 `@import`,
   opencode는 `opencode.json` 의 `instructions` 로 세션에 자동으로 들어간다. Codex에는 import
-  메커니즘이 없어 `AGENTS.md` 지시(항상 지킨다 8번)에 의존한다. 서브에이전트에는 세 도구 모두
+  메커니즘이 없어 `AGENTS.md` 지시(항상 지킨다 10번)에 의존한다. 서브에이전트에는 세 도구 모두
   메인 세션이 해당 규칙을 넘겨준다(team-dev 절차).
 - **Codex는 `.codex` 설정이 trusted 프로젝트에서만 적용된다.** 설치 후 안내대로
   `~/.codex/config.toml` 의 `[projects]` 에 프로젝트를 등록해야 한다.

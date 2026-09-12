@@ -349,6 +349,21 @@ if [ ! -d "$TARGET/.git" ]; then
          commit -qm "[harness] init (profile=$PROFILE, agents=$AGENTS, v$VERSION)" )
 fi
 
+# ── 8b. 파이썬 필수 확인 ────────────────────────────────────────────────
+# 하네스는 제품 언어와 무관하게 파이썬을 쓴다 — 가드 훅이 훅 입력(JSON)에서 경로를 뽑을 때,
+# 그리고 dev-agent-team/selfcheck.py(게이트·점수)를 돌릴 때. 자바·C#처럼 파이썬을 안 쓰는
+# 팀이 그냥 설치하면, 가드가 fail-closed 라 **파일 편집이 전부 막힌다**. 여기서 먼저 말한다.
+if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+  echo ""
+  echo "경고: python3/python 을 찾지 못했습니다."
+  echo "      이 하네스는 만들려는 제품의 언어와 무관하게 파이썬이 필요합니다:"
+  echo "        - dev-agent-team/hooks/protect_tests.sh 가 훅 입력에서 경로를 뽑을 때"
+  echo "        - dev-agent-team/selfcheck.py (단계 merge 게이트·산출물 점수)"
+  echo "      가드는 확인이 불가능하면 통과시키지 않고 막습니다(fail-closed)."
+  echo "      **파이썬 없이는 파일 편집이 전부 차단됩니다.** 먼저 파이썬을 설치하세요."
+  echo ""
+fi
+
 # ── 9. hook 실동작 검증 (공통 dev-agent-team/hooks) ─────────────────────
 if bash "$SRC/tests/verify_hooks.sh" "$TARGET"; then
   echo ""

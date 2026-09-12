@@ -295,7 +295,9 @@ Owner 합의(C등급 정지)를 유지한다.
    장치(훅·권한·역할·스킬)는 이 규칙을 쓰지 않고 무조건 덮어쓴다. 해시는 **CR을 지우고**
    계산한다(Windows에서 git이 줄끝을 바꾼 것을 Owner 편집으로 오인하면 헌법이 영영 갱신되지
    않는다). `.new`가 남아 있으면 **헌법 동결** 상태이며 설치 안내·`selfcheck`의
-   `[constitution]` 줄·team-dev "시작할 때" 세 곳에서 보인다.
+   `[constitution]` 줄·team-dev "시작할 때" 세 곳에서 보인다. 무엇을 업데이트해야 하는지
+   **범위**는 `python3 dev-agent-team/selfcheck.py --constitution-diff` 가 낸다(바뀐 규칙
+   번호·새로 생긴 규칙·Owner가 직접 넣은 줄).
    `.gitattributes`는 가드 훅 `*.sh`의 줄끝을 대상 프로젝트의 git에서도 LF로 고정한다.
 3. **검사 시점 3분할** (team-dev "언제 무엇을 하나"가 정본): *commit 전*(테스트 커밋 전
    `[collect]`, 구현 커밋 전 `--gate` 조기 필터·checker SCOPED) / *push 시*(remote 있을 때만,
@@ -306,6 +308,8 @@ Owner 합의(C등급 정지)를 유지한다.
 4. **C등급 목록**(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
    **정지 메커니즘**(`dev-agent-team/OWNER_QUESTION.md` → 가드레일 차단, "답: 번호"로 해제).
    단계 merge 전 `selfcheck.py --gate` 게이트(collect·print·trace·full-test 차단)도 절차 계약이다.
+   **헌법 동결(버전 뒤처짐)도 게이트가 막는다** — 옛 헌법 + 새 절차로 도는 팀은 틀린 규칙으로
+   가기 때문이다. 코드 작성은 되고 막히는 건 merge 뿐이다.
    Gate 0(요구사항 확인)과 Gate 1(계획 승인)은 **3지선다**다 — 1.진행 / 2.수정 / 3.지금은
    하지 않음. 3을 골라도 REQUIREMENTS.md·PLAN.json·PLAN.md는 지우지 않는다.
    Owner가 답하기 전에는 다음 단계로 넘어가지 않는다.

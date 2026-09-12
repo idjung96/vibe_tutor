@@ -139,6 +139,8 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
         echo "        (1) 권장 — 직접 쓴 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고,"
         echo "            mv $3.new $3 한 다음 이 설치 명령을 한 번 더 실행하세요."
         echo "        (2) 지금 헌법을 유지 — 그러면 이 알림은 계속 뜹니다(어긋남이 남아 있다는 뜻)."
+        echo "      무엇이 바뀌었는지 보려면:"
+        echo "        python3 dev-agent-team/selfcheck.py --constitution-diff"
       fi
     else
       cp "$2" "$2.bak"                     # manifest 이전 프로젝트 → 백업 후 갱신

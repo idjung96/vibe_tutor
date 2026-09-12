@@ -140,6 +140,8 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
                 Write-Host "        (1) 권장 — 직접 쓴 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고,"
                 Write-Host "            $Rel.new 를 $Rel 로 옮긴 다음 이 설치 명령을 한 번 더 실행하세요."
                 Write-Host '        (2) 지금 헌법을 유지 — 그러면 이 알림은 계속 뜹니다(어긋남이 남아 있다는 뜻).'
+                Write-Host '      무엇이 바뀌었는지 보려면:'
+                Write-Host '        python3 dev-agent-team/selfcheck.py --constitution-diff'
             }
         }
         else {

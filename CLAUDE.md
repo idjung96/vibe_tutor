@@ -139,7 +139,9 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - **`.new` 가 남아 있으면 그 파일만 옛 버전에 묶인 '헌법 동결' 상태다** — 절차·역할·권한은
   새 버전이라 규칙이 어긋난다. 세 곳에서 보인다: 설치 시 두 버전을 숫자로 안내,
   `selfcheck` 의 `[constitution]` 줄(차단은 안 한다), team-dev "시작할 때" 절이 Owner 에게
-  3지선다로 묻는다. 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로
+  3지선다로 묻는다. 업데이트 **범위**는 `selfcheck.py --constitution-diff` 가 낸다 —
+  바뀐 규칙 번호·새로 생긴 규칙·Owner 가 직접 넣은 줄을 **두 파일을 직접 비교해** 뽑는다
+  (버전별 메타데이터를 손으로 들고 있지 않는다. 그런 표는 반드시 낡는다). 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로
   옮긴 뒤 **설치를 한 번 더** 돌리는 것이다(그래야 manifest 가 맞는다).
 - `.gitattributes` — 가드 훅 `*.sh` 의 줄끝을 대상 프로젝트의 git 에서도 LF 로 고정한다.
   없으면 Windows 클론 시 `block_on_owner_question` 이 exit 255 로 실패해 정지 메커니즘이
@@ -155,6 +157,9 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 
 ### 정지 메커니즘
 - C등급 목록과 정지 메커니즘. 단계 merge 전 `selfcheck.py --gate` 가 collect·print·trace·full-test 를 차단한다.
+- **헌법 동결도 게이트가 막는다**(`constitution`). 버전이 뒤처진 경우만이고, 같은 버전에서
+  Owner 가 편집만 한 경우는 막지 않는다. 그 상태의 팀은 옛 헌법 + 새 절차로 도는 것이라
+  틀리게 간다 — 코드는 계속 쓸 수 있고 막히는 건 merge 뿐이다.
 - Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다(1.진행 / 2.수정 / 3.중단(산출물 보존)).
   답하기 전 다음 단계로 넘어가지 않음.
 

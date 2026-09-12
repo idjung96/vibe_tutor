@@ -8,6 +8,7 @@
     python3 dev-agent-team/selfcheck.py --gate                   # 단계 병합 게이트 (아래 참조)
     python3 dev-agent-team/selfcheck.py --record-full-test       # FULL 테스트 통과 상태를 기록
     python3 dev-agent-team/selfcheck.py --score                  # 산출물 점수 -> SCORE.json (아래 참조)
+    python3 dev-agent-team/selfcheck.py --constitution-diff      # 헌법 동결 시 업데이트 범위
     python3 dev-agent-team/selfcheck.py tests/stage_1_test.py    # 특정 테스트만 수집 확인
     (Windows에 python3 가 없으면 python 으로 부른다.)
 
@@ -644,10 +645,15 @@ def check_full_test(langs):
 
 
 def check_constitution():
-    """헌법이 옛 버전에 묶여 있는지 본다. 차단하지 않는다 — 고칠 사람은 Owner 다.
+    """헌법이 옛 버전에 묶여 있는지 본다.
 
-    코드 결함이 아니라 설치 상태 문제라서 merge 를 막지 않는다. 막으면 Owner 가 자리를
-    비운 동안 팀 전체가 멈춘다. 강제는 절차(team-dev "시작할 때")가 Owner 에게 물어서 한다.
+    **버전이 뒤처진 동결은 게이트를 막는다**(_run_gate 의 blocking 에 들어간다). 그 상태의
+    팀은 옛 헌법 + 새 절차·역할·권한으로 도는 것이라 규칙이 서로 어긋난다 — 느리게 가는 게
+    아니라 틀리게 간다. 틀린 규칙으로 main 에 합치는 것보다 멈추는 편이 낫다.
+    코드는 계속 쓸 수 있다. 막히는 건 merge 뿐이고, 해소는 --constitution-diff 로 범위를 보고
+    Owner 규칙을 PROJECT_RULES.md 로 옮긴 뒤 .new 를 본파일로 옮기고 설치를 한 번 더 도는 것이다.
+
+    같은 버전에서 Owner 가 고치기만 한 경우는 **막지 않는다** — 기능 불일치가 아니다.
     """
     frozen = []
     for path in CONSTITUTION:
@@ -671,7 +677,9 @@ def check_constitution():
             print(f"[constitution] 동결 — {name} 는 v{cur} 인데 절차·역할·권한은 v{nxt} 다.")
             print(f"               규칙이 어긋난 채로 돌고 있다. {name}.new 를 확인하라.")
     if behind:
-        print("               (차단하지 않는다. Owner 가 정할 일이다 — team-dev '시작할 때' 참조)")
+        COUNTS["constitution_behind"] = True
+        print("               이 상태로는 merge 하지 않는다. 범위를 보려면:")
+        print("               python3 dev-agent-team/selfcheck.py --constitution-diff")
     return False
 
 
@@ -684,6 +692,110 @@ def _version_in(path):
     except OSError:
         pass
     return "?"
+
+
+def _split_rules(text):
+    """'N. ' 로 시작하는 헌법 규칙을 {번호: 본문} 으로. 이어지는 들여쓴 줄은 같은 규칙이다."""
+    rules, num, buf = {}, None, []
+    for line in text.splitlines():
+        head = re.match(r"^(\d+)\.\s", line)
+        if head:
+            if num:
+                rules[num] = "\n".join(buf)
+            num, buf = head.group(1), [line]
+        elif num is not None and (line.startswith(" ") or not line.strip()):
+            buf.append(line)
+        elif num is not None:
+            rules[num], num, buf = "\n".join(buf), None, []
+    if num:
+        rules[num] = "\n".join(buf)
+    return {k: re.sub(r"\s+", " ", v).strip() for k, v in rules.items()}
+
+
+def _owner_only_lines(cur_text, new_text):
+    """Owner 가 직접 **덧붙인** 줄만 고른다.
+
+    단순히 ".new 에 없는 줄" 로 잡으면 옛 하네스 규칙 본문이 전부 딸려 온다 — 그건 Owner 것이
+    아니라 그냥 낡은 것이고, 이미 "내용이 바뀐 규칙" 으로 따로 보고된다. 그걸
+    PROJECT_RULES.md 로 옮기라고 하면 잘못 안내하는 것이다. 그래서 **번호 규칙 안의 줄은
+    제외**하고, 규칙 바깥에 새로 생긴 줄만 남긴다.
+    """
+    def norm(ln):
+        return re.sub(r"\s+", " ", ln).strip()
+
+    in_new = {norm(ln) for ln in new_text.splitlines() if ln.strip()}
+    # _split_rules 는 본문을 한 줄로 정규화하므로 원본 줄과 대조가 안 된다.
+    # 규칙 소속 여부는 원문을 직접 훑어 가린다(판정 규칙은 _split_rules 와 같다).
+    rule_lines, inside = set(), False
+    for ln in cur_text.splitlines():
+        if re.match(r"^\d+\.\s", ln):
+            inside = True
+        elif inside and not (ln.startswith(" ") or not ln.strip()):
+            inside = False
+        if inside and ln.strip():
+            rule_lines.add(norm(ln))
+    # 규칙 밖이어도 하네스의 '옛 문장'이 남는다(문구만 바뀐 설명 줄 등). 그건 Owner 것이
+    # 아니다. .new 의 어떤 줄과 특징 어절을 여럿 공유하면 '바뀐 하네스 문장'으로 본다.
+    new_sigs = [_sig_words(ln) for ln in new_text.splitlines() if ln.strip()]
+    out = []
+    for ln in cur_text.splitlines():
+        key = norm(ln)
+        if not key or key in in_new or key in rule_lines:
+            continue
+        if key.startswith("HARNESS_VERSION:"):
+            continue
+        mine = _sig_words(ln)
+        if mine and any(len(mine & sig) >= 2 for sig in new_sigs):
+            continue
+        out.append(ln.rstrip())
+    return out
+
+
+def _sig_words(line):
+    """한 줄의 특징 어절. 너무 흔한 조각은 빼고 3자 이상만 본다."""
+    words = re.findall(r"[0-9A-Za-z_./\-]{3,}|[가-힣]{3,}", line)
+    return {w for w in words if w not in ("dev-agent-team", "AGENTS.md", "CLAUDE.md")}
+
+
+def _report_scope(name, cur_text, new_text):
+    """규칙 단위로 무엇이 바뀌었는지 찍는다. 버전별 메타데이터를 손으로 들고 있지 않는다 —
+    그런 표는 반드시 낡는다. 두 파일을 직접 비교하는 쪽이 언제나 맞다."""
+    cur_r, new_r = _split_rules(cur_text), _split_rules(new_text)
+    both = set(cur_r) & set(new_r)
+    changed = sorted((k for k in both if cur_r[k] != new_r[k]), key=int)
+    added = sorted(set(new_r) - set(cur_r), key=int)
+    gone = sorted(set(cur_r) - set(new_r), key=int)
+    print(f"[scope] {name}: 규칙 {len(cur_r)}개 -> {len(new_r)}개")
+    print(f"[scope]   내용이 바뀐 규칙: {', '.join(changed) + '번' if changed else '없음'}")
+    print(f"[scope]   새로 생긴 규칙:   {', '.join(added) + '번' if added else '없음'}")
+    print(f"[scope]   번호가 사라진 것: {', '.join(gone) + '번' if gone else '없음'}")
+    for num in changed:
+        print(f"[scope]   - {num}번 새 내용: {new_r[num][:110]}")
+    owner = _owner_only_lines(cur_text, new_text)
+    if owner:
+        print(f"[scope]   Owner 가 직접 넣은 것으로 보이는 줄 {len(owner)}개 "
+              "— 이건 dev-agent-team/PROJECT_RULES.md 로 옮기면 다음부터 알림이 안 뜬다:")
+        for ln in owner[:20]:
+            print(f"[scope]     {ln}")
+        if len(owner) > 20:
+            print(f"[scope]     … 외 {len(owner) - 20}줄")
+
+
+def constitution_diff():
+    """헌법이 동결됐을 때 '무엇을 업데이트해야 하는지' 범위를 낸다."""
+    found = False
+    for path in CONSTITUTION:
+        new = Path(str(path) + ".new")
+        if not (path.is_file() and new.is_file()):
+            continue
+        found = True
+        cur_text = path.read_text(encoding="utf-8")
+        new_text = new.read_text(encoding="utf-8")
+        print(f"[scope] {path.name}: v{_version_in(path)} -> v{_version_in(new)}")
+        _report_scope(path.name, cur_text, new_text)
+    if not found:
+        print("[scope] 동결된 헌법이 없다(.new 파일 없음). 비교할 것이 없다.")
+    return 0
 
 
 def _doc_gap():
@@ -857,9 +969,15 @@ def _run_without_langs(langs, gate, record, score):
 
 
 def _run_gate(results, langs):
-    """게이트: 결정적 4종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다."""
+    """게이트: 결정적 5종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
+
+    constitution 은 검사 결과가 아니라 설치 상태지만, 틀린 규칙으로 main 에 합치는 것을
+    막아야 하므로 같이 넣는다(버전이 뒤처진 동결일 때만. 같은 버전 편집은 막지 않는다).
+    """
     results["full-test"] = check_full_test(langs)
-    blocking = [n for n in ("collect", "print", "trace", "full-test") if not results[n]]
+    results["constitution"] = not COUNTS.get("constitution_behind")
+    blocking = [n for n in ("collect", "print", "trace", "full-test", "constitution")
+                if not results[n]]
     if blocking:
         print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")
         return 1
@@ -869,6 +987,8 @@ def _run_gate(results, langs):
 
 def main():
     gate, record, score, target = _parse_args(sys.argv[1:])
+    if "--constitution-diff" in sys.argv[1:]:
+        return constitution_diff()
 
     # 헌법 동결은 제품 언어와 무관하다. 언어 미감지로 조기 반환하기 전에 먼저 본다 —
     # --record-full-test 만 돌릴 때는 조용해야 하므로 그때는 건너뛴다.

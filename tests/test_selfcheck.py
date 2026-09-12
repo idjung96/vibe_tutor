@@ -173,6 +173,14 @@ def test_main():
         (tmp / "AGENTS.md.new").write_text("HARNESS_VERSION: 2.0.0\n", encoding="utf-8")
         rc, out = run(tmp, "--score")
         check("헌법 동결 -> [constitution] 동결 보고", "동결" in out and "1.0.0" in out, out)
+        rc, out = run(tmp, "--gate")
+        check("버전 뒤처진 동결 -> 게이트가 막는다",
+              rc == 1 and "constitution" in out.split("[gate] FAIL")[-1], out)
+        # 같은 버전에서 편집만 한 경우는 기능 불일치가 아니므로 막지 않는다.
+        (tmp / "AGENTS.md").write_text("HARNESS_VERSION: 2.0.0\n# 우리 규칙\n", encoding="utf-8")
+        rc, out = run(tmp, "--gate")
+        check("같은 버전 편집 -> 게이트를 막지 않는다",
+              "constitution" not in out.split("[gate]")[-1], out)
 
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
@@ -186,6 +194,28 @@ def test_main():
         check("stages 타입 오류 -> 크래시 안 함", rc == 0 and "Traceback" not in out, out)
 
 
+def test_constitution_diff():
+    print("\n[--constitution-diff]")
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        make_project(tmp)
+        rc, out = run(tmp, "--constitution-diff")
+        check("동결 아님 -> 비교할 것 없다", rc == 0 and "동결된 헌법이 없다" in out, out)
+
+        (tmp / "AGENTS.md").write_text(
+            "HARNESS_VERSION: 1.0.0\n\n1. 첫째 규칙이다.\n2. 둘째 규칙이다.\n"
+            "\n## 우리 팀 규칙\n금요일엔 배포하지 않는다.\n", encoding="utf-8")
+        (tmp / "AGENTS.md.new").write_text(
+            "HARNESS_VERSION: 2.0.0\n\n1. 첫째 규칙이다.\n2. 둘째 규칙인데 내용이 바뀌었다.\n"
+            "3. 셋째 규칙이 새로 생겼다.\n", encoding="utf-8")
+        rc, out = run(tmp, "--constitution-diff")
+        check("버전 범위를 낸다", "v1.0.0 -> v2.0.0" in out, out)
+        check("바뀐 규칙만 짚는다(2번)", "내용이 바뀐 규칙: 2번" in out, out)
+        check("새로 생긴 규칙을 짚는다(3번)", "새로 생긴 규칙:   3번" in out, out)
+        check("Owner 가 넣은 줄만 고른다",
+              "금요일엔 배포하지 않는다." in out and "첫째 규칙이다" not in out.split("Owner")[-1], out)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -196,6 +226,7 @@ def main():
     finally:
         os.chdir(cwd)
     test_main()
+    test_constitution_diff()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

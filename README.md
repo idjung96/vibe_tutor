@@ -278,37 +278,59 @@ Owner 합의(C등급 정지)를 유지한다.
 
 ## 호환성 계약 (프로파일과 무관하게 동일 — 변경 시 버전 올림)
 
-1. 파일 위치/형식: AGENTS.md(공통 헌법), dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
-   dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md / dev-agent-team/OWNER_QUESTION.md / dev-agent-team/libs/ 형식,
-   TEST_LOG.md 는 7열 고정(단계·신규·누적·전체 결과·재시도·리뷰지적·커밋)이며 열 구성은
-   양 프로파일 동일하다 — 리뷰 단계가 없는 프로파일은 리뷰지적을 `-`로 채운다,
-   dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용), 커밋 메시지, 브랜치 이름.
-   OWNER_QUESTION.md는 기존 동작을 바꾸는 질문일 때 선택지별 영향 표보다 먼저
+1. **파일 위치/형식**: `AGENTS.md`(공통 헌법), `dev-agent-team/` 레이아웃,
+   `dev-agent-team/PLAN.json` 스키마, `DECISIONS.md` / `TEST_LOG.md` / `OWNER_QUESTION.md` /
+   `libs/` 형식, `PROCESS.md`(P번호·append-only, large 전용),
+   `PROJECT_RULES.md`(Owner가 쓰는 고유 규칙, 재설치해도 보존 — 헌법을 좁히는 방향으로만
+   작동하고 안전장치는 무효화 못 한다), `SCORE.json`(산출물 점수),
+   `.last-full-test`(소스+tests 트리 해시), `.harness-manifest`, `.gitattributes`,
+   커밋 메시지, 브랜치 이름.
+   `TEST_LOG.md` 는 7열 고정(단계·신규·누적·전체 결과·재시도·리뷰지적·커밋)이며 열 구성은
+   양 프로파일 동일하다 — 리뷰 단계가 없는 프로파일은 리뷰지적을 `-`로 채운다.
+   `OWNER_QUESTION.md`는 기존 동작을 바꾸는 질문일 때 선택지별 영향 표보다 먼저
    "지금 → 앞으로"(AS-IS/TO-BE, 행 3개: 동작·Owner가 보는 것·데이터·파일) 표를 둔다.
-   DECISIONS.md에는 그런 결정일 때 `- 변경: AS-IS → TO-BE` 줄이 들어간다.
-2. C등급 목록(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
-   정지 메커니즘 (dev-agent-team/OWNER_QUESTION.md → 가드레일 차단, "답: 번호"로 해제).
+   `DECISIONS.md`에는 그런 결정일 때 `- 변경: AS-IS → TO-BE` 줄이 들어간다.
+2. **재설치 규칙(conffile)**: `.harness-manifest` 가 `AGENTS.md`·`CLAUDE.md` 의 설치 시 해시를
+   들고 있어, 재설치 때 Owner 편집 여부를 가려 편집했으면 덮지 않고 `.new` 로 둔다. 강제
+   장치(훅·권한·역할·스킬)는 이 규칙을 쓰지 않고 무조건 덮어쓴다. 해시는 **CR을 지우고**
+   계산한다(Windows에서 git이 줄끝을 바꾼 것을 Owner 편집으로 오인하면 헌법이 영영 갱신되지
+   않는다). `.new`가 남아 있으면 **헌법 동결** 상태이며 설치 안내·`selfcheck`의
+   `[constitution]` 줄·team-dev "시작할 때" 세 곳에서 보인다.
+   `.gitattributes`는 가드 훅 `*.sh`의 줄끝을 대상 프로젝트의 git에서도 LF로 고정한다.
+3. **검사 시점 3분할** (team-dev "언제 무엇을 하나"가 정본): *commit 전*(테스트 커밋 전
+   `[collect]`, 구현 커밋 전 `--gate` 조기 필터·checker SCOPED) / *push 시*(remote 있을 때만,
+   작업 브랜치 확인) / *PR 시*(main 합치기 직전 단계당 1회: checker FULL·`--record-full-test`·
+   `--gate` 4종·documenter(그 단계 R번호)·`--score`, large면 reviewer·security·evaluator).
+   구현 직후도 FULL이다. main 합류 지점은 하나 — remote가 있으면 PR, 없으면 로컬 merge이고
+   게이트 내용은 같다. `.last-full-test` 신선도 강제도 계약이다.
+4. **C등급 목록**(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
+   **정지 메커니즘**(`dev-agent-team/OWNER_QUESTION.md` → 가드레일 차단, "답: 번호"로 해제).
    단계 merge 전 `selfcheck.py --gate` 게이트(collect·print·trace·full-test 차단)도 절차 계약이다.
    Gate 0(요구사항 확인)과 Gate 1(계획 승인)은 **3지선다**다 — 1.진행 / 2.수정 / 3.지금은
    하지 않음. 3을 골라도 REQUIREMENTS.md·PLAN.json·PLAN.md는 지우지 않는다.
    Owner가 답하기 전에는 다음 단계로 넘어가지 않는다.
-   테스트 실행 범위(구현 직후·merge 직전은 FULL, 그 사이 루프는 SCOPED)와
-   `dev-agent-team/.last-full-test` 신선도 강제도 계약에 포함된다.
-3. deny/차단 목록 (rm -rf, hard reset, git branch -D, python -c·node -e inline 실행 우회,
-   curl·wget 포함). 일반 git push는 allow(작업 브랜치). **force push는 deny가 아니라 ask** —
-   Owner가 그 자리에서 승인하면 에이전트가 실행한다. 규칙은 `deny → ask → allow` 순으로
-   평가되므로 `git push` allow 보다 force용 ask가 우선한다. main 직접 push 금지는 AGENTS.md
-   규칙으로 병행한다(규칙 문자열로는 브랜치를 가릴 수 없다).
-4. append-only 테스트 원칙 (가드레일로 강제 — py/go/rs/js·ts 테스트 공통).
+5. **산출물 점수**(`selfcheck.py --score` → `dev-agent-team/SCORE.json`): test·rule·trace·doc·size
+   각 0~100, 기준 95. **아무것도 막지 않는다** — 막는 것은 `--gate`이고, 점수가 정하는 것은
+   재시도 여부뿐이다(pass / retry / escalate). escalate는 직전이 이미 retry·escalate였을 때만
+   난다. size는 근사치라 재시도를 강제하지 않는 권고 축이다. test 축은 FULL 실행 기록이 없으면
+   상한 75다. 진전 판정은 축 합계로 하고, 추세는 `SCORE.json`의 history에 누적한다.
+6. **deny/ask 목록**: `rm -rf`, hard reset, `git branch -D`, `python -c`·`node -e` inline 실행,
+   `curl`·`wget`은 **deny**. **`git push` 전체와 `gh pr` 은 ask** — Owner가 그 자리에서
+   승인하면 에이전트가 실행한다(force push도 같은 ask). 브랜치 생성은 도구 allow로 두고
+   Gate 1 계획 승인이 일괄 승인을 겸한다 — 절차 필수라 도구 ask면 승인 창이 없는 headless
+   환경에서 멈추기 때문이다. 계획에 없는 브랜치는 C등급. 규칙은 `deny → ask → allow` 순으로
+   평가된다. main 직접 push 금지는 AGENTS.md 규칙으로 병행한다(규칙 문자열로는 브랜치를
+   가릴 수 없다).
+7. **append-only 테스트 원칙** (가드레일로 강제 — py/go/rs/js·ts 테스트 공통).
    Write/Edit·apply_patch뿐 아니라 **Bash 쓰기 명령**(`>` `>>`/tee/sed -i/mv/cp/rm/
    truncate/dd of=/patch)도 차단 대상이다. 읽기·실행은 통과시킨다.
-5. 로그 형식 `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value` — `logs/app.log` 에 append하고
+8. **로그 형식** `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value` — `logs/app.log` 에 append하고
    표준출력에도 같은 줄을 낸다. 언어와 무관하게 동일하며 `logging-rule` 스킬이 정본이다.
-6. 역할 구조와 역할 경계(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security·evaluator)
+9. **역할 구조와 역할 경계**(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security·evaluator)
    및 designer 산출물 dev-agent-team/DESIGN.md 형식. lead는 방향·백로그 외에 회고·절차 개선제안(IMPROVE)도 낸다(large 전용).
    lead 호출 모드 3종(방향·단계 회고·최종 회고)과 호출 시점(4-0/7-0/12c/17b), BACKLOG "메모·주의"의
    출처 표기 형식(`- 설명 · 출처:stageN/역할`)도 계약에 포함된다.
-7. 공유 상태 파일은 메인 세션만 쓴다 (단일 작성자 원칙; PROCESS.md 포함)
+10. **공유 상태 파일은 메인 세션만 쓴다** (단일 작성자 원칙; PROCESS.md·SCORE.json 포함).
 
 이 계약은 에이전트와 무관하게 동일하다. 가드레일 **강제 방식만** 에이전트별로
 다르다(Claude=hook, Codex=hook.json, opencode=플러그인). 이 덕분에 **모델 전환과

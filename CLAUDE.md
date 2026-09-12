@@ -113,53 +113,74 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 
 ## 호환성 계약 — 변경 시 `HARNESS_VERSION` 을 올릴 것
 
-프로파일과 무관하게 동일해야 하는 것들(파일 위치/형식: dev-agent-team/ 레이아웃, dev-agent-team/PLAN.json 스키마,
-dev-agent-team/DECISIONS.md / dev-agent-team/TEST_LOG.md(7열 고정: 단계·신규·누적·전체 결과·재시도·리뷰지적·커밋,
-열 구성은 양 프로파일 동일) / dev-agent-team/OWNER_QUESTION.md 형식
-(기존 동작을 바꾸는 질문이면 영향 표 앞에 "지금 → 앞으로" AS-IS/TO-BE 표, DECISIONS에는 `- 변경:` 줄),
-dev-agent-team/PROCESS.md 형식(P번호·append-only, large 전용),
-dev-agent-team/PROJECT_RULES.md(Owner가 쓰는 프로젝트 고유 규칙, 재설치해도 보존 — 헌법을 좁히는
-방향으로만 작동하고 안전장치는 무효화 못 한다. Claude=@import, opencode=instructions, codex=헌법 지시),
-dev-agent-team/.harness-manifest(AGENTS.md·CLAUDE.md 의 설치 시 해시 — 재설치 때 Owner 편집 여부를
-가려 편집했으면 덮지 않고 .new 로 둔다(conffile). **.new 가 남아 있으면 그 파일만 옛 버전에
-묶인 '헌법 동결' 상태다** — 절차·역할·권한은 새 버전이라 규칙이 어긋난다. 세 곳에서 보인다:
-설치 시 두 버전을 숫자로 안내, `selfcheck` 의 `[constitution]` 줄(차단은 안 한다),
-team-dev "시작할 때" 절이 Owner 에게 3지선다로 묻는다. 해소는 Owner 규칙을 PROJECT_RULES.md 로
-옮기고 .new 를 본파일로 옮긴 뒤 **설치를 한 번 더** 돌리는 것이다(그래야 manifest 가 맞는다). 해시는 **CR 을 지우고** 계산한다: Windows 에서
-git 이 줄끝을 바꾼 것을 Owner 편집으로 오인하면 헌법이 영영 갱신되지 않는다.
-강제 장치는 이 규칙을 쓰지 않고 무조건 덮어쓴다),
-.gitattributes(가드 훅 `*.sh` 의 줄끝을 대상 프로젝트의 git 에서도 LF 로 고정 — 없으면 Windows
-클론 시 block_on_owner_question 이 exit 255 로 실패해 정지 메커니즘이 무력화된다.
-Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 블록만 덧붙인다),
-커밋 메시지, 브랜치명 /
-산출물 점수(`selfcheck.py --score` → dev-agent-team/SCORE.json: test·rule·trace·doc·size 각 0~100,
-기준 95. **아무것도 막지 않는다** — 막는 것은 --gate 다. 정하는 것은 재시도 여부뿐이다:
-pass / retry / escalate. escalate 는 **직전이 이미 retry·escalate 였을 때만** 난다 —
-새 결함을 처음 발견한 것과 고쳐도 안 낫는 것을 구분해야 한다(아니면 결함이 보일 때마다
-곧바로 Owner 에게 올라간다). size 는 근사치라 **재시도를 강제하지 않는 권고 축**이다
-(--gate 가 안 막는 것과 같은 이유). 최저축은 판정 축에서만 고른다.
-test 축은 FULL 실행 기록이 없으면 상한 75라 테스트를 실제로 돌리지 않으면 기준에 닿을 수 없다.
-진전 판정은 최저축이 아니라 **축 합계**로 본다 — 최저가 아닌 축을 고쳐도 개선이 보이게.
-doc 축은 완료 단계의 R번호가 README 에 있는지 보므로 **documenter 가 단계마다 돌아야 채워진다**
-(PR 시점, --score 앞. README 는 .md 라 .last-full-test 를 무효화하지 않는다).
-trace 와 doc 은 같은 창(현재 단계 포함)으로 채점한다.
-추세는 SCORE.json 의 history 에 누적한다(TEST_LOG 는 7열 그대로) /
-C등급 목록과 정지 메커니즘(+단계 merge 전 `selfcheck.py --gate`: collect·print·trace·full-test 차단,
-Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다: 1.진행 / 2.수정 / 3.중단(산출물 보존),
-답하기 전 다음 단계로 넘어가지 않음) /
-검사 시점 3분할(team-dev "언제 무엇을 하나"가 정본): commit 전(테스트 커밋 전 [collect],
-구현 커밋 전 --gate 조기 필터·checker SCOPED) / push 시(remote 있을 때만, 작업 브랜치 확인) /
-PR 시(main 합치기 직전 단계당 1회: checker FULL·--record-full-test·--gate 4종·documenter(그 단계 R번호)·--score, large면 reviewer·security·evaluator).
-구현 직후 11번도 FULL 이다. main 합류 지점은 하나 — remote 있으면 PR, 없으면 로컬 merge이고 게이트 내용은 같다. /
-dev-agent-team/.last-full-test(소스+tests 트리 해시 — FULL 실행 뒤 코드가 바뀌면 게이트가 막는다) /
-deny/ask 목록(git push 전체와 gh pr 은 **ask** — Owner 승인 후 에이전트가 실행. 브랜치 생성은
-도구 allow 로 두고 Gate 1 계획 승인이 일괄 승인을 겸한다(절차 필수라 도구 ask 면 headless 에서
-멈춘다). 계획에 없는 브랜치는 C등급. 평가 순서는 deny→ask→allow) /
-append-only 테스트 원칙 /
-로그 형식(`[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력, 언어 무관 — logging-rule이 정본) /
-역할 경계(5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security·evaluator) / 단일 작성자 원칙).
-이 계약 덕에 small↔large **무손실 모델 전환 인수인계**가 성립한다(상태가 전부 파일에 있음).
-계약을 바꾸면 README "호환성 계약" 절과 `HARNESS_VERSION` 을 함께 갱신한다.
+프로파일과 무관하게 동일해야 하는 것들이다. 이 계약 덕에 small↔large **무손실 모델 전환
+인수인계**가 성립한다(상태가 전부 파일에 있음). 계약을 바꾸면 README "호환성 계약" 절과
+`HARNESS_VERSION` 을 함께 갱신한다.
+
+### 상태 파일의 위치와 형식
+- `dev-agent-team/` 레이아웃, `dev-agent-team/PLAN.json` 스키마, `dev-agent-team/DECISIONS.md`
+- `dev-agent-team/TEST_LOG.md` — 7열 고정(단계·신규·누적·전체 결과·재시도·리뷰지적·커밋).
+  열 구성은 양 프로파일 동일.
+- `dev-agent-team/OWNER_QUESTION.md` 형식 — 기존 동작을 바꾸는 질문이면 영향 표 앞에
+  "지금 → 앞으로" AS-IS/TO-BE 표. DECISIONS에는 `- 변경:` 줄.
+- `dev-agent-team/PROCESS.md` 형식 — P번호·append-only, large 전용.
+- `dev-agent-team/PROJECT_RULES.md` — Owner가 쓰는 프로젝트 고유 규칙, 재설치해도 보존.
+  헌법을 좁히는 방향으로만 작동하고 안전장치는 무효화 못 한다.
+  Claude=@import, opencode=instructions, codex=헌법 지시.
+- `dev-agent-team/.last-full-test` — 소스+tests 트리 해시. FULL 실행 뒤 코드가 바뀌면 게이트가 막는다.
+- 커밋 메시지, 브랜치명.
+
+### 재설치 규칙 (conffile)
+- `dev-agent-team/.harness-manifest` 는 `AGENTS.md`·`CLAUDE.md` 의 설치 시 해시다. 재설치 때
+  Owner 편집 여부를 가려, 편집했으면 덮지 않고 `.new` 로 둔다. 강제 장치(훅·권한·역할·스킬)는
+  이 규칙을 쓰지 않고 무조건 덮어쓴다.
+- 해시는 **CR 을 지우고** 계산한다 — Windows 에서 git 이 줄끝을 바꾼 것을 Owner 편집으로
+  오인하면 헌법이 영영 갱신되지 않는다.
+- **`.new` 가 남아 있으면 그 파일만 옛 버전에 묶인 '헌법 동결' 상태다** — 절차·역할·권한은
+  새 버전이라 규칙이 어긋난다. 세 곳에서 보인다: 설치 시 두 버전을 숫자로 안내,
+  `selfcheck` 의 `[constitution]` 줄(차단은 안 한다), team-dev "시작할 때" 절이 Owner 에게
+  3지선다로 묻는다. 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로
+  옮긴 뒤 **설치를 한 번 더** 돌리는 것이다(그래야 manifest 가 맞는다).
+- `.gitattributes` — 가드 훅 `*.sh` 의 줄끝을 대상 프로젝트의 git 에서도 LF 로 고정한다.
+  없으면 Windows 클론 시 `block_on_owner_question` 이 exit 255 로 실패해 정지 메커니즘이
+  무력화된다. Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 블록만 덧붙인다.
+
+### 검사 시점 3분할 (team-dev "언제 무엇을 하나"가 정본)
+- **commit 전** — 테스트 커밋 전 `[collect]`, 구현 커밋 전 `--gate` 조기 필터·checker SCOPED.
+- **push 시** — remote 있을 때만, 작업 브랜치 확인.
+- **PR 시** — main 합치기 직전 단계당 1회: checker FULL·`--record-full-test`·`--gate` 4종·
+  documenter(그 단계 R번호)·`--score`, large면 reviewer·security·evaluator.
+- 구현 직후 11번도 FULL 이다. main 합류 지점은 하나 — remote 있으면 PR, 없으면 로컬 merge이고
+  게이트 내용은 같다.
+
+### 정지 메커니즘
+- C등급 목록과 정지 메커니즘. 단계 merge 전 `selfcheck.py --gate` 가 collect·print·trace·full-test 를 차단한다.
+- Gate 0 요구사항 확인·Gate 1 계획 승인은 3지선다(1.진행 / 2.수정 / 3.중단(산출물 보존)).
+  답하기 전 다음 단계로 넘어가지 않음.
+
+### 산출물 점수 (`selfcheck.py --score` → `dev-agent-team/SCORE.json`)
+- 축은 test·rule·trace·doc·size 각 0~100, 기준 95.
+- **아무것도 막지 않는다** — 막는 것은 `--gate` 다. 정하는 것은 재시도 여부뿐이다: pass / retry / escalate.
+- escalate 는 **직전이 이미 retry·escalate 였을 때만** 난다 — 새 결함을 처음 발견한 것과
+  고쳐도 안 낫는 것을 구분해야 한다(아니면 결함이 보일 때마다 곧바로 Owner 에게 올라간다).
+- size 는 근사치라 **재시도를 강제하지 않는 권고 축**이다(`--gate` 가 안 막는 것과 같은 이유).
+  최저축은 판정 축에서만 고른다.
+- test 축은 FULL 실행 기록이 없으면 상한 75라 테스트를 실제로 돌리지 않으면 기준에 닿을 수 없다.
+- 진전 판정은 최저축이 아니라 **축 합계**로 본다 — 최저가 아닌 축을 고쳐도 개선이 보이게.
+- doc 축은 완료 단계의 R번호가 README 에 있는지 보므로 **documenter 가 단계마다 돌아야 채워진다**
+  (PR 시점, `--score` 앞. README 는 .md 라 `.last-full-test` 를 무효화하지 않는다).
+- trace 와 doc 은 같은 창(현재 단계 포함)으로 채점한다.
+- 추세는 `SCORE.json` 의 history 에 누적한다(TEST_LOG 는 7열 그대로).
+
+### 권한과 그 밖의 원칙
+- deny/ask 목록 — `git push` 전체와 `gh pr` 은 **ask**(Owner 승인 후 에이전트가 실행).
+  브랜치 생성은 도구 allow 로 두고 Gate 1 계획 승인이 일괄 승인을 겸한다(절차 필수라 도구
+  ask 면 headless 에서 멈춘다). 계획에 없는 브랜치는 C등급. 평가 순서는 deny→ask→allow.
+- append-only 테스트 원칙.
+- 로그 형식 — `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력,
+  언어 무관(logging-rule이 정본).
+- 역할 경계 — 5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security·evaluator.
+- 단일 작성자 원칙.
 
 ## 생성된 프로젝트의 안전장치 (= templates/ 에서 무엇을 깨면 안 되는가)
 

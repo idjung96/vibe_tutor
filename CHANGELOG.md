@@ -4,6 +4,15 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.44.1] — critic 출력 키를 절차가 명시하게
+
+역할 11종의 "출력 형식" 키와 절차가 읽는 이름을 기계적으로 대조하다 찾았다.
+`reviewer` 는 "RESULT가 CHANGES면", `security` 는 "RESULT가 RISK면" 으로 키를 명시하는데
+`critic` 만 "AGREE면 / ESCALATE면" 으로 **값만** 썼다. 동작은 됐지만(값으로 분기하면 되니까),
+critic 의 REASON 줄에 "ESCALATE" 같은 단어가 들어가면 헷갈릴 수 있다. "VERDICT가 …면" 으로 맞췄다.
+
+같은 대조에서 나머지 10역할의 출력 키는 전부 절차가 읽고 있음을 확인했다.
+
 ## [1.44.0] — 검증 진입점을 하나로
 
 검증이 5개 스크립트로 나뉘고 각각 인자가 달라서, CLAUDE.md 가 순서를 **산문으로** 적어

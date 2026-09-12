@@ -131,8 +131,8 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
    결과를 dev-agent-team/DECISIONS.md에 기록한다. C등급이 나오면 14번으로 간다. (Gate 2, 자동)
 {{#IF_LARGE}}
 7b. critic을 호출해 planner의 결정에 반론을 받는다.
-    AGREE면 진행한다. REVISE면 planner가 ALTERNATIVE를 반영해 다시 결정한다({{RETRY_LIMIT}}회까지).
-    ESCALATE(모호·고위험)면 그 항목을 C등급으로 올린다(14번). critic의 RECOMMEND를
+    VERDICT가 AGREE면 진행한다. REVISE면 planner가 ALTERNATIVE를 반영해 다시 결정한다({{RETRY_LIMIT}}회까지).
+    VERDICT가 ESCALATE(모호·고위험)면 그 항목을 C등급으로 올린다(14번). critic의 RECOMMEND를
     Owner 질문의 (추천)안으로 쓴다. 합의 근거를 dev-agent-team/DECISIONS.md에 적는다.
 {{/IF_LARGE}}
 7c. 이 단계가 UI/화면을 포함하면 designer를 호출한다. dev-agent-team/DESIGN.md를 받는다

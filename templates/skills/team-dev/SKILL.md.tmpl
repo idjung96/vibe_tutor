@@ -199,7 +199,9 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       - RETRY: 기준 미달인 축마다 처방이 다르다. 축을 보고 맞는 쪽에 준다.
         · test: **코드 문제가 아니다.** 전체 실행 기록이 낡은 것이다(그 뒤 코드가 바뀌었다).
           coder를 부르지 말고 checker를 FULL로 돌린 뒤 --record-full-test 로 다시 기록한다.
-        · rule·trace·size: coder에게 격차를 준다. 고친 뒤 checker를 SCOPED로 부른다.
+        · rule·trace: coder에게 격차를 준다. 고친 뒤 checker를 SCOPED로 부른다.
+        · size: 점수에 `*`가 붙는다. 근사치라 재시도를 강제하지 않는다 —
+          BACKLOG "메모·주의"에 적고 진행한다.
         · doc: documenter에게 격차를 준다.
         그 뒤 --score를 다시 돌린다.
       - ESCALATE: 다시 시켜도 합계가 오르지 않는다는 뜻이다. 더 시키지 않고 C등급으로

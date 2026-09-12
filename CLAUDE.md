@@ -130,7 +130,10 @@ Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 
 커밋 메시지, 브랜치명 /
 산출물 점수(`selfcheck.py --score` → dev-agent-team/SCORE.json: test·rule·trace·doc·size 각 0~100,
 기준 95. **아무것도 막지 않는다** — 막는 것은 --gate 다. 정하는 것은 재시도 여부뿐이다:
-pass / retry / escalate(축 합계가 직전 대비 SCORE_MIN_GAIN 미만이면 더 시키지 않고 C등급).
+pass / retry / escalate. escalate 는 **직전이 이미 retry·escalate 였을 때만** 난다 —
+새 결함을 처음 발견한 것과 고쳐도 안 낫는 것을 구분해야 한다(아니면 결함이 보일 때마다
+곧바로 Owner 에게 올라간다). size 는 근사치라 **재시도를 강제하지 않는 권고 축**이다
+(--gate 가 안 막는 것과 같은 이유). 최저축은 판정 축에서만 고른다.
 test 축은 FULL 실행 기록이 없으면 상한 75라 테스트를 실제로 돌리지 않으면 기준에 닿을 수 없다.
 진전 판정은 최저축이 아니라 **축 합계**로 본다 — 최저가 아닌 축을 고쳐도 개선이 보이게.
 doc 축은 완료 단계의 R번호가 README 에 있는지 보므로 **documenter 가 단계마다 돌아야 채워진다**

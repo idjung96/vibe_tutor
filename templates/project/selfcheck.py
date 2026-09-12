@@ -19,6 +19,7 @@ exit code는 결정적 3종(collect / print / trace)만 반영한다. security �
 코드나 테스트가 바뀌었으면 차단한다. 루프에서 선별 실행만 하고 merge 하는 것을 막는 장치다.
 
 --score 는 코드와 문서에 축별 0~100 점을 매겨 dev-agent-team/SCORE.json 에 남긴다.
+size 축은 근사치라 점수만 내고 재시도를 강제하지 않는다(--gate 가 안 막는 것과 같은 이유).
 **아무것도 막지 않는다** — 막는 것은 --gate 가 한다. 점수가 정하는 것은 하나뿐이다:
 다시 시켜볼 것인가(retry), 아니면 더 시켜도 안 되니 Owner에게 올릴 것인가(escalate).
 직전 점수와 비교해 오르지 않으면 escalate 다. test 축은 FULL 실행 기록이 없으면 75가
@@ -94,6 +95,11 @@ SCORE_TEST_CAP = 75      # FULL 실행 기록이 없거나 낡았으면 test 축
 SCORE_MIN_GAIN = 5       # 재시도했는데 이만큼도 안 오르면 더 시키지 않는다(막힌 것이다)
 SCORE_PENALTY = {"rule": 10, "size": 5, "trace": 20, "doc": 20}   # 건당 감점
 SCORE_HISTORY = 20       # SCORE.json 에 남기는 추세 길이
+# 재시도를 강제하지 않는 축. --gate 가 security·size 를 "후보·근사"라 안 막는 것과 같은 이유다.
+# 점수만 내고 기준 미달로 세지 않는다 — 근사치로 coder 를 계속 부르면, 특히 남의 코드를
+# 인수한 프로젝트에서 이번 단계와 무관한 옛 함수 때문에 매 단계 재시도가 돈다.
+# 합계(total)에는 그대로 들어가므로 고치면 진전으로는 잡힌다.
+SCORE_ADVISORY = {"size"}
 # 각 스캔이 건수를 남긴다. 반환값(bool)은 건드리지 않는다 — 게이트 동작이 바뀌면 안 된다.
 COUNTS = {}
 # R번호 인식. 실제 명명 규약을 그대로 받는다:
@@ -716,11 +722,12 @@ def write_score(scores):
     # 추세는 SCORE.json 안에 누적한다. TEST_LOG 에 열을 하나 더 만들지 않은 이유는,
     # 열 추가가 옛 프로젝트 마이그레이션(awk·PowerShell 양쪽)을 또 부르기 때문이다.
     # 여기에 담으면 마이그레이션 없이 같은 것을 얻는다. lead 가 회고에서 읽는다.
-    prev, history = None, []
+    prev, history, prev_verdict = None, [], None
     if SCORE_PATH.is_file():
         try:
             old = json.loads(SCORE_PATH.read_text(encoding="utf-8"))
             prev = old.get("total")
+            prev_verdict = old.get("verdict")
             history = old.get("history") or []
         except (json.JSONDecodeError, OSError):
             prev, history = None, []
@@ -728,15 +735,25 @@ def write_score(scores):
     # overall 은 '가장 나쁜 축'이라 보고용으로 좋지만, 진전 판정에는 못 쓴다 —
     # 최저가 아닌 축을 고치면 overall 이 그대로여서 개선을 안 한 것처럼 보인다.
     # 그래서 진전은 축 합계(total)로 본다. 어느 축이 나아지든 움직인다.
-    overall = min(scores.values())
+    # 최저축은 판정 대상 축에서만 고른다. 권고 축까지 넣으면 "최저축 85인데 PASS" 처럼
+    # 읽혀 무엇이 재시도를 부르는지 흐려진다. 합계에는 권고 축도 들어간다(고치면 진전).
+    judged = {k: v for k, v in scores.items() if k not in SCORE_ADVISORY}
+    overall = min(judged.values()) if judged else 100
     total = sum(scores.values())
-    below = sorted(k for k, v in scores.items() if v < SCORE_PASS)
+    below = sorted(k for k, v in scores.items()
+                   if v < SCORE_PASS and k not in SCORE_ADVISORY)
     delta = None if prev is None else total - prev
 
+    # 조기 탈출(escalate)은 "다시 시켰는데 안 오른다"는 뜻이다. 그러려면 **직전이 이미
+    # 재시도였어야** 한다. 직전이 pass 였거나 첫 채점이면, 방금 문제를 처음 발견한 것이므로
+    # 한 번은 고쳐 보게 한다 — 아니면 새 결함이 나올 때마다 곧바로 Owner에게 올라간다.
+    # escalate 직후도 여전히 실패 시퀀스 안이다. retry 만 보면 RETRY→ESCALATE→RETRY 로
+    # 진동해서, 막혀 있는데도 계속 다시 시키는 것처럼 보인다.
+    in_retry = prev_verdict in ("retry", "escalate")
     if not below:
         verdict = "pass"
-    elif delta is not None and delta < SCORE_MIN_GAIN:
-        verdict = "escalate"      # 다시 시켜도 안 오른다 — Owner에게 올린다
+    elif in_retry and delta is not None and delta < SCORE_MIN_GAIN:
+        verdict = "escalate"
     else:
         verdict = "retry"
 
@@ -748,12 +765,17 @@ def write_score(scores):
 
     history = (history + [{"stage": stage, "total": total, "verdict": verdict}])[-SCORE_HISTORY:]
     out = {"stage": stage, "scores": scores, "overall": overall, "total": total,
-           "below": below, "prev_total": prev, "delta": delta, "verdict": verdict,
-           "history": history}
+           "below": below, "prev_total": prev, "prev_verdict": prev_verdict,
+           "delta": delta, "verdict": verdict, "history": history}
     SCORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     SCORE_PATH.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    print("[score] " + "  ".join(f"{k}={v}" for k, v in sorted(scores.items())))
+    print("[score] " + "  ".join(
+        f"{k}={v}{'*' if k in SCORE_ADVISORY else ''}" for k, v in sorted(scores.items())))
+    low_adv = sorted(k for k in SCORE_ADVISORY if scores.get(k, 100) < SCORE_PASS)
+    if low_adv:
+        print(f"[score] * {', '.join(low_adv)} 는 근사치라 재시도를 강제하지 않는다 "
+              "(--gate 가 안 막는 것과 같은 이유). BACKLOG '메모·주의'에 적어 둔다.")
     print(f"[score] 최저축={overall} (기준 {SCORE_PASS})  합계={total}"
           + (f" 직전합계={prev} 변화={delta:+d}" if delta is not None else " 직전=없음"))
     if verdict == "pass":

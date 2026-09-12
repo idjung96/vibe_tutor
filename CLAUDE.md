@@ -39,11 +39,16 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 # hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
 ./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 21항목 PASS여야 함
 
+# init.sh ↔ init.ps1 파리티 검증 (pwsh 없이 코드리뷰를 자동화한 것)
+python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
+python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 비교
+
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
 ```
 
 변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 21/21 PASS →
+`verify_parity.py <대상>` PASS(init.sh/init.ps1 을 고쳤으면 반드시) →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
 TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
 
@@ -64,7 +69,8 @@ TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다�
    tools), Codex=`.agents/skills/<role>/SKILL.md`(name/description), opencode=
    `.opencode/agents/<role>.md`(description/mode/tools). frontmatter 매핑(설명·tools)은
    `init.sh`/`init.ps1` 의 `role_desc`/`claude_tools`/`opencode_tools` 에 있고 **양쪽 모두**
-   고쳐야 한다.
+   고쳐야 한다. 빠뜨렸는지는 `python3 tests/verify_parity.py` 가 잡는다 — 역할을 추가하면
+   매핑이 5군데라 손으로 대조하면 반드시 빠뜨린다.
 
 ## 에이전트 오버레이 (어디에 무엇이 깔리나)
 
@@ -173,4 +179,6 @@ lead·reviewer·critic·security(large)=제안만 출력. dev-agent-team/는 읽
 - `AGENTS.md` 는 이제 **심볼릭 링크가 아니라 렌더된 실파일**(공통 헌법)이다. Claude는
   `CLAUDE.md` 가 `@AGENTS.md` 로 import 한다.
 - Codex `.codex` 설정은 trusted 프로젝트에서만 적용된다(설치 후 안내 참조).
-- pwsh가 없는 환경에선 `init.ps1` 파리티를 런타임 검증할 수 없다 — 코드리뷰로 확인한다.
+- pwsh가 없는 환경에선 `init.ps1` 파리티를 **런타임** 검증할 수 없다. `tests/verify_parity.py`
+  가 매핑·목록·렌더 결과를 정적으로 대조하지만, 그건 PowerShell 의미론을 파이썬으로 흉내 낸
+  것이라 시뮬레이터가 틀리면 같이 틀린다. 실제 Windows 실행이 파리티 확인의 상한이다.

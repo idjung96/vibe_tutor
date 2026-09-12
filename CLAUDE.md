@@ -37,7 +37,7 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh ~/projects/my-app                     # 자동 판별. 온프레미스→small이면 all에 codex가 있어 에러 → claude,opencode로
 
 # hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
-./tests/verify_hooks.sh /tmp/t1       # 공통 dev-agent-team/hooks 기준 21항목 PASS여야 함
+./tests/verify_hooks.sh /tmp/t1       # 24항목 PASS여야 함(21은 .sh, 3은 guard.js — node 없으면 SKIP)
 
 # init.sh ↔ init.ps1 파리티 검증 (pwsh 없이 코드리뷰를 자동화한 것)
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
@@ -47,7 +47,7 @@ python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
 ```
 
-변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 21/21 PASS →
+변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 24/24 PASS →
 `verify_parity.py <대상>` PASS(init.sh/init.ps1 을 고쳤으면 반드시) →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
 TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
@@ -169,7 +169,9 @@ append-only 테스트 원칙 /
   opencode=`.opencode/plugins/guard.js` 가 동일 로직을 JS로 재현(`tool.execute.before` throw).
 - **C등급 정지 흐름**: planner가 dev-agent-team/OWNER_QUESTION.md 작성 → 가드레일이 도구 사용 차단 →
   Owner가 "답: 번호" 기입 → 자동 해제. 이 3박자는 계약이다(강제 방식만 에이전트별로 다름).
-- **세 경로 동기화**: 가드 로직을 바꾸면 `.sh` 2개와 `guard.js` 를 **함께** 고쳐야 동작이 일치한다.
+- **세 경로 동기화**: 가드 로직을 바꾸면 `.sh` 2개와 `guard.js` 를 **함께** 고쳐야 한다.
+  `verify_hooks.sh` 22~24번이 같은 입력을 양쪽에 넣어 판정이 갈리는지 기계적으로 대조한다
+  (node 없으면 SKIP). 예전엔 21항목이 전부 `.sh` 만 봐서 `guard.js` 는 육안 대조뿐이었다.
 
 ## 에이전트 역할 경계 (단일 작성자 원칙)
 

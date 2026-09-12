@@ -175,5 +175,64 @@ GA_MISSING=1
 if [ -f "$GA_FILE" ] && grep -q 'team-dev-harness-eol-guard' "$GA_FILE"; then GA_MISSING=0; fi
 check ".gitattributes 가 가드 훅 줄끝을 고정" 0 $GA_MISSING
 
+# 22~23. (opencode) guard.js 가 .sh 와 같은 판정을 내리는가.
+#     "세 경로 동기화"는 계약인데 지금까지 21항목이 전부 .sh 만 봤다 — opencode 사용자에게는
+#     guard.js 가 유일한 가드인데 실동작을 아무도 확인하지 않았다. 같은 입력을 양쪽에 넣고
+#     판정이 갈리는지 본다. 갈리면 둘 중 하나가 조용히 죽어 있다는 뜻이다.
+GUARD="$TARGET/.opencode/plugins/guard.js"
+if [ ! -f "$GUARD" ]; then
+  echo "  SKIP: guard.js 없음(opencode 미설치 — codex/claude 전용 설치다)"
+elif ! command -v node >/dev/null 2>&1; then
+  echo "  SKIP: node 없음 — guard.js 실동작을 확인할 수 없다(opencode는 bun/node가 필요하다)"
+else
+  # .js 는 CommonJS 로 읽히므로 .mjs 로 복사해 ESM 으로 import 한다.
+  cp "$GUARD" "$SANDBOX/guard.mjs"
+  mkdir -p "$SANDBOX/tests" "$SANDBOX/src"
+  printf 'def test_r1_x():\n    assert True\n' > "$SANDBOX/tests/stage_1_test.py"
+  printf 'print(1)\n' > "$SANDBOX/src/app.py"
+  rm -f "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
+
+  # 케이스: 경로|기대(2=차단,0=허용). .sh 와 guard.js 양쪽에 같은 입력을 준다.
+  CASES="tests/stage_1_test.py:2 src/app.py:0 tests/helper.txt:0 tests/new_stage_9_test.py:0"
+  MISMATCH=0
+  for case in $CASES; do
+    fp="${case%:*}"; want="${case##*:}"
+    printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"}}' "$fp" \
+      | ( cd "$SANDBOX" && bash "$H/protect_tests.sh" ) >/dev/null 2>&1
+    sh_rc=$?
+    js_rc=$(cd "$SANDBOX" && node --input-type=module -e '
+      const dir = process.argv[1], fp = process.argv[2];
+      const { TeamGuard } = await import(dir + "/guard.mjs");
+      const h = await TeamGuard({ directory: dir });
+      try { await h["tool.execute.before"]({ tool: "edit" }, { args: { filePath: fp } }); console.log(0); }
+      catch (e) { console.log(2); }
+    ' "$SANDBOX" "$fp" 2>/dev/null)
+    [ "$sh_rc" = "$want" ] && [ "$js_rc" = "$want" ] || {
+      echo "    불일치: $fp 기대=$want sh=$sh_rc js=$js_rc"; MISMATCH=1; }
+  done
+  check "guard.js 와 protect_tests.sh 의 테스트 보호 판정이 같다(4케이스)" 0 $MISMATCH
+
+  # 미답변 Owner 질문에서 guard.js 도 막는가 (정지 메커니즘의 opencode 쪽 절반)
+  printf '# 질문\n1. a\n2. b\n' > "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
+  Q_RC=$(cd "$SANDBOX" && node --input-type=module -e '
+    const dir = process.argv[1];
+    const { TeamGuard } = await import(dir + "/guard.mjs");
+    const h = await TeamGuard({ directory: dir });
+    try { await h["tool.execute.before"]({ tool: "bash" }, { args: { command: "ls" } }); console.log(0); }
+    catch (e) { console.log(2); }
+  ' "$SANDBOX" 2>/dev/null)
+  check "guard.js 가 미답변 Owner 질문에서 차단" 2 "${Q_RC:-99}"
+  printf '답: 1\n' >> "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
+  A_RC=$(cd "$SANDBOX" && node --input-type=module -e '
+    const dir = process.argv[1];
+    const { TeamGuard } = await import(dir + "/guard.mjs");
+    const h = await TeamGuard({ directory: dir });
+    try { await h["tool.execute.before"]({ tool: "bash" }, { args: { command: "ls" } }); console.log(0); }
+    catch (e) { console.log(2); }
+  ' "$SANDBOX" 2>/dev/null)
+  check "guard.js 가 '답: 번호' 기입 후 해제" 0 "${A_RC:-99}"
+  rm -f "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
+fi
+
 echo "[hook 검증] PASS $PASS / FAIL $FAIL"
 [ "$FAIL" -eq 0 ]

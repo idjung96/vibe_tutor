@@ -37,7 +37,7 @@ evaluator는 같은 자리에서 산출물이 요구한 것을 했는지 점수�
 |---|---|---|
 | **commit 전** | 단계 안에서 커밋할 때마다 | 테스트 커밋 전(9번): `selfcheck.py {테스트파일}` 의 `[collect]` 줄<br>구현 커밋 전(12번): `selfcheck.py --gate`(조기 필터)·checker SCOPED 재검사 |
 | **push 시** | 작업 브랜치를 원격에 올릴 때(remote 있을 때만) | 브랜치명이 `stage/{번호}-{이름}`인지·main이 아닌지 확인. 승인 창이 뜨면 답을 기다린다 |
-| **PR 시** | `main`에 합치기 직전, 단계당 1회 | checker FULL → `--record-full-test` → `selfcheck.py --gate`(4종 전부) → documenter(이번 단계 R번호) → `selfcheck.py --score`(재시도 판정) |
+| **PR 시** | `main`에 합치기 직전, 단계당 1회 | checker FULL → `--record-full-test` → `--gate`(4종) → documenter(이번 단계 R번호) → `--score`(재시도 판정) → 재시도 수렴 후 **`--gate` 한 번 더**(최종 코드 기준) |
 
 {{#IF_LARGE}}
 PR 시점에는 reviewer·security·evaluator도 이때 호출한다(12번). 단계당 1회다.
@@ -196,14 +196,25 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 {{/IF_LARGE}}
       [score] 줄의 판정대로 한다:
       - PASS: 그대로 진행한다.
-      - RETRY: 기준 미달인 축의 격차를 넘겨 다시 시킨다. 코드 축(test·rule·trace·size)은
-        coder에게, 문서 축(doc)은 documenter에게 준다. 고친 뒤 checker를 SCOPED로 부르고
-        --score를 다시 돌린다.
+      - RETRY: 기준 미달인 축마다 처방이 다르다. 축을 보고 맞는 쪽에 준다.
+        · test: **코드 문제가 아니다.** 전체 실행 기록이 낡은 것이다(그 뒤 코드가 바뀌었다).
+          coder를 부르지 말고 checker를 FULL로 돌린 뒤 --record-full-test 로 다시 기록한다.
+        · rule·trace·size: coder에게 격차를 준다. 고친 뒤 checker를 SCOPED로 부른다.
+        · doc: documenter에게 격차를 준다.
+        그 뒤 --score를 다시 돌린다.
       - ESCALATE: 다시 시켜도 합계가 오르지 않는다는 뜻이다. 더 시키지 않고 C등급으로
         올린다(14번). SCORE.json의 below와 history를 질문에 함께 적는다.
       재시도는 {{RETRY_LIMIT}}회를 넘기지 않는다. 넘으면 ESCALATE와 같이 처리한다.
 
       리뷰·보안·평가 수정이 있었으면 그것도 커밋한다.
+
+      **merge 직전 마지막 게이트.** python3 dev-agent-team/selfcheck.py --gate 를 한 번 더
+      돌린다. 위의 [gate]는 documenter와 재시도 루프가 돌기 **전** 상태를 본 것이라,
+      그 뒤 바뀐 코드는 검사되지 않았다. 여기가 진짜 최종 코드 기준이다.
+      FAIL이면 merge하지 않는다:
+        · full-test: checker를 FULL로 다시 돌리고 --record-full-test 로 기록한 뒤 여기로 돌아온다.
+        · 그 외(collect·print·trace): coder에게 주고 고친 뒤 여기로 돌아온다.
+      이 게이트를 통과해야 push·merge로 간다.
 
       **push 시점** — git remote 가 있을 때만 한다. `git remote` 출력이 비면 건너뛴다.
       브랜치가 stage/{번호}-{이름} 이고 main이 아닌 것을 확인한 뒤

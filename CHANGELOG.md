@@ -4,6 +4,41 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.37.0] — 전체 리뷰에서 나온 3건
+
+### 1. --gate 가 재시도 루프 뒤에 다시 돌지 않던 것
+
+PR 시점 순서가 `checker FULL → --record-full-test → --gate(PASS) → documenter → --score →
+RETRY(coder 수정) → checker SCOPED → merge` 였다. **게이트가 통과한 뒤에** documenter 와
+재시도 루프가 소스를 바꿀 수 있는데 게이트를 다시 돌지 않았다. 실측으로 재현했다 —
+게이트 PASS 직후 소스를 고치면 `[full-test] FAIL` 이 되지만 절차는 그 검사를 건너뛰었다.
+`--gate` 가 "최종 코드 기준"이라고 적혀 있는데 더 이상 최종 코드가 아니었다.
+
+merge 직전에 게이트를 한 번 더 돌린다. 통과해야 push·merge 로 간다.
+
+(조용히 나쁜 merge 가 나가지는 않았다 — `--score` 의 test 축이 신선도를 보므로 75로 떨어져
+RETRY→ESCALATE 로 갔다. 실제 피해는 잘못된 merge 가 아니라 **엉뚱한 진단으로 재시도를
+낭비하고 Owner 에게 올라가는 것**이었다. 그게 2번이다.)
+
+### 2. RETRY 처방이 test 축에 대해 틀렸던 것
+
+"코드 축(test·rule·trace·size)은 coder에게" 라고 뭉쳐 두었다. 그런데 test 축이 낮은 이유는
+대부분 **전체 실행 기록이 낡은 것**이고, 처방은 코드 수정이 아니라 checker FULL +
+`--record-full-test` 다. 축마다 처방을 나눠 적었다 — test 는 coder 를 부르지 않는다.
+
+### 3. guard.js 가 실동작 검증을 전혀 안 받던 것
+
+`verify_hooks.sh` 21항목이 **전부 `.sh` 대상**이고 guard.js 언급이 0회였다. "세 경로 동기화"는
+계약인데 JS 경로는 육안 대조뿐이었고, opencode 사용자에게는 guard.js 가 유일한 가드다.
+
+22~24번을 추가했다. 같은 입력을 `.sh` 와 guard.js 양쪽에 넣어 판정이 갈리는지 대조하고
+(4케이스), 미답변 Owner 질문 차단과 "답: 번호" 해제도 본다. node 가 없거나 opencode 를
+설치하지 않았으면 SKIP 한다. **결함 주입으로 실제로 잡는지 확인했다** — guard.js 정규식에서
+python 보호를 빼면 `불일치: tests/stage_1_test.py 기대=2 sh=2 js=0` 으로 FAIL,
+질문 차단을 무력화하면 그 항목이 FAIL.
+
+verify_hooks 는 이제 **24항목**이다(21은 .sh, 3은 guard.js).
+
 ## [1.36.0] — 헌법 동결을 보이게
 
 v1.35.0 리뷰에서 확인만 하고 남겨 둔 건이다. Owner 가 `AGENTS.md` 를 고치면 conffile 이

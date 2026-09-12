@@ -38,6 +38,8 @@ def check(name, ok, detail=""):
 
 def load_module():
     """selfcheck.py 를 모듈로 읽는다. 경로 상수가 cwd 기준이라 호출 전에 chdir 해야 한다."""
+    # templates/ 에 __pycache__ 를 남기지 않는다 — 저장소 트리를 테스트가 더럽히면 안 된다.
+    sys.dont_write_bytecode = True
     spec = importlib.util.spec_from_file_location("selfcheck_under_test", SELFCHECK)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

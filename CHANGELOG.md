@@ -4,6 +4,28 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.44.0] — 검증 진입점을 하나로
+
+검증이 5개 스크립트로 나뉘고 각각 인자가 달라서, CLAUDE.md 가 순서를 **산문으로** 적어
+두고 있었다. 산문으로 적힌 절차는 빠뜨리기 쉽다 — 실제로 이 저장소를 고치는 동안 매번
+손으로 골라 돌렸고, 그러다 놓친 것들이 이번 세션의 리뷰마다 나왔다.
+
+`./tests/run_all.sh` 하나로 묶었다(11항목):
+large·small·codex 단독 설치(설치기가 `verify_install.sh` 를 부른다) / **단일 에이전트 격리**
+(codex 단독인데 `.claude`·`opencode.json` 이 생기지 않는지) / small+codex 거부 /
+파리티 양 프로파일 렌더 대조 / `test_selfcheck.py` / `test_install.py` /
+플래그 없는 재설치가 구성을 유지하는지.
+
+단일 에이전트 격리는 CLAUDE.md 검증 루틴에 적혀 있었지만 **어느 스크립트도 보지 않던 항목**이다.
+
+결함 주입으로 확인했다 — 격리를 깨면 FAIL, selfcheck 판정을 깨면 FAIL.
+세 번째(small+codex 가드 제거)는 **처음에 안 잡혔다**: 가드가 없어도 뒤늦게 설치 검증이
+실패해 exit 1 이 되므로 "에러로 끝나는가"만 보는 검사가 통과해 버렸다. 이 가드는 *아무것도
+깔기 전에* 막는 것이므로 "중단했고 파일도 안 깔렸는가"까지 보도록 고쳤더니 잡힌다.
+
+부수: `test_selfcheck.py` 가 `templates/` 에 `__pycache__` 를 남기던 것을 막았다
+(`sys.dont_write_bytecode`). 저장소 트리를 테스트가 더럽히면 안 된다.
+
 ## [1.43.0] — 설치 건강검진 + 설치기 로직 파리티 검사
 
 ### tests/verify_install.sh 신설 — "깔리긴 했는데 쓸 수 있는 상태인가"

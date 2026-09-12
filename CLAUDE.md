@@ -36,6 +36,9 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh --profile small --agent claude,opencode /tmp/t3  # small(온프레미스): codex 불가
 ./init.sh ~/projects/my-app                     # 신규면 자동 판별. **재설치면 기존 프로파일·에이전트를 유지**한다
 
+# 저장소 전체 검증 — 고치고 나면 이것 하나만 돌리면 된다
+./tests/run_all.sh                    # 설치 3종 + 격리 + 파리티 + 단위 테스트 + 재설치
+
 # 설치 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
 ./tests/verify_install.sh /tmp/t1     # 구성·파일·설정·헌법 동결 + 가드 훅 실동작까지
 ./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 24항목(21은 .sh, 3은 guard.js — node 없으면 SKIP)
@@ -57,11 +60,10 @@ python3 tests/test_install.py             # 16항목. init.sh 를 고치면 반�
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
 ```
 
-변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_install.sh` FAIL 0 →
-`verify_parity.py <대상>` PASS(init.sh/init.ps1 을 고쳤으면 반드시) →
-`test_selfcheck.py` PASS(selfcheck.py 를 고쳤으면) → `test_install.py` PASS(init.sh 를 고쳤으면) →
-생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
-TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
+변경 후 검증 루틴: **`./tests/run_all.sh` 하나로 끝난다**(FAIL 0 이어야 한다). 그 안에서
+large·small·codex 단독 설치와 설치 검증, 단일 에이전트 격리, small+codex 거부,
+파리티(양 프로파일 렌더 대조), `test_selfcheck.py`, `test_install.py`, 플래그 없는 재설치가
+구성을 유지하는지까지 돈다. 개별 스크립트는 위 "명령어" 절 참조 — 좁혀서 볼 때만 쓴다.
 
 ## 렌더링 메커니즘 (init.sh `render()`)
 

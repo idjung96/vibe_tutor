@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 # team-dev-harness 설치 스크립트
 # 사용법: ./init.sh [--profile small|large] [--agent claude|codex|opencode|all] [대상디렉토리]
+#         ./init.sh --accept-constitution [대상디렉토리]
+#           헌법 동결(AGENTS.md.new/CLAUDE.md.new 가 남은 상태)을 이 명령 하나로 푼다.
+#           Owner 가 직접 넣은 줄은 dev-agent-team/PROJECT_RULES.md 로 옮기고, 새 헌법을
+#           받아들인 뒤 그대로 설치를 계속해 manifest 까지 맞춘다.
 # 프로파일 생략 시: 온프레미스(ANTHROPIC_BASE_URL/OPENAI_BASE_URL이 내부망)면 small, 그 외 large.
 # 에이전트 생략 시: all (claude + codex + opencode).
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
 VERSION="$(cat "$SRC/HARNESS_VERSION")"
 
-PROFILE=""; TARGET=""; AGENTS_SEL=""
+PROFILE=""; TARGET=""; AGENTS_SEL=""; ACCEPT_CONST=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --profile) PROFILE="$2"; shift 2 ;;
     --agent)   AGENTS_SEL="$2"; shift 2 ;;
+    --accept-constitution) ACCEPT_CONST=1; shift ;;
     -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -106,6 +111,9 @@ manifest_get() { # $1=상대경로
   awk -v k="$1" '$2==k { print $1; found=1 } END { exit !found }' "$MANIFEST"
 }
 
+ver_minor() { # 1.27.2 -> 127 처럼 비교 가능한 수로. 못 읽으면 빈 값.
+  printf '%s' "$1" | awk -F. 'NF>=2 { printf "%d", $1*1000 + $2 }'
+}
 render_managed() { # $1=템플릿 $2=대상 $3=상대경로
   mkdir -p "$(dirname "$2")" "$(dirname "$MANIFEST")"
   TMP="$2.harness-tmp"
@@ -133,14 +141,23 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
         # 편집을 지키는 건 맞지만, 그 대가로 이 파일만 옛 버전에 묶인다. 절차·역할·권한은
         # 새 버전으로 갱신되므로 규칙이 서로 어긋난다. 몇 버전 뒤처졌는지 숫자로 말해 준다.
         OLDV=$(sed -n 's/^HARNESS_VERSION: *//p' "$2" | head -1)
+        GAP=$(( $(ver_minor "$VERSION") - $(ver_minor "${OLDV:-$VERSION}") ))
         echo "알림: $3 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $3.new 입니다."
         echo "      주의: $3 는 v${OLDV:-?} 에 묶입니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
-        echo "      규칙이 서로 어긋난 상태로 돌게 됩니다. 둘 중 하나를 하세요:"
-        echo "        (1) 권장 — 직접 쓴 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고,"
-        echo "            mv $3.new $3 한 다음 이 설치 명령을 한 번 더 실행하세요."
-        echo "        (2) 지금 헌법을 유지 — 그러면 이 알림은 계속 뜹니다(어긋남이 남아 있다는 뜻)."
-        echo "      무엇이 바뀌었는지 보려면:"
+        echo "      규칙이 서로 어긋난 상태로 돌게 됩니다."
+        if [ "$GAP" -ge 5 ] 2>/dev/null; then
+          echo ""
+          echo "      *** 버전 차이가 큽니다(마이너 $GAP 단계). 그 사이에 절차·역할·권한이 여러 번"
+          echo "          바뀌었으므로 이 상태의 팀은 정상 동작하지 않습니다. 반드시 갱신하세요. ***"
+          echo ""
+        fi
+        echo "      해결(권장) — 이 명령 하나면 됩니다:"
+        echo "        ./init.sh --accept-constitution $TARGET"
+        echo "      직접 쓰신 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고 새 헌법을 받아들인 뒤"
+        echo "      설치를 계속해 manifest 까지 맞춥니다(이전 내용은 $3.owner-backup 에 남습니다)."
+        echo "      무엇이 바뀌는지 먼저 보려면:"
         echo "        python3 dev-agent-team/selfcheck.py --constitution-diff"
+        echo "      갱신하지 않으면 단계 merge 게이트가 constitution 으로 막힙니다."
       fi
     else
       cp "$2" "$2.bak"                     # manifest 이전 프로젝트 → 백업 후 갱신
@@ -244,6 +261,41 @@ echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
 
 # ── 4. 공통 파일 (모든 에이전트) ──────────────────────────────
 # AGENTS.md = 공통 헌법. dev-agent-team/ = 에이전트 작업/상태. tests/ logs/ common/ = 제품.
+# ── 4-0. 헌법 동결 해소 (--accept-constitution) ─────────────────────────
+# render_managed 가 돌기 **전에** 처리해야 한다. 여기서 .new 를 본파일로 올려 두면
+# render_managed 가 "이미 새 내용" 으로 보고 manifest 까지 맞춰 준다 — 설치를 두 번
+# 돌릴 필요가 없다.
+accept_one() { # $1=본파일 경로  $2=표시 이름
+  [ -f "$1.new" ] || return 0
+  OLDV=$(sed -n 's/^HARNESS_VERSION: *//p' "$1" | head -1)
+  NEWV=$(sed -n 's/^HARNESS_VERSION: *//p' "$1.new" | head -1)
+  # Owner 가 직접 넣은 줄을 PROJECT_RULES.md 로 옮긴다. 판정은 설치될 selfcheck 가 한다
+  # (규칙 안의 줄과 하네스 옛 문장을 걸러 내는 로직이 거기 있다).
+  OWNER_LINES=""
+  if [ -f "$TARGET/dev-agent-team/selfcheck.py" ] && [ -n "$PY_BIN" ]; then
+    OWNER_LINES=$( cd "$TARGET" && "$PY_BIN" dev-agent-team/selfcheck.py --constitution-diff 2>/dev/null \
+      | sed -n 's/^\[scope\]     //p' )
+  fi
+  if [ -n "$OWNER_LINES" ]; then
+    mkdir -p "$TARGET/dev-agent-team"
+    { echo ""
+      echo "## $2 에서 옮겨온 규칙 (하네스 v$NEWV 업데이트 시 자동 이관)"
+      echo "<!-- 헌법을 좁히는 방향으로만 작동합니다. 안전장치는 무효화하지 못합니다. -->"
+      printf '%s\n' "$OWNER_LINES"
+    } >> "$TARGET/dev-agent-team/PROJECT_RULES.md"
+    echo "알림: $2 에 직접 쓰신 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮겼습니다:"
+    printf '%s\n' "$OWNER_LINES" | sed 's/^/        /'
+  fi
+  cp "$1" "$1.owner-backup"
+  mv "$1.new" "$1"
+  echo "알림: $2 를 v${OLDV:-?} -> v${NEWV:-?} 로 갱신했습니다(이전 내용은 $2.owner-backup)."
+}
+if [ "$ACCEPT_CONST" = "1" ]; then
+  PY_BIN=$(command -v python3 || command -v python || true)
+  accept_one "$TARGET/AGENTS.md" "AGENTS.md"
+  accept_one "$TARGET/CLAUDE.md" "CLAUDE.md"
+fi
+
 render_managed "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md" "AGENTS.md"
 mkdir -p "$TARGET/common" "$TARGET/tests" "$TARGET/logs" \
          "$TARGET/dev-agent-team/libs" "$TARGET/dev-agent-team/guides" "$TARGET/dev-agent-team/answered" "$TARGET/dev-agent-team/hooks"

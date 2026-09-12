@@ -1,5 +1,7 @@
 # team-dev-harness Windows 설치 스크립트
 # 사용법: .\init.ps1 [-Profile small|large] [-Agent claude|codex|opencode|all] [-Target 대상폴더]
+#         .\init.ps1 -AcceptConstitution [-Target 대상폴더]
+#           헌법 동결(AGENTS.md.new/CLAUDE.md.new 가 남은 상태)을 이 명령 하나로 푼다.
 # 프로파일 생략 시: 온프레미스(ANTHROPIC_BASE_URL/OPENAI_BASE_URL이 내부망)면 small, 그 외 large.
 # 에이전트 생략 시: all (claude + codex + opencode).
 # 요구사항: PowerShell 5.1 이상, git, (hook 검증용) Git Bash
@@ -8,7 +10,8 @@ param(
     [ValidateSet('small', 'large')]
     [string]$Profile,
     [string]$Agent = 'all',
-    [string]$Target = (Get-Location).Path
+    [string]$Target = (Get-Location).Path,
+    [switch]$AcceptConstitution
 )
 $ErrorActionPreference = 'Stop'
 $Src = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -107,6 +110,16 @@ function Manifest-Get($rel) {
     return $null
 }
 
+function Ver-Minor($v) {
+    if ($v -match '^(\d+)\.(\d+)') { return [int]$Matches[1] * 1000 + [int]$Matches[2] }
+    return $null
+}
+function Version-In($f) {
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    $m = Select-String -LiteralPath $f -Pattern '^HARNESS_VERSION: *(.+)$' | Select-Object -First 1
+    if ($m) { return $m.Matches.Groups[1].Value.Trim() }
+    return $null
+}
 function Render-Managed($SrcFile, $DstFile, $Rel) {
     New-Item -ItemType Directory -Force -Path (Split-Path $DstFile) | Out-Null
     New-Item -ItemType Directory -Force -Path (Split-Path $Script:Manifest) | Out-Null
@@ -136,12 +149,21 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
                 if (-not $oldv) { $oldv = '?' }
                 Write-Host "알림: $Rel 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $Rel.new 입니다."
                 Write-Host "      주의: $Rel 는 v$oldv 에 묶입니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
-                Write-Host '      규칙이 서로 어긋난 상태로 돌게 됩니다. 둘 중 하나를 하세요:'
-                Write-Host "        (1) 권장 — 직접 쓴 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고,"
-                Write-Host "            $Rel.new 를 $Rel 로 옮긴 다음 이 설치 명령을 한 번 더 실행하세요."
-                Write-Host '        (2) 지금 헌법을 유지 — 그러면 이 알림은 계속 뜹니다(어긋남이 남아 있다는 뜻).'
-                Write-Host '      무엇이 바뀌었는지 보려면:'
+                Write-Host '      규칙이 서로 어긋난 상태로 돌게 됩니다.'
+                $gap = (Ver-Minor $Version) - (Ver-Minor $oldv)
+                if ($null -ne $gap -and $gap -ge 5) {
+                    Write-Host ''
+                    Write-Host "      *** 버전 차이가 큽니다(마이너 $gap 단계). 그 사이에 절차·역할·권한이 여러 번"
+                    Write-Host '          바뀌었으므로 이 상태의 팀은 정상 동작하지 않습니다. 반드시 갱신하세요. ***'
+                    Write-Host ''
+                }
+                Write-Host '      해결(권장) — 이 명령 하나면 됩니다:'
+                Write-Host "        .\init.ps1 -AcceptConstitution -Target $Target"
+                Write-Host '      직접 쓰신 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮기고 새 헌법을 받아들인 뒤'
+                Write-Host "      설치를 계속해 manifest 까지 맞춥니다(이전 내용은 $Rel.owner-backup 에 남습니다)."
+                Write-Host '      무엇이 바뀌는지 먼저 보려면:'
                 Write-Host '        python3 dev-agent-team/selfcheck.py --constitution-diff'
+                Write-Host '      갱신하지 않으면 단계 merge 게이트가 constitution 으로 막힙니다.'
             }
         }
         else {
@@ -265,6 +287,42 @@ Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -j
 
 # ── 4. 공통 파일 (모든 에이전트) ──────────────────────────────
 $Script:Manifest = Join-Path $Target 'dev-agent-team\.harness-manifest'
+# ── 4-0. 헌법 동결 해소 (-AcceptConstitution) — init.sh 와 동작이 같아야 한다 ──────
+function Accept-Constitution($File, $Name) {
+    if (-not (Test-Path -LiteralPath "$File.new")) { return }
+    $oldv = Version-In $File; $newv = Version-In "$File.new"
+    $ownerLines = @()
+    $sc = Join-Path $Target 'dev-agent-team\selfcheck.py'
+    # ?? 는 PowerShell 7+ 전용이다. 이 스크립트는 #Requires -Version 5.1 이라 쓰면 안 된다.
+    $py = Get-Command python3 -ErrorAction SilentlyContinue
+    if (-not $py) { $py = Get-Command python -ErrorAction SilentlyContinue }
+    if ((Test-Path -LiteralPath $sc) -and $py) {
+        Push-Location $Target
+        try {
+            $out = & $py.Source 'dev-agent-team/selfcheck.py' '--constitution-diff' 2>$null
+            $ownerLines = @($out | Where-Object { $_ -match '^\[scope\]     ' } |
+                            ForEach-Object { $_ -replace '^\[scope\]     ', '' })
+        } finally { Pop-Location }
+    }
+    if ($ownerLines.Count -gt 0) {
+        $pr = Join-Path $Target 'dev-agent-team\PROJECT_RULES.md'
+        $add = "`n## $Name 에서 옮겨온 규칙 (하네스 v$newv 업데이트 시 자동 이관)`n" +
+               "<!-- 헌법을 좁히는 방향으로만 작동합니다. 안전장치는 무효화하지 못합니다. -->`n" +
+               (($ownerLines -join "`n") + "`n")
+        $cur = if (Test-Path -LiteralPath $pr) { [System.IO.File]::ReadAllText($pr) } else { '' }
+        [System.IO.File]::WriteAllText($pr, $cur + $add, $Utf8NoBom)
+        Write-Host "알림: $Name 에 직접 쓰신 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮겼습니다:"
+        $ownerLines | ForEach-Object { Write-Host "        $_" }
+    }
+    Copy-Item -LiteralPath $File "$File.owner-backup" -Force
+    Move-Item -LiteralPath "$File.new" $File -Force
+    Write-Host "알림: $Name 를 v$oldv -> v$newv 로 갱신했습니다(이전 내용은 $Name.owner-backup)."
+}
+if ($AcceptConstitution) {
+    Accept-Constitution (Join-Path $Target 'AGENTS.md') 'AGENTS.md'
+    Accept-Constitution (Join-Path $Target 'CLAUDE.md') 'CLAUDE.md'
+}
+
 Render-Managed (Join-Path $Src 'templates\AGENTS.md.tmpl') (Join-Path $Target 'AGENTS.md') 'AGENTS.md'
 foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks') {
     New-Item -ItemType Directory -Force -Path (Join-Path $Target $d) | Out-Null

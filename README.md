@@ -297,7 +297,11 @@ Owner 합의(C등급 정지)를 유지한다.
    않는다). `.new`가 남아 있으면 **헌법 동결** 상태이며 설치 안내·`selfcheck`의
    `[constitution]` 줄·team-dev "시작할 때" 세 곳에서 보인다. 무엇을 업데이트해야 하는지
    **범위**는 `python3 dev-agent-team/selfcheck.py --constitution-diff` 가 낸다(바뀐 규칙
-   번호·새로 생긴 규칙·Owner가 직접 넣은 줄).
+   번호·새로 생긴 규칙·Owner가 직접 넣은 줄). 해소는 **한 명령**이다:
+   `./init.sh --accept-constitution <대상>`(Windows는 `.\init.ps1 -AcceptConstitution -Target <대상>`).
+   Owner가 직접 넣은 줄을 `PROJECT_RULES.md`로 옮기고 새 헌법을 받아들인 뒤 설치를 계속해
+   manifest까지 맞춘다. 이전 내용은 `.owner-backup`에 남는다. 설치 알림은 마이너 버전 차이가
+   5단계 이상이면 "이 상태의 팀은 정상 동작하지 않는다"고 강하게 경고한다.
    `.gitattributes`는 가드 훅 `*.sh`의 줄끝을 대상 프로젝트의 git에서도 LF로 고정한다.
 3. **검사 시점 3분할** (team-dev "언제 무엇을 하나"가 정본): *commit 전*(테스트 커밋 전
    `[collect]`, 구현 커밋 전 `--gate` 조기 필터·checker SCOPED) / *push 시*(remote 있을 때만,

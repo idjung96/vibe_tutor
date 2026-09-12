@@ -4,6 +4,37 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.41.0] — 버전 차이가 크면 강하게 안내하고, init.sh 로 해소한다
+
+Owner 지적: "버전 차이가 많이 나는 경우 사용자에게 안내가 나가야 한다. init.sh 에서 해결책을
+안내하고, init.sh 를 사용해서 업데이트한다."
+
+이전에는 동결 알림이 `mv` 하고 설치를 한 번 더 돌리라고 **손으로 할 일을 설명**했다.
+그건 안내이지 해결이 아니다.
+
+| | 지금(AS-IS) | 앞으로(TO-BE) |
+|---|---|---|
+| 버전 차이 | v1.27.2 → v1.41.0 이라고만 | **마이너 14 단계**로 정량화, 5단계 이상이면 "정상 동작하지 않습니다" 경고 |
+| 해결 방법 | "mv 한 다음 설치를 한 번 더" (수동 2단계) | **`./init.sh --accept-constitution <대상>`** 한 명령 |
+| Owner 규칙 | 직접 옮기세요 | **자동 이관** — `PROJECT_RULES.md` 에 출처 헤더와 함께 |
+| 이전 내용 | — | `.owner-backup` 으로 보존 |
+| manifest | 설치를 또 돌려야 맞음 | 같은 실행 안에서 맞음(render_managed 앞에서 처리) |
+
+실측(v1.27.2 프로젝트 + Owner 규칙 3줄 → v1.41.0):
+
+```
+알림: AGENTS.md 에 직접 쓰신 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮겼습니다:
+        ## 우리 팀 규칙
+        금요일엔 배포하지 않는다.
+        리뷰어는 2명 이상.
+알림: AGENTS.md 를 v1.27.2 -> v1.41.0 로 갱신했습니다(이전 내용은 AGENTS.md.owner-backup).
+```
+그 뒤 `[constitution] OK`, 게이트의 constitution 차단 해제, 재설치해도 알림 0건(멱등).
+
+`init.ps1` 도 `-AcceptConstitution` 으로 같이 맞췄다. 그 과정에서 **PowerShell 7+ 전용
+`??` 연산자를 쓴 것을 잡았다** — 이 스크립트는 `#Requires -Version 5.1` 이라 5.1 에서
+구문 오류가 났을 것이다.
+
 ## [1.40.0] — 헌법 동결의 업데이트 범위 산정 + 동결을 게이트가 막는다
 
 Owner 지적 둘을 이어서 처리했다.

@@ -43,6 +43,9 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
 python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 비교
 
+# 헌법 동결 해소 — 한 명령으로 (Owner 규칙 이관 + 새 헌법 채택 + manifest 정정)
+./init.sh --accept-constitution /tmp/t1
+
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
 python3 tests/test_selfcheck.py           # 26항목. selfcheck.py 를 고치면 반드시 돌린다
 
@@ -139,7 +142,11 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - **`.new` 가 남아 있으면 그 파일만 옛 버전에 묶인 '헌법 동결' 상태다** — 절차·역할·권한은
   새 버전이라 규칙이 어긋난다. 세 곳에서 보인다: 설치 시 두 버전을 숫자로 안내,
   `selfcheck` 의 `[constitution]` 줄(차단은 안 한다), team-dev "시작할 때" 절이 Owner 에게
-  3지선다로 묻는다. 업데이트 **범위**는 `selfcheck.py --constitution-diff` 가 낸다 —
+  3지선다로 묻는다. 해소는 `./init.sh --accept-constitution <대상>` 한 명령이다 — Owner 가
+  직접 넣은 줄을 `PROJECT_RULES.md` 로 옮기고, `.new` 를 본파일로 올린 뒤(이전 내용은
+  `.owner-backup`), 그대로 설치를 계속해 manifest 까지 맞춘다. 설치 알림은 마이너 버전 차이가
+  5단계 이상이면 "정상 동작하지 않는다"고 강하게 말한다.
+  업데이트 **범위**는 `selfcheck.py --constitution-diff` 가 낸다 —
   바뀐 규칙 번호·새로 생긴 규칙·Owner 가 직접 넣은 줄을 **두 파일을 직접 비교해** 뽑는다
   (버전별 메타데이터를 손으로 들고 있지 않는다. 그런 표는 반드시 낡는다). 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로
   옮긴 뒤 **설치를 한 번 더** 돌리는 것이다(그래야 manifest 가 맞는다).

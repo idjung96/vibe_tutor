@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""selfcheck.py 의 판정 로직 테스트 (저장소 개발용).
+
+    python3 tests/test_selfcheck.py
+
+왜 있나: `write_score()` 와 `main()` 이 40줄 기준을 넘겨 쪼개야 하는데, 그 둘은 이 세션에서
+여러 번 실측으로 다듬은 판정 로직이다(권고 축, 조기 탈출 조건, 진동 방지, plan_broken).
+리팩터링으로 조용히 바뀌면 알아챌 방법이 없으므로 **먼저 현재 동작을 고정**한다.
+
+pytest 를 쓰지 않는다 — 이 저장소의 tests/ 는 의존성 없이 도는 것이 규칙이고
+(verify_hooks.sh·verify_parity.py), 대상인 selfcheck.py 자체도 표준 라이브러리만 쓴다.
+"""
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SELFCHECK = ROOT / "templates" / "project" / "selfcheck.py"
+
+PASS = FAIL = 0
+
+
+def check(name, ok, detail=""):
+    global PASS, FAIL
+    if ok:
+        PASS += 1
+        print(f"  PASS: {name}")
+    else:
+        FAIL += 1
+        print(f"  FAIL: {name}")
+        for line in str(detail).splitlines():
+            print(f"        {line}")
+
+
+def load_module():
+    """selfcheck.py 를 모듈로 읽는다. 경로 상수가 cwd 기준이라 호출 전에 chdir 해야 한다."""
+    spec = importlib.util.spec_from_file_location("selfcheck_under_test", SELFCHECK)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# ── write_score: 판정 로직 ──────────────────────────────────────────────────
+FULL = {"test": 100, "rule": 100, "trace": 100, "doc": 100, "size": 100}
+
+
+def score_case(mod, tmp, scores, prev_state=None, plan_broken=False, plan=None):
+    """SCORE.json 을 prev_state 로 깔아 두고 write_score 를 한 번 돌린다."""
+    os.chdir(tmp)
+    sp = Path("dev-agent-team/SCORE.json")
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    if prev_state is None:
+        sp.unlink(missing_ok=True)
+    elif isinstance(prev_state, str):
+        sp.write_text(prev_state, encoding="utf-8")       # 깨진 파일 주입용
+    else:
+        sp.write_text(json.dumps(prev_state), encoding="utf-8")
+    Path("dev-agent-team/PLAN.json").unlink(missing_ok=True)
+    if plan is not None:
+        Path("dev-agent-team/PLAN.json").write_text(json.dumps(plan), encoding="utf-8")
+    mod.COUNTS.clear()
+    if plan_broken:
+        mod.COUNTS["plan_broken"] = True
+    return mod.write_score(dict(scores))
+
+
+def test_write_score(mod, tmp):
+    print("\n[write_score]")
+
+    out = score_case(mod, tmp, FULL)
+    check("첫 채점·전부 통과 -> pass", out["verdict"] == "pass" and out["delta"] is None, out)
+
+    out = score_case(mod, tmp, {**FULL, "rule": 50})
+    check("첫 채점·미달 -> retry(escalate 아님)", out["verdict"] == "retry", out)
+
+    prev = {"total": 450, "verdict": "retry"}
+    out = score_case(mod, tmp, {**FULL, "rule": 50}, prev)      # total 450 -> 변화 0
+    check("재시도 중·개선 없음 -> escalate", out["verdict"] == "escalate", out)
+
+    out = score_case(mod, tmp, {**FULL, "rule": 60}, prev)      # total 460 -> +10
+    check("재시도 중·개선 있음 -> retry", out["verdict"] == "retry", out)
+
+    out = score_case(mod, tmp, {**FULL, "rule": 50}, {"total": 500, "verdict": "pass"})
+    check("직전 pass·새 결함 첫 발견 -> retry", out["verdict"] == "retry", out)
+
+    out = score_case(mod, tmp, {**FULL, "rule": 50}, {"total": 450, "verdict": "escalate"})
+    check("직전 escalate·개선 없음 -> escalate(진동 없음)", out["verdict"] == "escalate", out)
+
+    out = score_case(mod, tmp, {**FULL, "size": 50})
+    check("권고 축(size)만 미달 -> pass", out["verdict"] == "pass" and out["below"] == [], out)
+    check("권고 축은 최저축에서 빠진다", out["overall"] == 100, out)
+    check("권고 축도 합계에는 들어간다", out["total"] == 450, out)
+
+    out = score_case(mod, tmp, FULL, plan_broken=True)
+    check("plan_broken -> escalate", out["verdict"] == "escalate", out)
+    check("plan_broken 표시와 below", out.get("plan_broken") is True
+          and sorted(out["below"]) == ["doc", "trace"], out)
+
+    out = score_case(mod, tmp, FULL, "이건 JSON 이 아니다")
+    check("SCORE.json 이 깨져 있어도 죽지 않는다", out["verdict"] == "pass", out)
+
+    long_hist = [{"stage": 1, "total": 1, "verdict": "pass"}] * (mod.SCORE_HISTORY + 5)
+    out = score_case(mod, tmp, FULL, {"total": 500, "verdict": "pass", "history": long_hist})
+    check(f"history 는 {mod.SCORE_HISTORY} 개로 잘린다",
+          len(out["history"]) == mod.SCORE_HISTORY, len(out["history"]))
+
+    out = score_case(mod, tmp, FULL, None, plan={"stages": [{"id": 1}], "current_stage": 3})
+    check("stage 는 PLAN 의 current_stage 를 쓴다", out["stage"] == 3, out)
+
+    written = json.loads((Path(tmp) / "dev-agent-team/SCORE.json").read_text(encoding="utf-8"))
+    check("SCORE.json 에 그대로 기록된다", written["verdict"] == out["verdict"], written)
+
+
+# ── main: CLI 동작 ─────────────────────────────────────────────────────────
+def run(tmp, *args):
+    # 실제 설치와 같은 자리에서 돌린다. 루트에 두면 selfcheck 가 자기 자신을 제품 코드로
+    # 스캔한다(dev-agent-team/ 은 SKIP_DIRS 라 실제로는 그럴 일이 없다).
+    r = subprocess.run([sys.executable, "dev-agent-team/selfcheck.py", *args],
+                       cwd=tmp, capture_output=True, text=True)
+    return r.returncode, r.stdout + r.stderr
+
+
+def make_project(tmp, lang=True):
+    (tmp / "dev-agent-team").mkdir(parents=True, exist_ok=True)
+    (tmp / "tests").mkdir(exist_ok=True)
+    (tmp / "src").mkdir(exist_ok=True)
+    (tmp / "dev-agent-team/selfcheck.py").write_bytes(SELFCHECK.read_bytes())
+    if lang:
+        (tmp / "go.mod").write_text("module x\n\ngo 1.21\n", encoding="utf-8")
+        (tmp / "src/a.go").write_text("package main\n\nfunc F() int { return 1 }\n", encoding="utf-8")
+        (tmp / "tests/a_test.go").write_text(
+            'package main\n\nimport "testing"\n\nfunc TestR1_X(t *testing.T) {}\n', encoding="utf-8")
+        (tmp / "README.md").write_text("# p\n- R1: 한다\n", encoding="utf-8")
+        (tmp / "dev-agent-team/REQUIREMENTS.md").write_text("- R1: 한다\n", encoding="utf-8")
+        (tmp / "dev-agent-team/PLAN.json").write_text(
+            json.dumps({"current_stage": 1, "stages": [{"id": 1, "covers": ["R1"]}]}), encoding="utf-8")
+
+
+def test_main():
+    print("\n[main]")
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        make_project(tmp, lang=False)
+        rc, out = run(tmp, "--gate")
+        check("언어 미감지 -> gate PASS, exit 0", rc == 0 and "[gate] PASS" in out, out)
+        rc, out = run(tmp, "--score")
+        check("언어 미감지 -> score SKIP, exit 0", rc == 0 and "[score] SKIP" in out, out)
+        rc, out = run(tmp, "--record-full-test")
+        check("--record-full-test 는 헌법 검사를 찍지 않는다",
+              rc == 0 and "[constitution]" not in out, out)
+
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        make_project(tmp)
+        run(tmp, "--record-full-test")
+        rc, out = run(tmp, "--gate")
+        check("정상 프로젝트 -> gate PASS", rc == 0 and "[gate] PASS" in out, out)
+        check("헌법 정상 -> [constitution] OK", "[constitution] OK" in out, out)
+
+        (tmp / "src/bad.go").write_text(
+            'package main\n\nimport "fmt"\n\nfunc B() { fmt.Println("x") }\n', encoding="utf-8")
+        rc, out = run(tmp, "--gate")
+        check("print 위반 + 신선도 깨짐 -> gate FAIL", rc == 1 and "[gate] FAIL" in out, out)
+        check("차단 목록에 print·full-test", "print" in out and "full-test" in out, out)
+        rc, out = run(tmp, "--score")
+        check("--score 는 같은 상태에서도 exit 0 (차단하지 않는다)", rc == 0, out)
+
+        (tmp / "AGENTS.md").write_text("HARNESS_VERSION: 1.0.0\n", encoding="utf-8")
+        (tmp / "AGENTS.md.new").write_text("HARNESS_VERSION: 2.0.0\n", encoding="utf-8")
+        rc, out = run(tmp, "--score")
+        check("헌법 동결 -> [constitution] 동결 보고", "동결" in out and "1.0.0" in out, out)
+
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        make_project(tmp)
+        (tmp / "dev-agent-team/PLAN.json").write_text("{ broken", encoding="utf-8")
+        rc, out = run(tmp, "--score")
+        check("PLAN 깨짐 -> escalate, 만점 아님", rc == 0 and "ESCALATE" in out, out)
+        (tmp / "dev-agent-team/PLAN.json").write_text(
+            json.dumps({"stages": "리스트 아님", "current_stage": 1}), encoding="utf-8")
+        rc, out = run(tmp, "--score")
+        check("stages 타입 오류 -> 크래시 안 함", rc == 0 and "Traceback" not in out, out)
+
+
+def main():
+    print("[selfcheck 테스트]")
+    cwd = os.getcwd()
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            mod = load_module()
+            test_write_score(mod, d)
+    finally:
+        os.chdir(cwd)
+    test_main()
+    print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
+    return 1 if FAIL else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -726,79 +726,73 @@ def compute_score(langs):
     return scores
 
 
-def write_score(scores):
-    """SCORE.json 을 쓰고 재시도 판정을 낸다. 직전 점수와 비교해야 '나아지는 중인지' 안다."""
-    # 추세는 SCORE.json 안에 누적한다. TEST_LOG 에 열을 하나 더 만들지 않은 이유는,
-    # 열 추가가 옛 프로젝트 마이그레이션(awk·PowerShell 양쪽)을 또 부르기 때문이다.
-    # 여기에 담으면 마이그레이션 없이 같은 것을 얻는다. lead 가 회고에서 읽는다.
-    prev, history, prev_verdict = None, [], None
-    if SCORE_PATH.is_file():
-        try:
-            old = json.loads(SCORE_PATH.read_text(encoding="utf-8"))
-            prev = old.get("total")
-            prev_verdict = old.get("verdict")
-            history = old.get("history") or []
-        except (json.JSONDecodeError, OSError):
-            prev, history = None, []
+def _read_prev_score():
+    """직전 채점 결과를 읽는다 -> (합계, 판정, 추세). 파일이 없거나 깨졌으면 빈 값."""
+    if not SCORE_PATH.is_file():
+        return None, None, []
+    try:
+        old = json.loads(SCORE_PATH.read_text(encoding="utf-8"))
+        return old.get("total"), old.get("verdict"), old.get("history") or []
+    except (json.JSONDecodeError, OSError):
+        return None, None, []
 
-    # overall 은 '가장 나쁜 축'이라 보고용으로 좋지만, 진전 판정에는 못 쓴다 —
-    # 최저가 아닌 축을 고치면 overall 이 그대로여서 개선을 안 한 것처럼 보인다.
-    # 그래서 진전은 축 합계(total)로 본다. 어느 축이 나아지든 움직인다.
-    # 최저축은 판정 대상 축에서만 고른다. 권고 축까지 넣으면 "최저축 85인데 PASS" 처럼
-    # 읽혀 무엇이 재시도를 부르는지 흐려진다. 합계에는 권고 축도 들어간다(고치면 진전).
-    judged = {k: v for k, v in scores.items() if k not in SCORE_ADVISORY}
-    overall = min(judged.values()) if judged else 100
-    total = sum(scores.values())
-    below = sorted(k for k, v in scores.items()
-                   if v < SCORE_PASS and k not in SCORE_ADVISORY)
-    delta = None if prev is None else total - prev
 
-    # 조기 탈출(escalate)은 "다시 시켰는데 안 오른다"는 뜻이다. 그러려면 **직전이 이미
-    # 재시도였어야** 한다. 직전이 pass 였거나 첫 채점이면, 방금 문제를 처음 발견한 것이므로
-    # 한 번은 고쳐 보게 한다 — 아니면 새 결함이 나올 때마다 곧바로 Owner에게 올라간다.
-    # escalate 직후도 여전히 실패 시퀀스 안이다. retry 만 보면 RETRY→ESCALATE→RETRY 로
-    # 진동해서, 막혀 있는데도 계속 다시 시키는 것처럼 보인다.
-    in_retry = prev_verdict in ("retry", "escalate")
-    if COUNTS.get("plan_broken"):
-        # PLAN.json 을 못 읽으면 trace·doc 을 잴 수 없다. 그 상태를 점수로 덮지 않는다.
-        # 고칠 수 있는 건 메인 세션·Owner 지 coder 가 아니므로 곧바로 올린다.
-        print("[score] ESCALATE — dev-agent-team/PLAN.json 을 읽을 수 없어 trace·doc 을 "
-              "잴 수 없다. 점수를 믿지 마라. PLAN.json 부터 고쳐야 한다.")
-        out = {"stage": None, "scores": scores, "overall": 0, "total": total,
-               "below": ["trace", "doc"], "prev_total": prev, "prev_verdict": prev_verdict,
-               "delta": delta, "verdict": "escalate", "plan_broken": True,
-               "history": history}
-        SCORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        SCORE_PATH.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return out
-    if not below:
-        verdict = "pass"
-    elif in_retry and delta is not None and delta < SCORE_MIN_GAIN:
-        verdict = "escalate"
-    else:
-        verdict = "retry"
-
-    stage = None
-    if PLAN_PATH.is_file():
-        plan = _read_plan()
-        if plan is not None:
-            stage = plan[1]
-
-    history = (history + [{"stage": stage, "total": total, "verdict": verdict}])[-SCORE_HISTORY:]
-    out = {"stage": stage, "scores": scores, "overall": overall, "total": total,
-           "below": below, "prev_total": prev, "prev_verdict": prev_verdict,
-           "delta": delta, "verdict": verdict, "history": history}
+def _save_score(out):
     SCORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     SCORE_PATH.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return out
 
+
+def _current_stage():
+    if not PLAN_PATH.is_file():
+        return None
+    plan = _read_plan()
+    return None if plan is None else plan[1]
+
+
+def _verdict_for(below, delta, prev_verdict):
+    """pass / retry / escalate 를 고른다.
+
+    조기 탈출(escalate)은 "다시 시켰는데 안 오른다"는 뜻이다. 그러려면 **직전이 이미
+    재시도였어야** 한다. 직전이 pass 였거나 첫 채점이면 방금 문제를 처음 발견한 것이므로
+    한 번은 고쳐 보게 한다 — 아니면 새 결함이 나올 때마다 곧바로 Owner에게 올라간다.
+    escalate 직후도 여전히 실패 시퀀스 안이다. retry 만 보면 RETRY→ESCALATE→RETRY 로
+    진동해서, 막혀 있는데도 계속 다시 시키는 것처럼 보인다.
+    """
+    if not below:
+        return "pass"
+    in_retry = prev_verdict in ("retry", "escalate")
+    if in_retry and delta is not None and delta < SCORE_MIN_GAIN:
+        return "escalate"
+    return "retry"
+
+
+def _score_plan_broken(scores, prev, prev_verdict, history):
+    """PLAN.json 을 못 읽으면 trace·doc 을 잴 수 없다. 그 상태를 점수로 덮지 않는다.
+
+    고칠 수 있는 건 메인 세션·Owner 지 coder 가 아니므로 곧바로 올린다.
+    """
+    total = sum(scores.values())
+    print("[score] ESCALATE — dev-agent-team/PLAN.json 을 읽을 수 없어 trace·doc 을 "
+          "잴 수 없다. 점수를 믿지 마라. PLAN.json 부터 고쳐야 한다.")
+    return _save_score({
+        "stage": None, "scores": scores, "overall": 0, "total": total,
+        "below": ["trace", "doc"], "prev_total": prev, "prev_verdict": prev_verdict,
+        "delta": None if prev is None else total - prev,
+        "verdict": "escalate", "plan_broken": True, "history": history})
+
+
+def _print_score(out):
+    scores, verdict, below = out["scores"], out["verdict"], out["below"]
     print("[score] " + "  ".join(
         f"{k}={v}{'*' if k in SCORE_ADVISORY else ''}" for k, v in sorted(scores.items())))
     low_adv = sorted(k for k in SCORE_ADVISORY if scores.get(k, 100) < SCORE_PASS)
     if low_adv:
         print(f"[score] * {', '.join(low_adv)} 는 근사치라 재시도를 강제하지 않는다 "
               "(--gate 가 안 막는 것과 같은 이유). BACKLOG '메모·주의'에 적어 둔다.")
-    print(f"[score] 최저축={overall} (기준 {SCORE_PASS})  합계={total}"
-          + (f" 직전합계={prev} 변화={delta:+d}" if delta is not None else " 직전=없음"))
+    delta = out["delta"]
+    print(f"[score] 최저축={out['overall']} (기준 {SCORE_PASS})  합계={out['total']}"
+          + (f" 직전합계={out['prev_total']} 변화={delta:+d}" if delta is not None else " 직전=없음"))
     if verdict == "pass":
         print("[score] PASS — 모든 축이 기준 이상이다.")
     elif verdict == "retry":
@@ -806,16 +800,75 @@ def write_score(scores):
     else:
         print(f"[score] ESCALATE — 기준 미달({', '.join(below)})인데 합계가 직전 대비 "
               f"{SCORE_MIN_GAIN}점도 오르지 않았다. 더 시키지 말고 Owner에게 올린다(C등급).")
+
+
+def write_score(scores):
+    """SCORE.json 을 쓰고 재시도 판정을 낸다. 직전 점수와 비교해야 '나아지는 중인지' 안다.
+
+    추세는 SCORE.json 안에 누적한다. TEST_LOG 에 열을 하나 더 만들지 않은 이유는, 열 추가가
+    옛 프로젝트 마이그레이션(awk·PowerShell 양쪽)을 또 부르기 때문이다. lead 가 회고에서 읽는다.
+
+    진전은 최저축이 아니라 축 **합계**로 본다 — 최저가 아닌 축을 고치면 최저축은 그대로여서
+    개선을 안 한 것처럼 보인다. 최저축은 반대로 **판정 축에서만** 고른다. 권고 축까지 넣으면
+    "최저축 85인데 PASS" 처럼 읽혀 무엇이 재시도를 부르는지 흐려진다.
+    """
+    prev, prev_verdict, history = _read_prev_score()
+    if COUNTS.get("plan_broken"):
+        return _score_plan_broken(scores, prev, prev_verdict, history)
+
+    judged = {k: v for k, v in scores.items() if k not in SCORE_ADVISORY}
+    total = sum(scores.values())
+    below = sorted(k for k, v in scores.items()
+                   if v < SCORE_PASS and k not in SCORE_ADVISORY)
+    delta = None if prev is None else total - prev
+    verdict = _verdict_for(below, delta, prev_verdict)
+    stage = _current_stage()
+
+    out = {"stage": stage, "scores": scores,
+           "overall": min(judged.values()) if judged else 100, "total": total,
+           "below": below, "prev_total": prev, "prev_verdict": prev_verdict,
+           "delta": delta, "verdict": verdict,
+           "history": (history + [{"stage": stage, "total": total,
+                                   "verdict": verdict}])[-SCORE_HISTORY:]}
+    _save_score(out)
+    _print_score(out)
     return out
 
 
-def main():
-    args = sys.argv[1:]
-    gate = "--gate" in args
-    record = "--record-full-test" in args
-    score = "--score" in args
+def _parse_args(args):
+    """(gate, record, score, target) 로 가른다."""
     rest = [a for a in args if not a.startswith("--")]
-    target = rest[0] if rest else None
+    return ("--gate" in args, "--record-full-test" in args, "--score" in args,
+            rest[0] if rest else None)
+
+
+def _run_without_langs(langs, gate, record, score):
+    """제품 언어를 못 찾았을 때. 잴 것이 없으니 어느 모드에서도 통과시킨다."""
+    print("[lang] 감지된 제품 언어 없음 — 점검을 건너뛴다.")
+    print("       (python/go/rust/node 만 안다. 마커: requirements.txt·pyproject.toml /")
+    print("        go.mod / Cargo.toml / package.json)")
+    if record:
+        record_full_test(langs)
+    if gate:
+        print("[gate] PASS")
+    if score:
+        print("[score] SKIP (제품 언어 없음 — 아직 잴 것이 없다)")
+    return 0
+
+
+def _run_gate(results, langs):
+    """게이트: 결정적 4종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다."""
+    results["full-test"] = check_full_test(langs)
+    blocking = [n for n in ("collect", "print", "trace", "full-test") if not results[n]]
+    if blocking:
+        print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")
+        return 1
+    print("[gate] PASS")
+    return 0
+
+
+def main():
+    gate, record, score, target = _parse_args(sys.argv[1:])
 
     # 헌법 동결은 제품 언어와 무관하다. 언어 미감지로 조기 반환하기 전에 먼저 본다 —
     # --record-full-test 만 돌릴 때는 조용해야 하므로 그때는 건너뛴다.
@@ -824,16 +877,7 @@ def main():
 
     langs = detect_langs()
     if not langs:
-        print("[lang] 감지된 제품 언어 없음 — 점검을 건너뛴다.")
-        print("       (python/go/rust/node 만 안다. 마커: requirements.txt·pyproject.toml /")
-        print("        go.mod / Cargo.toml / package.json)")
-        if record:
-            record_full_test(langs)
-        if gate:
-            print("[gate] PASS")
-        if score:
-            print("[score] SKIP (제품 언어 없음 — 아직 잴 것이 없다)")
-        return 0
+        return _run_without_langs(langs, gate, record, score)
 
     print(f"[lang] {', '.join(langs)}")
     if record:
@@ -841,33 +885,23 @@ def main():
         return 0
 
     # 검사는 어느 모드에서나 전부 돌고 전부 출력한다. 모드는 exit code만 바꾼다.
+    # gate 와 score 는 둘 다 "방금 끝난 단계" 시점에 돈다. doc 축(_doc_gap)이 현재 단계를
+    # 포함하므로 trace 도 같은 창을 써야 한다 — 안 그러면 두 축이 다른 기준으로 채점된다.
     results = {
         "collect": collect_tests(langs, target),
         "print": scan_print(langs),
         "security": scan_security(langs),
         "size": scan_size(langs),
-        # gate 와 score 는 둘 다 "방금 끝난 단계" 시점에 돈다. doc 축(_doc_gap)이
-        # 현재 단계를 포함하므로 trace 도 같은 창을 써야 한다 — 안 그러면 같은 PLAN 에서
-        # 두 축이 다른 기준으로 채점된다.
         "trace": scan_trace(include_current=(gate or score)),
     }
     if score:
         # 점수는 아무것도 막지 않는다. 판정(pass/retry/escalate)만 남기고 exit 0.
         write_score(compute_score(langs))
         return 0
-
     if not gate:
         # 기본 모드는 개발 중 아무 때나 돌리는 용도라 전체 실행 신선도를 보지 않는다.
         return 0 if all(results.values()) else 1
-
-    results["full-test"] = check_full_test(langs)
-    # 게이트: 결정적 4종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
-    blocking = [n for n in ("collect", "print", "trace", "full-test") if not results[n]]
-    if blocking:
-        print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")
-        return 1
-    print("[gate] PASS")
-    return 0
+    return _run_gate(results, langs)
 
 
 if __name__ == "__main__":

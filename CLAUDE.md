@@ -43,12 +43,16 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
 python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 비교
 
+# selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
+python3 tests/test_selfcheck.py           # 26항목. selfcheck.py 를 고치면 반드시 돌린다
+
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
 ```
 
 변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 24/24 PASS →
 `verify_parity.py <대상>` PASS(init.sh/init.ps1 을 고쳤으면 반드시) →
+`test_selfcheck.py` PASS(selfcheck.py 를 고쳤으면 반드시) →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
 TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
 

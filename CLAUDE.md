@@ -34,7 +34,7 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 ./init.sh --profile large --agent all /tmp/t1              # large: claude+codex+opencode
 ./init.sh --profile large --agent codex /tmp/t2            # codex는 large 전용
 ./init.sh --profile small --agent claude,opencode /tmp/t3  # small(온프레미스): codex 불가
-./init.sh ~/projects/my-app                     # 자동 판별. 온프레미스→small이면 all에 codex가 있어 에러 → claude,opencode로
+./init.sh ~/projects/my-app                     # 신규면 자동 판별. **재설치면 기존 프로파일·에이전트를 유지**한다
 
 # hook 실동작 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
 ./tests/verify_hooks.sh /tmp/t1       # 24항목 PASS여야 함(21은 .sh, 3은 guard.js — node 없으면 SKIP)
@@ -47,7 +47,10 @@ python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 26항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 33항목. selfcheck.py 를 고치면 반드시 돌린다
+
+# 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
+python3 tests/test_install.py             # 16항목. init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -55,7 +58,7 @@ python3 tests/test_selfcheck.py           # 26항목. selfcheck.py 를 고치면
 
 변경 후 검증 루틴: large는 `--agent all`, small은 `--agent claude,opencode`(codex 불가)로 설치 → `verify_hooks.sh` 24/24 PASS →
 `verify_parity.py <대상>` PASS(init.sh/init.ps1 을 고쳤으면 반드시) →
-`test_selfcheck.py` PASS(selfcheck.py 를 고쳤으면 반드시) →
+`test_selfcheck.py` PASS(selfcheck.py 를 고쳤으면) → `test_install.py` PASS(init.sh 를 고쳤으면) →
 생성 트리에 미렌더 `{{` 마커 없는지 → `opencode.json`/`.codex/*.json` JSON·`config.toml`
 TOML·`guard.js` 문법 유효성 확인 → 단일 에이전트 설치 시 다른 에이전트 폴더가 안 생기는지.
 

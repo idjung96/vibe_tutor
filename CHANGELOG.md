@@ -4,6 +4,36 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.42.0] — 재설치가 프로젝트를 조용히 재구성하던 것
+
+v1.41.0 에서 만든 `--accept-constitution` 을 경계 조건으로 두들기다 찾았고, 알고 보니
+**그 플래그만의 문제가 아니라 예전부터 있던 결함**이었다.
+
+플래그를 생략한 재설치가 프로파일·에이전트를 **새로 판별**했다. 그래서:
+
+| | 지금(AS-IS) | 앞으로(TO-BE) |
+|---|---|---|
+| `./init.sh ~/proj` (small 프로젝트) | 역할 6개 -> **11개**, codex 오버레이 **신규 설치**, RETRY_LIMIT 3 -> 5 | 기존 구성 유지 + "기존 프로파일 small 을(를) 유지합니다" 안내 |
+| `./init.sh --accept-constitution ~/proj` | 헌법만 고치려던 명령이 프로젝트를 재구성 | 구성 그대로, 헌법만 갱신 |
+| 명시 플래그 | — | 언제나 이긴다(`--profile large` 로 바꾸는 건 의도적 행위) |
+| 신규 설치 | 자동 판별 | 그대로 |
+
+온프레미스 small 프로젝트에 large 전용 역할(lead·reviewer·critic·security·evaluator)이
+깔리는 것은 특히 나쁘다 — small 은 그 역할들을 **소형 모델이 못 하기 때문에** 없는 것이다.
+그리고 문서가 권하는 업데이트 명령(`./init.sh ~/projects/my-app`)이 정확히 그 경로였다.
+
+구성은 이미 깔린 것에서 읽는다: `lead` 역할 파일이 있으면 large, `.claude/settings.json`·
+`.codex/config.toml`·`opencode.json` 존재로 에이전트를 가린다.
+
+### tests/test_install.py 신설 (16항목)
+
+설치기는 Owner 의 프로젝트를 직접 고치는 코드인데 테스트가 없었다. 재설치가 구성을
+바꾸지 않는지, 상태 파일(BACKLOG·DECISIONS·PLAN·README)을 보존하는지,
+`--accept-constitution` 이 이관·백업·멱등을 지키는지 본다.
+
+**결함 주입으로 실제로 잡는지 확인했다** — 재설치 구성 유지를 들어내면 5항목 FAIL,
+`--accept-constitution` 의 백업을 없애면 1항목 FAIL.
+
 ## [1.41.0] — 버전 차이가 크면 강하게 안내하고, init.sh 로 해소한다
 
 Owner 지적: "버전 차이가 많이 나는 경우 사용자에게 안내가 나가야 한다. init.sh 에서 해결책을

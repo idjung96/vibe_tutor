@@ -40,7 +40,7 @@ macOS / Linux:
 ```bash
 git clone <이 저장소>
 cd team-dev-harness
-./init.sh ~/projects/my-app                          # 프로파일 자동, 에이전트 all
+./init.sh ~/projects/my-app                          # 신규면 자동, 재설치면 기존 구성 유지
 ./init.sh --profile large --agent codex ~/projects/my-app   # codex는 large 전용
 ./init.sh --profile small --agent claude,opencode ~/projects/my-app  # small은 codex 불가
 ./init.sh --agent claude,codex ~/projects/my-app     # 일부만

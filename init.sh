@@ -31,6 +31,36 @@ if [ "$TARGET" = "$SRC" ]; then
   exit 1
 fi
 
+# ── 0. 재설치라면 기존 구성을 따른다 ──────────────────────────
+# 플래그를 생략한 재설치가 프로파일·에이전트를 새로 판별하면, small 로 깔아 둔 온프레미스
+# 프로젝트가 조용히 large 로 바뀌고 codex 오버레이까지 깔린다(역할 6개 -> 11개, RETRY_LIMIT
+# 3 -> 5). 업데이트하려던 사람에게는 사고다. 이미 깔린 것에서 읽어 온다.
+# 명시한 플래그가 언제나 이긴다 — 프로파일을 바꾸는 것은 의도적인 행위여야 한다.
+installed_profile() {
+  for f in "$TARGET/.claude/agents/lead.md" "$TARGET/.agents/skills/lead/SKILL.md" \
+           "$TARGET/.opencode/agents/lead.md"; do
+    [ -f "$f" ] && { echo large; return; }
+  done
+  [ -f "$TARGET/AGENTS.md" ] && echo small
+}
+installed_agents() {
+  out=""
+  [ -f "$TARGET/.claude/settings.json" ] && out="$out,claude"
+  [ -f "$TARGET/.codex/config.toml" ]    && out="$out,codex"
+  [ -f "$TARGET/opencode.json" ]         && out="$out,opencode"
+  printf '%s' "${out#,}"
+}
+if [ -f "$TARGET/AGENTS.md" ]; then
+  if [ -z "$PROFILE" ]; then
+    P_WAS=$(installed_profile)
+    [ -n "$P_WAS" ] && { PROFILE="$P_WAS"; echo "재설치: 기존 프로파일 $PROFILE 을(를) 유지합니다(--profile 로 바꿀 수 있습니다)."; }
+  fi
+  if [ -z "$AGENTS_SEL" ]; then
+    A_WAS=$(installed_agents)
+    [ -n "$A_WAS" ] && { AGENTS_SEL="$A_WAS"; echo "재설치: 기존 에이전트 구성 $AGENTS_SEL 을(를) 유지합니다(--agent 로 바꿀 수 있습니다)."; }
+  fi
+fi
+
 # ── 1. 에이전트 선택 ──────────────────────────────────────────
 AGENTS_SEL="${AGENTS_SEL:-all}"
 case "$AGENTS_SEL" in

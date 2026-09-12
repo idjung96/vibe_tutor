@@ -9,7 +9,7 @@
 param(
     [ValidateSet('small', 'large')]
     [string]$Profile,
-    [string]$Agent = 'all',
+    [string]$Agent = '',          # 빈 값 = 지정 안 함(재설치면 기존 구성을 따른다)
     [string]$Target = (Get-Location).Path,
     [switch]$AcceptConstitution
 )
@@ -24,6 +24,42 @@ if ($Target -eq $Src) {
     Write-Host '예) .\init.ps1 -Target C:\projects\my-app'
     exit 1
 }
+
+# ── 0. 재설치라면 기존 구성을 따른다 (init.sh 와 동작이 같아야 한다) ──────────
+# 플래그를 생략한 재설치가 프로파일·에이전트를 새로 판별하면, small 로 깔아 둔 온프레미스
+# 프로젝트가 조용히 large 로 바뀌고 codex 오버레이까지 깔린다. 명시한 플래그가 언제나 이긴다.
+function Installed-Profile {
+    foreach ($f in @('.claude\agents\lead.md', '.agents\skills\lead\SKILL.md',
+                     '.opencode\agents\lead.md')) {
+        if (Test-Path -LiteralPath (Join-Path $Target $f)) { return 'large' }
+    }
+    if (Test-Path -LiteralPath (Join-Path $Target 'AGENTS.md')) { return 'small' }
+    return ''
+}
+function Installed-Agents {
+    $out = @()
+    if (Test-Path -LiteralPath (Join-Path $Target '.claude\settings.json')) { $out += 'claude' }
+    if (Test-Path -LiteralPath (Join-Path $Target '.codex\config.toml'))    { $out += 'codex' }
+    if (Test-Path -LiteralPath (Join-Path $Target 'opencode.json'))          { $out += 'opencode' }
+    return ($out -join ',')
+}
+if (Test-Path -LiteralPath (Join-Path $Target 'AGENTS.md')) {
+    if (-not $Profile) {
+        $pWas = Installed-Profile
+        if ($pWas) {
+            $Profile = $pWas
+            Write-Host "재설치: 기존 프로파일 $Profile 을(를) 유지합니다(-Profile 로 바꿀 수 있습니다)."
+        }
+    }
+    if (-not $Agent) {
+        $aWas = Installed-Agents
+        if ($aWas) {
+            $Agent = $aWas
+            Write-Host "재설치: 기존 에이전트 구성 $Agent 을(를) 유지합니다(-Agent 로 바꿀 수 있습니다)."
+        }
+    }
+}
+if (-not $Agent) { $Agent = 'all' }
 
 # ── 1. 에이전트 선택 ──────────────────────────────────────────
 if ($Agent -eq 'all') { $Agents = @('claude', 'codex', 'opencode') }

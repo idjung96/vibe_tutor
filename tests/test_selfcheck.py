@@ -255,6 +255,37 @@ def test_guards():
               "[guards] FAIL" in out and "guard.js" in out, out)
 
 
+def test_unreadable():
+    """읽지 못한 소스를 조용히 건너뛰지 않는가.
+
+    예전엔 건너뛰었다. 그러면 그 파일의 print 위반이 사라져 게이트가 "0건" 이라고
+    보고한다 — 못 읽은 것을 깨끗하다고 말하는 것이다. CP949 로 저장된 한글 소스와
+    권한 없는 파일에서 실제로 그랬다.
+    """
+    print("\n[읽지 못한 소스]")
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        make_project(tmp)
+        (tmp / "requirements.txt").write_text("", encoding="utf-8")
+        run(tmp, "--record-full-test")
+        rc, out = run(tmp, "--gate")
+        check("정상이면 [read] OK", "[read] OK" in out, out)
+
+        bad = tmp / "src/legacy.py"
+        bad.write_bytes("print('x')\n# 한글 주석".encode("cp949"))
+        rc, out = run(tmp, "--gate")
+        check("CP949 소스를 읽지 못하면 게이트가 막는다",
+              rc == 1 and "read" in out.split("[gate] FAIL")[-1], out)
+        check("어느 파일인지 짚는다", "legacy.py" in out and "UnicodeDecodeError" in out, out)
+        check("파일당 한 번만 보고한다(스캐너마다 중복 아님)",
+              out.count("legacy.py: UnicodeDecodeError") == 1, out)
+
+        bad.write_text("print('x')\n# 한글 주석", encoding="utf-8")
+        rc, out = run(tmp, "--gate")
+        check("UTF-8 로 고치면 숨어 있던 print 위반이 드러난다",
+              "[read] OK" in out and "[print] 1건" in out, out)
+
+
 def test_log_summary():
     """회고용 TEST_LOG 요약. 전체를 읽히지 않으려고 있다.
 
@@ -301,6 +332,7 @@ def main():
     test_main()
     test_constitution_diff()
     test_guards()
+    test_unreadable()
     test_log_summary()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0

@@ -115,6 +115,9 @@ SCORE_HISTORY = 20       # SCORE.json 에 남기는 추세 길이
 SCORE_ADVISORY = {"size"}
 # 각 스캔이 건수를 남긴다. 반환값(bool)은 건드리지 않는다 — 게이트 동작이 바뀌면 안 된다.
 COUNTS = {}
+# 읽지 못한 소스 파일. 조용히 건너뛰면 그 안의 위반이 사라진다 — read_text 가 여기 적는다.
+# 스캐너 여럿이 같은 파일을 읽으므로 dict 로 모아 파일당 한 번만 남긴다.
+UNREADABLE = {}
 # R번호 인식. 실제 명명 규약을 그대로 받는다:
 #   "R1: 저장한다"(요구사항·README), "R1"(covers), test_r1_x / r1_saves(구분자 뒤),
 #   TestR1_Save(Go 캐멀케이스 — 소문자 뒤 대문자 R).
@@ -222,11 +225,30 @@ def iter_sources(exts):
 
 
 def read_text(path):
-    """소스를 읽는다. 못 읽으면 None."""
+    """소스를 읽는다. 못 읽으면 None 을 주고 **어느 파일이었는지 기록한다**.
+
+    예전엔 조용히 건너뛰었다. 그러면 못 읽은 파일의 print 위반이 사라져 게이트가
+    "0건" 이라고 보고한다 — 못 읽은 것을 깨끗하다고 말하는 것이다. CP949 로 저장된
+    한글 소스나 권한이 없는 파일에서 실제로 그랬다.
+    """
     try:
         return path.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
+    except (UnicodeDecodeError, OSError) as exc:
+        UNREADABLE[str(path)] = type(exc).__name__
         return None
+
+
+def check_readable():
+    """읽지 못한 소스가 있으면 게이트를 막는다. 검사하지 못한 것을 통과로 치지 않는다."""
+    if not UNREADABLE:
+        print("[read] OK")
+        return True
+    print(f"[read] FAIL — 소스 {len(UNREADABLE)}개를 읽지 못해 검사하지 못했다:")
+    for path, why in sorted(UNREADABLE.items())[:10]:
+        print(f"  {path}: {why}")
+    print("       UTF-8 로 저장하거나 읽기 권한을 주라. 검사할 수 없는 파일을")
+    print("       통과시키면 그 안의 위반은 영영 드러나지 않는다.")
+    return False
 
 
 def _file_code_lines(name, path, text):
@@ -644,8 +666,11 @@ def _file_entry(path):
     """해시 계산용 한 줄: 경로와 내용 해시."""
     try:
         body = path.read_bytes()
-    except OSError:
-        body = b""
+    except OSError as exc:
+        # 빈 내용으로 해싱하면 그 파일이 바뀌어도 해시가 안 움직여 신선도 검사가 샌다.
+        # 읽지 못했다는 사실 자체를 해시에 넣는다(그리고 아래 [read] 가 막는다).
+        UNREADABLE[str(path)] = type(exc).__name__
+        return f"{path.as_posix()}:<unreadable>"
     return f"{path.as_posix()}:{hashlib.sha256(body).hexdigest()}"
 
 
@@ -1105,7 +1130,9 @@ def _run_gate(results, langs):
     results["full-test"] = check_full_test(langs)
     results["constitution"] = not COUNTS.get("constitution_behind")
     results["guards"] = check_guards()
-    blocking = [n for n in ("collect", "print", "trace", "full-test", "constitution", "guards")
+    results["read"] = check_readable()
+    blocking = [n for n in ("collect", "print", "trace", "full-test",
+                            "constitution", "guards", "read")
                 if not results[n]]
     if blocking:
         print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")

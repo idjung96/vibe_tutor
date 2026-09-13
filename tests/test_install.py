@@ -231,11 +231,37 @@ def test_freeze_notice():
                 _freeze(tgt, line)
             rc, out = install(tgt, "--profile", "large", "--agent", "claude")
             check(f"{label}: 강한 경고가 나온다", want in out, out[:900])
+            check(f"{label}: 버전을 담지 않는 CLAUDE.md 는 나이를 재지 않는다",
+                  "CLAUDE.md 의 버전을 읽을 수 없습니다" not in out, out[:900])
             check(f"{label}: 해소 명령을 안내한다", "--accept-constitution" in out, out[:900])
             check(f"{label}: 산술 오류로 안내가 끊기지 않는다",
                   "syntax error" not in out and "unbound variable" not in out, out[:900])
             check(f"{label}: manifest 에 AGENTS.md 기록이 남는다",
                   "AGENTS.md" in (tgt / "dev-agent-team/.harness-manifest").read_text(encoding="utf-8"))
+
+
+def test_version_only_judged_when_file_carries_one():
+    """버전을 담지 않는 파일(CLAUDE.md)을 "아주 오래된 헌법" 이라고 하지 않는가.
+
+    CLAUDE.md 는 @AGENTS.md 를 import 하는 얇은 파일이라 HARNESS_VERSION 줄이 없다.
+    새 버전을 **설치기 버전**으로 잡으면 "옛 파일에 버전이 없다" 가 늘 참이 되어, 갓 설치한
+    프로젝트를 5초 뒤에 고쳐도 "버전 표기가 생기기 전의 아주 오래된 헌법" 이라고 말한다.
+    새 버전은 이번에 렌더한 그 파일에서 읽어야 한다 — 나이를 잴 근거가 없으면 재지 않는다.
+    """
+    print("\n[버전을 담는 파일만 나이를 잰다]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude")
+        f = tgt / "CLAUDE.md"
+        f.write_text(f.read_text(encoding="utf-8") + "\n## 내 규칙\n금요일 배포 금지\n",
+                     encoding="utf-8")
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+        check("동결은 그대로 알린다", "CLAUDE.md 을(를) 직접 수정한" in out, out[:600])
+        check("'아주 오래된 헌법' 이라고 하지 않는다",
+              "아주 오래된 헌법" not in out, out[:900])
+        check("버전을 담지 않는다고 밝힌다", "버전을 담지 않습니다" in out, out[:900])
+        check("AGENTS.md(버전을 담는 쪽)는 건드리지 않았으니 조용하다",
+              "AGENTS.md 을(를) 직접 수정한" not in out, out[:600])
 
 
 def test_freeze_is_not_install_failure():
@@ -344,6 +370,7 @@ def main():
     test_brownfield()
     test_test_log_migration()
     test_freeze_notice()
+    test_version_only_judged_when_file_carries_one()
     test_freeze_is_not_install_failure()
     test_verify_failure_is_named()
     test_profile_downgrade_prunes_roles()

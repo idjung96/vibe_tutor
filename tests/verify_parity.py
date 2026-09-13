@@ -155,8 +155,12 @@ def check_installer_logic(sh, ps):
     # 옛 헌법의 버전을 못 읽었을 때 — 양쪽 다 "차이 없음"이 아니라 강한 경고여야 한다.
     # sh 는 빈 값을 현재 버전으로 대체해 GAP=0 을 만들었고 경고가 아예 안 나갔다.
     check("버전을 못 읽으면 양쪽 다 강한 경고를 낸다",
-          '[ -z "$OLDN" ] || [ -z "$NEWN" ]' in sh
-          and "$null -eq $oldn -or $null -eq $newn" in ps)
+          '[ -z "$OLDN" ]' in sh and "$null -eq $oldn" in ps)
+
+    # 새 버전은 **렌더한 파일**에서 읽어야 한다 — 설치기 버전을 쓰면 버전을 안 담는
+    # CLAUDE.md 가 늘 "아주 오래된 헌법" 이 된다.
+    check("새 버전을 .new 파일에서 읽는다(양쪽)",
+          '"$2.new" | head -1' in sh and '"$DstFile.new"' in ps)
 
     # 프로파일을 낮췄을 때 치우는 역할 목록이 같은가
     a = re.search(r'ROLES_ALL="([^"]+)"', sh)

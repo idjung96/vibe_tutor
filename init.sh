@@ -179,10 +179,17 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
         # 편집을 지키는 건 맞지만, 그 대가로 이 파일만 옛 버전에 묶인다. 절차·역할·권한은
         # 새 버전으로 갱신되므로 규칙이 서로 어긋난다. 몇 버전 뒤처졌는지 숫자로 말해 준다.
         OLDV=$(sed -n 's/^HARNESS_VERSION: *//p' "$2" | head -1)
-        OLDN=$(ver_minor "$OLDV"); NEWN=$(ver_minor "$VERSION")
+        # 새 버전은 **설치기 버전이 아니라 이번에 렌더한 그 파일**에서 읽는다. CLAUDE.md 는
+        # HARNESS_VERSION 줄을 담지 않으므로(@AGENTS.md 를 import 하는 얇은 파일), 설치기
+        # 버전을 새 버전인 척 쓰면 "옛 파일에 버전이 없다"가 늘 참이 되어 갓 설치한 프로젝트를
+        # 고쳐도 "아주 오래된 헌법" 경고가 뜬다. 버전을 안 담는 파일은 나이를 잴 수 없다.
+        NEWV=$(sed -n 's/^HARNESS_VERSION: *//p' "$2.new" | head -1)
+        OLDN=$(ver_minor "$OLDV"); NEWN=$(ver_minor "$NEWV")
         echo "알림: $3 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $3.new 입니다."
         if [ -n "$OLDN" ]; then
           echo "      주의: $3 는 v$OLDV 에 묶입니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
+        elif [ -z "$NEWN" ]; then
+          echo "      주의: $3 는 옛 내용에 묶입니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
         else
           echo "      주의: $3 의 버전을 읽지 못했습니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
         fi
@@ -193,7 +200,11 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
         # 예전엔 못 읽은 버전을 현재 버전으로 대체해 GAP=0 이 되어 경고가 아예 안 나갔고,
         # 파싱 안 되는 값이면 빈 값이 산술식에 들어가 set -e 가 함수를 중단시켜 **이 안내
         # 전체가 사라지고** manifest 기록까지 빠졌다(다음 설치가 헌법을 덮어쓴다).
-        if [ -z "$OLDN" ] || [ -z "$NEWN" ]; then
+        if [ -z "$NEWN" ]; then
+          # 이 파일은 원래 버전을 안 담는다(CLAUDE.md). 나이를 잴 근거가 없으니 재지 않는다 —
+          # 버전 상태는 AGENTS.md 가 말한다.
+          echo "      (이 파일은 버전을 담지 않습니다. 버전 상태는 AGENTS.md 쪽 알림을 보세요.)"
+        elif [ -z "$OLDN" ]; then
           echo ""
           echo "      *** $3 의 버전을 읽을 수 없습니다(HARNESS_VERSION 줄 없음). 버전 표기가 생기기"
           echo "          전의 아주 오래된 헌법입니다. 그 사이에 절차·역할·권한이 여러 번 바뀌었으므로"

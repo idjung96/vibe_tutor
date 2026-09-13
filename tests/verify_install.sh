@@ -26,7 +26,7 @@ if ! have AGENTS.md; then
   exit 1
 fi
 VER=$(sed -n 's/^HARNESS_VERSION: *//p' "$TARGET/AGENTS.md" | head -1)
-ok "하네스 설치본 (헌법 v${VER:-?})"
+ok "하네스 설치본 ($([ -n "$VER" ] && echo "헌법 v$VER" || echo "헌법에 버전 표기 없음"))"
 
 # ── 2. 구성 판별 ───────────────────────────────────────────────────────────
 # 설치 당시 옵션을 기록해 두지 않으므로 깔린 것에서 읽는다(init.sh 의 재설치 추론과 같은 방식).

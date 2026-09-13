@@ -725,7 +725,10 @@ def check_constitution():
     for name, cur, nxt in frozen:
         if cur == nxt:
             # 같은 버전에서 Owner 가 고친 것이다. 버전이 뒤처진 건 아니라 급하지 않다.
-            print(f"[constitution] {name} 에 직접 수정한 내용이 있다(v{cur}, 버전은 최신).")
+            # CLAUDE.md 처럼 버전을 담지 않는 파일은 양쪽 다 "?" 라 여기로 온다 — 그때
+            # "v?" 라고 쓰면 버전을 못 읽은 것처럼 보인다. 담지 않는 것과 못 읽은 것은 다르다.
+            where = "버전을 담지 않는 파일" if cur == "?" else f"v{cur}, 버전은 최신"
+            print(f"[constitution] {name} 에 직접 수정한 내용이 있다({where}).")
             print(f"               {name}.new 와 내용이 다르다. 고유 규칙은 "
                   "dev-agent-team/PROJECT_RULES.md 로 옮기는 것이 낫다.")
         else:
@@ -866,7 +869,11 @@ def constitution_diff():
         found = True
         cur_text = path.read_text(encoding="utf-8")
         new_text = new.read_text(encoding="utf-8")
-        print(f"[scope] {path.name}: v{_version_in(path)} -> v{_version_in(new)}")
+        cur_v, new_v = _version_in(path), _version_in(new)
+        if cur_v == "?" and new_v == "?":
+            print(f"[scope] {path.name}: 버전을 담지 않는 파일 — 내용만 비교한다")
+        else:
+            print(f"[scope] {path.name}: v{cur_v} -> v{new_v}")
         _report_scope(path.name, cur_text, new_text)
     if not found:
         print("[scope] 동결된 헌법이 없다(.new 파일 없음). 비교할 것이 없다.")

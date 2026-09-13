@@ -187,17 +187,27 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
                 # 절차·역할·권한과 어긋난다는 것을 숫자로 말해 준다.
                 $oldv = (Select-String -LiteralPath $DstFile -Pattern '^HARNESS_VERSION: *(.+)$' |
                          Select-Object -First 1).Matches.Groups[1].Value
+                # 새 버전은 설치기 버전이 아니라 이번에 렌더한 그 파일에서 읽는다. CLAUDE.md 는
+                # HARNESS_VERSION 줄을 담지 않으므로, 설치기 버전을 쓰면 "옛 파일에 버전이 없다"가
+                # 늘 참이 되어 갓 설치한 프로젝트에도 "아주 오래된 헌법" 경고가 뜬다(init.sh 와 동일).
+                $newv = (Select-String -LiteralPath "$DstFile.new" -Pattern '^HARNESS_VERSION: *(.+)$' |
+                         Select-Object -First 1).Matches.Groups[1].Value
                 $oldn = Ver-Minor $oldv
-                $newn = Ver-Minor $Version
+                $newn = Ver-Minor $newv
                 Write-Host "알림: $Rel 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $Rel.new 입니다."
                 if ($null -ne $oldn) {
                     Write-Host "      주의: $Rel 는 v$oldv 에 묶입니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
+                } elseif ($null -eq $newn) {
+                    Write-Host "      주의: $Rel 는 옛 내용에 묶입니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
                 } else {
                     Write-Host "      주의: $Rel 의 버전을 읽지 못했습니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
                 }
                 Write-Host '      규칙이 서로 어긋난 상태로 돌게 됩니다.'
                 # 버전을 못 읽으면 "차이 없음"이 아니라 가장 오래된 것으로 본다(init.sh 와 동일).
-                if ($null -eq $oldn -or $null -eq $newn) {
+                if ($null -eq $newn) {
+                    # 이 파일은 원래 버전을 안 담는다(CLAUDE.md). 나이를 잴 근거가 없으니 재지 않는다.
+                    Write-Host '      (이 파일은 버전을 담지 않습니다. 버전 상태는 AGENTS.md 쪽 알림을 보세요.)'
+                } elseif ($null -eq $oldn) {
                     Write-Host ''
                     Write-Host "      *** $Rel 의 버전을 읽을 수 없습니다(HARNESS_VERSION 줄 없음). 버전 표기가 생기기"
                     Write-Host '          전의 아주 오래된 헌법입니다. 그 사이에 절차·역할·권한이 여러 번 바뀌었으므로'

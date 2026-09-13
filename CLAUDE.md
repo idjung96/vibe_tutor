@@ -57,7 +57,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 python3 tests/test_selfcheck.py           # 50항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 68항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 75항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -148,6 +148,11 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - `dev-agent-team/.harness-manifest` 는 `AGENTS.md`·`CLAUDE.md` 의 설치 시 해시다. 재설치 때
   Owner 편집 여부를 가려, 편집했으면 덮지 않고 `.new` 로 둔다. 강제 장치(훅·권한·역할·스킬)는
   이 규칙을 쓰지 않고 무조건 덮어쓴다.
+- **버전을 담는 파일만 나이를 잰다.** `CLAUDE.md` 는 `@AGENTS.md` 를 import 하는 얇은 파일이라
+  `HARNESS_VERSION` 줄이 없다. 새 버전을 *설치기 버전*으로 잡으면 "옛 파일에 버전이 없다"가 늘
+  참이 되어 갓 설치한 프로젝트를 고쳐도 "아주 오래된 헌법" 경고가 뜬다. 새 버전은 **이번에
+  렌더한 그 파일(`.new`)** 에서 읽는다 — 나이를 잴 근거가 없으면 재지 않는다.
+  **담지 않는 것과 못 읽은 것은 다르다**(`v?` 로 뭉뚱그리지 말 것).
 - **manifest 에 적는 것은 "이번에 설치한 것"의 해시다.** Owner 편집을 보존한 경우에는
   아무것도 설치하지 않았으므로 **기록을 그대로 둔다**. 여기에 현재 파일(=편집본) 해시를
   적었더니 다음 설치에서 `CURHASH == RECORDED` 가 되어 "Owner 가 안 건드림" 으로 보였고

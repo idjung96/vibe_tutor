@@ -329,7 +329,16 @@ fi
 render_managed "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md" "AGENTS.md"
 mkdir -p "$TARGET/common" "$TARGET/tests" "$TARGET/logs" \
          "$TARGET/dev-agent-team/libs" "$TARGET/dev-agent-team/guides" "$TARGET/dev-agent-team/answered" "$TARGET/dev-agent-team/hooks"
-cp "$SRC/templates/common/logger.py"        "$TARGET/common/logger.py"
+# common/ 은 **제품 디렉터리**다. 이미 쓰던 로거가 있으면 덮지 않는다 — 기존 프로젝트에
+# 설치할 때 Owner 의 코드를 지우는 것이 된다(실제로 그랬다). 로그 "형식"이 계약이지
+# 이 파일이 계약은 아니다(logging-rule 스킬이 정본).
+if [ -f "$TARGET/common/logger.py" ]; then
+  echo "알림: common/logger.py 가 이미 있어 덮지 않았습니다."
+  echo "      하네스 기본 구현과 비교하려면: $SRC/templates/common/logger.py"
+  echo "      로그 형식([HH:MM:SS] [LEVEL] [모듈] 동작 | key=value)만 맞으면 그대로 쓰면 됩니다."
+else
+  cp "$SRC/templates/common/logger.py"        "$TARGET/common/logger.py"
+fi
 cp "$SRC/templates/project/selfcheck.py"     "$TARGET/dev-agent-team/selfcheck.py"
 cp "$SRC/templates/hooks/block_on_owner_question.sh" "$TARGET/dev-agent-team/hooks/"
 cp "$SRC/templates/hooks/protect_tests.sh"           "$TARGET/dev-agent-team/hooks/"

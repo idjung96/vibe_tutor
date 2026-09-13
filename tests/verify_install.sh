@@ -90,7 +90,15 @@ done
 [ -n "$SMISS" ] && bad "빠진 스킬" "$SMISS" || ok "스킬 6종 ($SKILL_BASE)"
 
 # ── 5. 미렌더 마커 ─────────────────────────────────────────────────────────
-LEFT=$(grep -rl '{{' "$TARGET" 2>/dev/null | grep -v '/\.git/' | head -5)
+# **하네스가 설치한 파일만** 본다. 대상 폴더 전체를 훑으면 Owner 의 제품 파일이 걸린다 —
+# 실제로 Flutter 프로젝트에서 PNG 아이콘과 .DS_Store 가 "{{" 바이트를 우연히 담고 있어
+# 설치가 실패로 끝났다. -I 로 바이너리도 제외한다(텍스트만 본다).
+HARNESS_PATHS=""
+for p in AGENTS.md CLAUDE.md opencode.json .gitattributes common/logger.py \
+         .claude .codex .opencode .agents dev-agent-team; do
+  have "$p" && HARNESS_PATHS="$HARNESS_PATHS $p"
+done
+LEFT=$(cd "$TARGET" && grep -rlI '{{' $HARNESS_PATHS 2>/dev/null | head -5)
 [ -n "$LEFT" ] && bad "렌더되지 않은 {{ 마커가 남았다" "$LEFT" || ok "미렌더 마커 없음"
 
 # ── 6. 설정 파일 파싱 ──────────────────────────────────────────────────────
@@ -129,8 +137,14 @@ if [ -n "$PY" ]; then
   if ( cd "$TARGET" && "$PY" dev-agent-team/selfcheck.py --gate >/dev/null 2>&1 ); then
     ok "selfcheck --gate 통과"
   else
-    warn "selfcheck --gate 가 통과하지 않는다" "개발이 진행된 프로젝트라면 정상일 수 있습니다(미완 항목).
-        갓 설치한 프로젝트에서 이게 뜨면 설치가 잘못된 것입니다."
+    GATE_OUT=$( cd "$TARGET" && "$PY" dev-agent-team/selfcheck.py --gate 2>&1 | grep '^\[gate\] FAIL' )
+    warn "selfcheck --gate 가 통과하지 않는다" "${GATE_OUT:-(출력 없음)}
+        **설치가 잘못된 것이 아닙니다.** --gate 는 개발 중 단계를 merge 할 때 쓰는 검사라,
+        이미 코드가 있는 프로젝트에 처음 깔면 기존 코드에 대해 지적이 납니다.
+        할 일: 코딩 에이전트를 열고 \"개발 시작\" 이라고 하세요. 0단계 인터뷰에서 지금 코드에
+        대한 요구사항을 정리하면 R번호와 계획이 생기고 trace·full-test 가 기준을 얻습니다.
+        기존 코드의 print 지적 등은 한꺼번에 고치지 말고 BACKLOG 에 쌓아 단계마다 줄이세요.
+        (갓 설치한 **빈** 프로젝트에서 이게 뜨면 그때는 설치가 잘못된 것입니다.)"
   fi
 fi
 

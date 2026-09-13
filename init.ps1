@@ -363,7 +363,16 @@ Render-Managed (Join-Path $Src 'templates\AGENTS.md.tmpl') (Join-Path $Target 'A
 foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks') {
     New-Item -ItemType Directory -Force -Path (Join-Path $Target $d) | Out-Null
 }
-Copy-Item (Join-Path $Src 'templates\common\logger.py') (Join-Path $Target 'common\logger.py') -Force
+# init.sh 와 같다 — common/ 은 제품 디렉터리라 이미 있으면 덮지 않는다.
+$lg = Join-Path $Target 'common\logger.py'
+if (Test-Path -LiteralPath $lg) {
+    Write-Host '알림: common/logger.py 가 이미 있어 덮지 않았습니다.'
+    Write-Host "      하네스 기본 구현과 비교하려면: $Src\templates\common\logger.py"
+    Write-Host '      로그 형식([HH:MM:SS] [LEVEL] [모듈] 동작 | key=value)만 맞으면 그대로 쓰면 됩니다.'
+}
+else {
+    Copy-Item (Join-Path $Src 'templates\common\logger.py') $lg -Force
+}
 Copy-Item (Join-Path $Src 'templates\project\selfcheck.py') (Join-Path $Target 'dev-agent-team\selfcheck.py') -Force
 Copy-Item (Join-Path $Src 'templates\hooks\*.sh')       (Join-Path $Target 'dev-agent-team\hooks\') -Force
 # 가드 훅의 줄끝을 대상 프로젝트의 git 에서도 고정한다(init.sh 와 동작이 같아야 한다).

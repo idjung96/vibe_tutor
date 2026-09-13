@@ -126,6 +126,40 @@ def test_accept_constitution():
         check("동결이 아닐 때는 아무것도 하지 않는다", "갱신했습니다" not in out, out)
 
 
+def test_brownfield():
+    """이미 코드가 있는 프로젝트에 깔 때 Owner 파일을 건드리지 않는가.
+
+    실제 Flutter 프로젝트에 설치했다가 두 가지를 늦게 잡았다 — common/logger.py 를 무조건
+    덮어써 Owner 의 로거를 지웠고, 미렌더 마커 검사가 제품 PNG·.DS_Store 를 잡아 설치가
+    실패로 끝났다. 빈 폴더에만 설치해 보면 둘 다 안 보인다.
+    """
+    print("\n[기존 프로젝트에 설치]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        for rel, text in (("common/logger.py", "# 우리 로거\ndef log(m): pass\n"),
+                          ("tests/test_mine.py", "def test_mine(): assert True\n"),
+                          ("README.md", "# 우리 제품\n"),
+                          ("src/app.py", "x = 1\n"),
+                          ("requirements.txt", "")):
+            p = tgt / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text, encoding="utf-8")
+        # 바이너리 제품 파일이 "{{" 바이트를 담고 있어도 설치 검증이 걸리면 안 된다.
+        (tgt / "assets").mkdir()
+        (tgt / "assets/icon.png").write_bytes(b"\x89PNG\r\n\x1a\n{{\x00\xff{{binary")
+        snap = {rel: (tgt / rel).read_text(encoding="utf-8")
+                for rel in ("common/logger.py", "tests/test_mine.py", "README.md", "src/app.py")}
+
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+        check("기존 프로젝트 설치가 성공한다(바이너리 오탐 없음)", rc == 0,
+              "\n".join(l for l in out.splitlines() if "FAIL" in l))
+        for rel, text in snap.items():
+            check(f"{rel} 보존", (tgt / rel).read_text(encoding="utf-8") == text)
+        check("logger.py 를 덮지 않았다고 알린다", "logger.py 가 이미 있어" in out, out)
+        check("설치 검증이 마커 오탐을 내지 않는다",
+              "렌더되지 않은 {{ 마커" not in out, out)
+
+
 def main():
     if shutil.which("bash") is None:
         print("SKIP: bash 없음")
@@ -134,6 +168,7 @@ def main():
     test_reinstall_keeps_shape()
     test_state_preserved()
     test_accept_constitution()
+    test_brownfield()
     print(f"\n[설치기 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

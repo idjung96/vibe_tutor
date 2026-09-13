@@ -57,6 +57,10 @@ SKIP_DIRS = {
     "node_modules", "target", "vendor", "dist", "build", ".next", "coverage",
     # 에이전트 오버레이 — 하니스 설정이지 제품 코드가 아니다(.opencode/plugins/guard.js 등).
     ".claude", ".opencode", ".codex", ".agents",
+    # 도구가 만드는 디렉터리. 여기 있는 파일이 제품 언어를 정하면 안 된다 —
+    # Flutter 의 ios/Flutter/ephemeral/flutter_lldb_helper.py 하나 때문에 Dart 프로젝트가
+    # python 으로 판정돼 게이트가 통째로 막힌 적이 있다.
+    "ephemeral", ".dart_tool", "Pods", "DerivedData", ".gradle", ".idea", ".vscode",
 }
 
 # 하드코딩 비밀값 의심: key/secret/token/password 등에 문자열 리터럴을 바로 대입.

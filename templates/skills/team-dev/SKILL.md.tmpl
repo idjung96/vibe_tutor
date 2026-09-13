@@ -91,6 +91,16 @@ selfcheck의 `[constitution]` 줄이 두 경우를 갈라 준다. **버전이 �
 "진행 흔적"은 둘 중 하나다 — `PLAN.json` 의 `current_stage` 가 2 이상이거나,
 `dev-agent-team/TEST_LOG.md` 표에 단계 행이 하나라도 있다.
 
+**이어가기 전에 PLAN.json 과 TEST_LOG.md 가 서로 맞는지 본다.** 어긋나면 스스로 고르지 말고
+C등급으로 Owner에게 묻는다(14번) — PLAN.json 은 공유 상태 파일이고, 어느 쪽이 맞는지는
+Owner만 안다. 추측해서 고치면 진행한 단계를 덮거나 끝난 단계를 다시 하게 된다.
+
+| 어긋남 | 무엇을 뜻하나 | 묻는 내용 |
+|---|---|---|
+| TEST_LOG 마지막 단계 > `current_stage` | 계획보다 더 진행됐다(PLAN 이 낡았다) | 계획을 지금까지로 맞출까, TEST_LOG 가 다른 계획의 기록인가 |
+| `current_stage` 가 계획의 마지막 id 를 넘었다 | 계획을 다 돌았다 | 종료(17번)로 갈까, 새 요구사항을 받을까 |
+| TEST_LOG 에 `current_stage` 행이 이미 있다 | 그 단계는 이미 merge 됐다 | 다음 단계로 넘어가면 되는지 |
+
 이어갈 때 지킬 것:
 - **planner를 다시 부르지 않는다.** 계획은 이미 있다. Owner가 "계획을 다시 세워줘"라고
   명시적으로 말할 때만 4번으로 간다 — 그건 기존 결정을 바꾸는 것이므로 C등급이고,
@@ -271,6 +281,10 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       - 로컬 merge: git checkout main && git merge stage/{번호}-{이름}
 
       dev-agent-team/TEST_LOG.md를 갱신한다.
+      **dev-agent-team/PLAN.json 의 current_stage 를 다음 단계 번호로 올린다.**
+      아무도 이걸 올리지 않으면 selfcheck 의 trace·doc 축이 영원히 1단계 기준으로 판정하고
+      (완료된 R번호를 완료로 안 본다), 이어하기도 어디까지 했는지 알 수 없다.
+      마지막 단계를 끝냈으면 마지막 id + 1 로 둔다 — 그게 "다 끝났다"의 표현이다.
 {{#IF_SMALL}}
       재시도 열에 이 단계에서 checker를 다시 부른 횟수를 적는다. 리뷰지적 열은 "-"로 둔다.
       13번으로.

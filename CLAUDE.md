@@ -128,6 +128,8 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 
 ### 상태 파일의 위치와 형식
 - `dev-agent-team/` 레이아웃, `dev-agent-team/PLAN.json` 스키마, `dev-agent-team/DECISIONS.md`
+  — `PLAN.json` 의 `current_stage` 는 **merge 때마다 메인 세션이 올린다**(마지막 단계 뒤에는
+  마지막 id + 1 = "다 끝났다"). selfcheck 의 `trace`·`doc` 축과 이어하기 판정이 이 값을 쓴다.
 - `dev-agent-team/TEST_LOG.md` — 7열 고정(단계·신규·누적·전체 결과·재시도·리뷰지적·커밋).
   열 구성은 양 프로파일 동일.
 - `dev-agent-team/OWNER_QUESTION.md` 형식 — 기존 동작을 바꾸는 질문이면 영향 표 앞에
@@ -173,6 +175,8 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   **파일만 보고** 진입점을 고른다: REQUIREMENTS 없음→1번 / PLAN 없음→3번 /
   PLAN 있고 진행 흔적 있음→**6번(현재 단계)** / 진행 흔적 없음→5번(Gate 1).
   진행 흔적 = `current_stage` ≥ 2 또는 TEST_LOG 에 단계 행 존재.
+- **PLAN 과 TEST_LOG 가 어긋나면 C등급**이다(스스로 고르지 않는다). 어느 쪽이 맞는지는
+  Owner만 안다 — 추측해 고치면 진행한 단계를 덮거나 끝난 단계를 다시 한다.
 - **있는 것을 다시 만들지 않는다** — 계획이 있으면 planner를 다시 부르지 않는다.
   Owner가 명시적으로 요청하면 그건 기존 결정 변경이라 C등급이다.
 - 업데이트로 절차가 바뀌어도 **새 절차로 이어간다**. 지난 검사를 소급하지 않되 merge 게이트는

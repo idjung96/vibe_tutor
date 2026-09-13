@@ -204,7 +204,7 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 
 - **공유 가드 스크립트 2개**(`dev-agent-team/hooks/`): `block_on_owner_question.sh`
   (dev-agent-team/OWNER_QUESTION.md에 `^답: 숫자`가 없으면 exit 2 차단), `protect_tests.sh`
-  (기존 테스트 파일 수정 시 exit 2 — 언어 무관: py/go/rs/js·ts, `tests/` 밑 판정 정규식은
+  (기존 테스트 파일 수정 시 exit 2 — 언어 무관: py/go/rs/js·ts/dart, `tests/`·`test/` **하위 폴더까지** 판정. 정규식은
   `protect_tests.sh` 와 `guard.js` 가 동일). exit 2 + stderr 규약 — 바꾸면 `verify_hooks.sh` 도 함께.
 - **에이전트별 연결**: Claude=`.claude/settings.json` hooks가 `dev-agent-team/hooks/*.sh` 호출 +
   allow/ask/deny(`rm -rf`/`git reset --hard`/`git branch -D`/`python -c`/`node -e`/`curl`/`wget` 등 deny,
@@ -237,7 +237,7 @@ lead·reviewer·critic·security·evaluator(large)=제안만 출력. dev-agent-t
 - **파이썬은 제품 언어와 무관하게 필수다.** 가드 훅이 훅 입력(JSON)에서 경로를 뽑을 때와
   `selfcheck.py`(게이트·점수)에 쓴다. 없으면 `protect_tests.sh` 가 fail-closed 라 **파일
   편집이 전부 막힌다**. 자바·C# 팀이 특히 걸린다 — `init.sh`/`init.ps1` 이 설치 끝에 경고한다.
-- **selfcheck 가 아는 제품 언어는 python/go/rust/node 뿐이다.** 자바 프로젝트는 `[lang] 감지된
+- **selfcheck 가 아는 제품 언어는 python/go/rust/node/dart 뿐이다.** 자바 프로젝트는 `[lang] 감지된
   제품 언어 없음` 이 되어 collect·print·trace·size·security 가 전부 건너뛰어지고 `[gate] PASS`
   가 무조건 난다 — 게이트가 사실상 비어 있다. 테스트 실행·판정은 checker 가 제품 언어 러너로
   하므로 개발 자체는 돌지만, 결정적 검사는 걸리지 않는다.

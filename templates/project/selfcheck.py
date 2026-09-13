@@ -51,7 +51,9 @@ import sys
 from pathlib import Path
 
 SKIP_DIRS = {
-    ".git", "logs", "common", "tests", "dev-agent-team",
+    # tests/ 와 test/ 둘 다 제외한다 — dart 는 test/ 가 관례다. 테스트는 제품 코드가 아니라
+    # print·size 같은 제품 규칙의 대상이 아니다(테스트 규칙은 test-design 스킬이 본다).
+    ".git", "logs", "common", "tests", "test", "dev-agent-team",
     "__pycache__", ".pytest_cache", ".venv", "venv",
     # 의존성·빌드 산출물 — 제품 코드가 아니다.
     "node_modules", "target", "vendor", "dist", "build", ".next", "coverage",
@@ -118,6 +120,7 @@ TEST_DECL = re.compile(
     r"|\bfunc\s+Test\w*"            # go
     r"|\bfn\s+\w+"                  # rust
     r"|\b(it|test|describe)\s*\("   # js/ts
+    r"|\b(testWidgets|group)\s*\("  # dart(test 는 위 js/ts 항목이 잡는다)
 )
 
 # 언어별 정의. marker = 루트의 마커 파일(우선 근거), ext = 스캔할 확장자,
@@ -169,6 +172,18 @@ LANGS = {
             (r'''require\s*\(\s*["']child_process["']''', 'child_process 사용'),
             (r'\.innerHTML\s*=', 'innerHTML 직접 대입'),
             (r'\bdangerouslySetInnerHTML\b', 'dangerouslySetInnerHTML'),
+        ],
+    },
+    "dart": {
+        "marker": ["pubspec.yaml"],
+        "ext": [".dart"],
+        "comment": ("//", "///", "/*", "*"),
+        # debugPrint 도 Flutter 의 print 다. logger 를 쓰라는 규칙은 같다.
+        "printers": [r'(?<![\w.])print\s*\(', r'\bdebugPrint\s*\('],
+        "danger": [
+            (r'Process\.(run|start)\s*\(\s*["\']?(sh|bash|cmd|powershell)', '셸 경유 명령 실행'),
+            (r'\bdart:mirrors\b', 'dart:mirrors(런타임 리플렉션)'),
+            (r'\bjsonDecode\s*\(\s*await\s', '검증 없는 원격 JSON 역직렬화 후보'),
         ],
     },
 }
@@ -475,6 +490,12 @@ FUNC_DECL = {
     "node": re.compile(
         r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?"
         r"(?:function\s+(\w+)\s*\(|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\()"
+    ),
+    # dart: 한 줄로 끝나는 시그니처만 잡는다(`dart format` 이 짧은 것은 한 줄로 둔다).
+    # 여러 줄로 접힌 시그니처는 놓친다 — 다른 언어와 마찬가지로 근사임을 출력에 밝힌다.
+    "dart": re.compile(
+        r"^\s*(?:@\w+\s+)*(?:static\s+)?(?:[\w$<>,\[\]?]+\s+)?"
+        r"([\w$]+)\s*\([^)]*\)\s*(?:async\*?|sync\*)?\s*(?:\{|=>)"
     ),
 }
 

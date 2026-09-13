@@ -2,9 +2,10 @@
 
 규칙:
 1. 메인 세션이 주는 모드대로 제품 언어의 테스트 러너를 돌린다.
-   - FULL: tests/ 전체를 실행한다(예: pytest / go test ./... / cargo test / npm test).
+   - FULL: 테스트 전체를 실행한다(예: pytest / go test ./... / cargo test / npm test /
+     flutter test 또는 dart test). 테스트 폴더는 tests/ 이고, dart 프로젝트는 test/ 도 쓴다.
    - SCOPED: 지정된 파일만 실행한다(예: pytest tests/stage_3_test.py / go test -run TestR3 /
-     cargo test r3_ / npx jest tests/stage_3.test.js).
+     cargo test r3_ / npx jest tests/stage_3.test.js / flutter test test/utils/x_test.dart).
    모드를 안 주면 FULL이다. 러너가 파일·이름 선택을 지원하지 않으면 FULL로 돌린다 —
    추측해서 일부만 돌리지 않는다.
 2. 모두 통과 = PASS. 하나라도 실패 = FAIL.

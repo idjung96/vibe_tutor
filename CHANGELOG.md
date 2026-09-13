@@ -4,6 +4,38 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.45.0] — Dart 지원 + 중첩 테스트가 통째로 새던 것
+
+Owner 요청으로 Dart 를 추가하다, **모든 언어에 걸린 기존 결함**을 함께 찾았다.
+
+### Dart 지원
+
+- `selfcheck` 에 `dart` 추가: 마커 `pubspec.yaml`, 확장자 `.dart`, print 계열
+  `print(`·`debugPrint(`, 위험 호출(셸 경유 `Process.run/start`, `dart:mirrors`),
+  크기 스캐너용 함수 선언 정규식, 테스트 선언(`testWidgets`·`group`).
+- 가드 세 경로(`protect_tests.sh`·`guard.js`·`verify_hooks.sh`)에 `_test.dart` 와
+  **`test/`(단수) 폴더**를 추가했다 — Flutter 는 `test/` 가 관례다.
+- `checker` 역할에 `flutter test` / `dart test` 를 적었다.
+
+### 중첩 테스트가 보호되지 않던 것 (기존 결함, 모든 언어)
+
+판정 정규식이 `tests/[^/]*` 라 **하위 폴더의 테스트가 전부 샜다** — `tests/sub/a_test.go`,
+`test/utils/x_test.dart` 모두 수정이 허용됐다. append-only 원칙이 중첩 구조에서 무력했다.
+Dart 는 `test/utils/` 처럼 중첩이 관례라 이걸 놓치면 Dart 프로젝트 테스트가 거의 무방비다.
+
+`tests?/(.*/)?` 로 고쳤다. `contest/a_test.py` 나 `src/testdata/x.dart` 같은 오탐은 없다(확인함).
+
+### 테스트 폴더를 제품 코드로 스캔하던 것
+
+`SKIP_DIRS` 에 `tests` 는 있는데 `test` 가 없어, Dart 의 `test/` 가 제품 코드로 스캔됐다.
+실제 프로젝트에서 `[size] 561건` 중 상당수가 테스트의 `main()`·`group()` 이었다 —
+`test/` 를 빼니 **188건**으로 줄었다. 테스트는 제품 규칙(print·size)의 대상이 아니다.
+
+`verify_hooks` 는 25항목이 됐다(중첩·dart 항목 추가, guard.js 대조 6케이스).
+
+실제 Flutter 프로젝트에서 확인: `[lang] dart`, print 915건(전부 진짜 `print(` 호출),
+중첩 dart 테스트가 `.sh`·`guard.js` 양쪽에서 차단됨.
+
 ## [1.44.2] — 실제 프로젝트에 깔아 보고 잡은 3건
 
 Owner 가 Flutter 프로젝트(`allday_billiards_scoreboard`)에 설치하다 드러났다.

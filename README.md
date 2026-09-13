@@ -394,7 +394,7 @@ Owner 합의(C등급 정지)를 유지한다.
   시점에는 제품 언어를 알 수 없어(0단계 인터뷰가 설치 후다) `common/logger.py` 만 깔린다.
   Go·Rust·JS·TS 프로젝트는 **1단계에서** `logging-rule` 의 의존성 없는 최소 구현을 복사해
   `common/logger.go|rs|js` 를 만든다. 그 전까지는 `logs/app.log` 가 없을 수 있다.
-  `selfcheck.py` 의 print·보안 스캔은 네 언어를 모두 다루지만, **테스트 수집 확인은 Python
+  `selfcheck.py` 의 print·보안 스캔은 다섯 언어(python/go/rust/node/dart)를 다루지만, **테스트 수집 확인은 Python
   전용**이라 다른 언어에서는 건너뛴다(테스트 실행은 `checker`가 제품 언어 러너로 매 단계 한다).
 - **산출물을 점수로 재고, 그 점수로 재시도할지 정한다.** `selfcheck.py --score` 가 코드와
   문서에 축별 0~100점을 매겨 `dev-agent-team/SCORE.json` 에 남긴다(test·rule·trace·doc·size,

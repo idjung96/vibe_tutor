@@ -1,9 +1,9 @@
 // team-dev-harness 가드레일 플러그인 (opencode)
 // Claude/Codex의 두 hook(block_on_owner_question, protect_tests)을 opencode 플러그인으로 포팅한다.
 // 1) dev-agent-team/OWNER_QUESTION.md 에 "답: 번호"가 없으면 모든 도구 사용을 막는다.
-// 2) tests/ 밑 기존 테스트 파일의 수정/덮어쓰기를 막는다(언어 무관).
+// 2) tests/ 와 test/ 밑 기존 테스트 파일의 수정/덮어쓰기를 막는다(언어 무관).
 //    python(*_test.py / test_*.py) · go(*_test.go) · rust(*_test.rs / test_*.rs)
-//    · node·ts(*.test.{js,jsx,ts,tsx,mjs,cjs} / *.spec.{...}).
+//    · node·ts(*.test.{js,jsx,ts,tsx,mjs,cjs} / *.spec.{...}) · dart(*_test.dart).
 //    판정 정규식은 protect_tests.sh 의 TEST_RE 와 동기화한다.
 // 3) bash 도구의 명령문에서도 "쓰기 위치에 온 경로"만 뽑아 같은 판정을 적용한다.
 //    읽기·실행(cat/grep/pytest 등)은 절대 막지 않는다 — checker가 죽는다.
@@ -68,7 +68,7 @@ const bashWriteTargets = (cmd) => {
 export const TeamGuard = async ({ directory }) => {
   const root = directory || process.cwd();
   const isTestFile = (fp) =>
-    /(^|\/)tests\/([^/]*(_test\.(py|go|rs)|\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs))|test_[^/]*\.(py|rs))$/.test(
+    /(^|\/)tests?\/(.*\/)?([^/]*(_test\.(py|go|rs|dart)|\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs))|test_[^/]*\.(py|rs))$/.test(
       fp.replace(/\\/g, "/")
     );
   const denyIfExisting = (fp) => {

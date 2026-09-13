@@ -166,6 +166,25 @@ printf '{"tool_name":"Write","tool_input":{"file_path":"tests/stage_9_test.py","
 check "파이썬 추출 실패 시 차단(fail-closed)" 2 $?
 rm -f "$T2"; rm -rf "$STUB"
 
+# 20b. 중첩 테스트와 dart 도 보호되는가.
+#      정규식이 [^/]* 라 tests/sub/... 가 통째로 샜다(모든 언어). dart 는 test/utils/ 처럼
+#      중첩이 관례라 이걸 놓치면 Dart 프로젝트의 테스트가 거의 다 무방비다.
+mkdir -p "$SANDBOX/tests/sub" "$SANDBOX/test/utils"
+printf 'x\n' > "$SANDBOX/tests/sub/deep_test.go"
+printf 'x\n' > "$SANDBOX/test/utils/score_test.dart"
+printf 'x\n' > "$SANDBOX/tests/helper.txt"
+NEST_BAD=0
+guard_rc() { # $1=경로 -> exit code
+  printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"}}' "$1" \
+    | ( cd "$SANDBOX" && bash "$H/protect_tests.sh" ) >/dev/null 2>&1
+  echo $?
+}
+[ "$(guard_rc tests/sub/deep_test.go)" = "2" ]    || { echo "    중첩 go 테스트가 안 막힌다"; NEST_BAD=1; }
+[ "$(guard_rc test/utils/score_test.dart)" = "2" ] || { echo "    중첩 dart 테스트가 안 막힌다"; NEST_BAD=1; }
+[ "$(guard_rc tests/helper.txt)" = "0" ]           || { echo "    테스트가 아닌 파일을 막는다"; NEST_BAD=1; }
+check "중첩 테스트와 dart(test/·tests/ 하위)도 보호" 0 $NEST_BAD
+rm -rf "$SANDBOX/tests/sub" "$SANDBOX/test" "$SANDBOX/tests/helper.txt"
+
 # 21. (Windows 회귀) 대상 프로젝트의 .gitattributes 가 가드 훅 줄끝을 고정하는가.
 #     19번이 "이미 CRLF 가 된 상태"를 잡는다면, 이건 "앞으로 CRLF 가 되지 않게" 하는
 #     예방 장치가 실제로 깔렸는지를 본다. 이게 없으면 Owner 가 이 프로젝트를 커밋한 뒤
@@ -190,10 +209,13 @@ else
   mkdir -p "$SANDBOX/tests" "$SANDBOX/src"
   printf 'def test_r1_x():\n    assert True\n' > "$SANDBOX/tests/stage_1_test.py"
   printf 'print(1)\n' > "$SANDBOX/src/app.py"
+  mkdir -p "$SANDBOX/test/utils" "$SANDBOX/tests/sub"
+  printf 'x\n' > "$SANDBOX/test/utils/score_test.dart"
+  printf 'x\n' > "$SANDBOX/tests/sub/deep_test.go"
   rm -f "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
 
   # 케이스: 경로|기대(2=차단,0=허용). .sh 와 guard.js 양쪽에 같은 입력을 준다.
-  CASES="tests/stage_1_test.py:2 src/app.py:0 tests/helper.txt:0 tests/new_stage_9_test.py:0"
+  CASES="tests/stage_1_test.py:2 src/app.py:0 tests/helper.txt:0 tests/new_stage_9_test.py:0 test/utils/score_test.dart:2 tests/sub/deep_test.go:2"
   MISMATCH=0
   for case in $CASES; do
     fp="${case%:*}"; want="${case##*:}"
@@ -210,7 +232,7 @@ else
     [ "$sh_rc" = "$want" ] && [ "$js_rc" = "$want" ] || {
       echo "    불일치: $fp 기대=$want sh=$sh_rc js=$js_rc"; MISMATCH=1; }
   done
-  check "guard.js 와 protect_tests.sh 의 테스트 보호 판정이 같다(4케이스)" 0 $MISMATCH
+  check "guard.js 와 protect_tests.sh 의 테스트 보호 판정이 같다(6케이스)" 0 $MISMATCH
 
   # 미답변 Owner 질문에서 guard.js 도 막는가 (정지 메커니즘의 opencode 쪽 절반)
   printf '# 질문\n1. a\n2. b\n' > "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"

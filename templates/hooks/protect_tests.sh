@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 기존 테스트 파일의 수정/덮어쓰기를 차단한다. 새 테스트 파일 생성은 허용한다.
-# 언어 무관: tests/ 밑 테스트 파일을 Python과 동일하게 보호한다.
+# 언어 무관: tests/ 와 test/ **하위 폴더까지** 테스트 파일을 보호한다.
+# (dart 는 test/ 가 관례이고 test/utils/ 처럼 중첩한다. 예전엔 [^/]* 라 중첩이 다 샜다.)
 #  - python: *_test.py / test_*.py
 #  - go    : *_test.go
 #  - rust  : *_test.rs / test_*.rs
@@ -95,7 +96,7 @@ if cmd:
             add(t)
 # 4) 테스트 파일만 남긴다 (guard.js 의 isTestFile 과 동일 규칙)
 TEST_RE = re.compile(
-    r"(^|/)tests/([^/]*(_test\.(py|go|rs)|\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs))|test_[^/]*\.(py|rs))$"
+    r"(^|/)tests?/(.*/)?([^/]*(_test\.(py|go|rs|dart)|\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs))|test_[^/]*\.(py|rs))$"
 )
 for p in out:
     if TEST_RE.search(p.replace("\\", "/")):

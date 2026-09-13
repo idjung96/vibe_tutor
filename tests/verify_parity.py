@@ -183,6 +183,11 @@ def check_installer_logic(sh, ps):
     check("옮기지 않은 줄을 양쪽 다 보고한다",
           "--owner-lines-skipped" in sh and "'--owner-lines-skipped'" in ps)
 
+    # 동결 시 사람에게 묻는 경로가 양쪽에 있는가 (기본 채택이 아니라 3지선다)
+    check("동결이면 양쪽 다 3지선다로 묻는다",
+          "답(1/2/3)" in sh and "답(1/2/3)" in ps
+          and "HARNESS_FORCE_PROMPT" in sh and "HARNESS_FORCE_PROMPT" in ps)
+
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))
     b = sorted(set(re.findall(r'"\$File\.([\w-]+)"', ps)))

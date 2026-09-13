@@ -35,9 +35,15 @@ def check(name, ok, detail=""):
             print(f"        {line}")
 
 
-def install(target, *args):
+def install(target, *args, answer=None):
+    """answer 를 주면 '사람이 있는' 것처럼 돌려 3지선다에 그 답을 넣는다."""
+    env = None
+    if answer is not None:
+        import os
+        env = dict(os.environ, HARNESS_FORCE_PROMPT="1")
     r = subprocess.run(["bash", str(INIT), *args, str(target)],
-                       capture_output=True, text=True, cwd=ROOT)
+                       capture_output=True, text=True, cwd=ROOT,
+                       input=(answer + "\n") if answer is not None else None, env=env)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -427,6 +433,55 @@ def test_accept_migrates_every_owner_line():
         check("원문 위치를 알려 준다", "AGENTS.md.owner-backup" in out, out[:1200])
 
 
+def test_freeze_prompt():
+    """동결이면 그 자리에서 묻는가 — 그리고 사람이 없으면 묻지 않는가.
+
+    안내만 하고 끝내면 Owner 가 --accept-constitution 을 따로 돌리지 않아 merge 가 영영
+    막힌다. 그렇다고 기본으로 채택할 수는 없다 — 이관 판정은 어절 겹침 어림짐작이라 사람
+    판단이 필요한 줄이 남고(실제 프로젝트에서 12줄), 새 헌법과 충돌하는 옛 줄이 규칙으로
+    되살아날 수 있다. 그래서 **묻는다**. 사람이 없으면(headless·CI) 묻지 않고 보존한다 —
+    무인 실행이 남의 헌법을 고치면 안 된다.
+    """
+    print("\n[동결이면 묻는다]")
+
+    def frozen(d):
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude")
+        f = tgt / "AGENTS.md"
+        f.write_text(f.read_text(encoding="utf-8") + "\n## 우리 규칙\n금요일 배포 금지\n",
+                     encoding="utf-8")
+        install(tgt, "--profile", "large", "--agent", "claude")      # 동결 유발
+        return tgt
+
+    with tempfile.TemporaryDirectory() as d:
+        tgt = frozen(d)
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude")   # 사람 없음
+        check("사람이 없으면 묻지 않는다", "답(1/2/3)" not in out, out[:400])
+        check("사람이 없으면 헌법을 건드리지 않는다", (tgt / "AGENTS.md.new").is_file())
+        check("그래도 설치는 성공한다", rc == 0, out[-300:])
+
+    for ans, label in (("2", "2번(그대로)"), ("3", "3번(나중에)"), ("", "답이 없음(EOF)")):
+        with tempfile.TemporaryDirectory() as d:
+            tgt = frozen(d)
+            rc, out = install(tgt, "--profile", "large", "--agent", "claude", answer=ans)
+            check(f"{label}: 물어본다", "답(1/2/3)" in out, out[:400])
+            check(f"{label}: 헌법을 그대로 둔다", (tgt / "AGENTS.md.new").is_file())
+            check(f"{label}: 해소 명령을 알려 준다",
+                  "--accept-constitution" in out, out[-400:])
+
+    with tempfile.TemporaryDirectory() as d:
+        tgt = frozen(d)
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude", answer="1")
+        check("1번: 동결이 풀린다", not (tgt / "AGENTS.md.new").is_file(), out[-500:])
+        check("1번: 규칙이 이관된다",
+              "금요일 배포 금지"
+              in (tgt / "dev-agent-team/PROJECT_RULES.md").read_text(encoding="utf-8"))
+        check("1번: 옛 내용이 백업된다", (tgt / "AGENTS.md.owner-backup").is_file())
+        check("1번: 설치가 정상으로 끝난다", rc == 0 and "설치 완료" in out, out[-300:])
+        check("1번: manifest 까지 맞아 다음 설치가 조용하다",
+              "직접 수정한 것으로 보여" not in install(tgt)[1], install(tgt)[1][:400])
+
+
 def main():
     if shutil.which("bash") is None:
         print("SKIP: bash 없음")
@@ -441,6 +496,7 @@ def main():
     test_freeze_notice()
     test_version_only_judged_when_file_carries_one()
     test_freeze_is_not_install_failure()
+    test_freeze_prompt()
     test_verify_failure_is_named()
     test_profile_downgrade_prunes_roles()
     test_freeze_survives_repeated_installs()

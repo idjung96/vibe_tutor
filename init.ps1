@@ -560,6 +560,36 @@ if (-not (Get-Command python3 -ErrorAction SilentlyContinue) -and
     Write-Host ''
 }
 
+# ── 8-2. 헌법이 동결됐으면 그 자리에서 묻는다 (init.sh 와 동일) ──────────
+# 안내만 하고 끝내면 Owner 가 -AcceptConstitution 을 따로 돌리지 않아 merge 가 영영 막힌다.
+# 그렇다고 기본으로 채택할 수는 없다 — 이관 판정은 어림짐작이라 사람 판단이 필요한 줄이
+# 남는다. 사람이 없으면 묻지 않고 보존한다(무인 실행이 헌법을 고치면 안 된다).
+# HARNESS_FORCE_PROMPT 는 테스트용 문이다. 답이 없으면 2번(그대로)으로 간다.
+if ((-not $AcceptConstitution) -and
+    ((Test-Path -LiteralPath (Join-Path $Target 'AGENTS.md.new')) -or
+     (Test-Path -LiteralPath (Join-Path $Target 'CLAUDE.md.new')))) {
+    if ([Environment]::UserInteractive -or $env:HARNESS_FORCE_PROMPT) {
+        Write-Host ''
+        Write-Host '헌법이 동결됐습니다. 지금 정하시겠습니까?'
+        Write-Host '  1. 새 헌법을 받아들인다 — 직접 쓰신 규칙은 dev-agent-team/PROJECT_RULES.md 로'
+        Write-Host '     옮기고, 옛 내용은 .owner-backup 에 남깁니다. 옮기지 못한 줄은 화면에 알립니다.'
+        Write-Host '  2. 그대로 둔다 — 단계 merge 게이트가 constitution 으로 계속 막습니다.'
+        Write-Host '  3. 나중에 정한다 (지금은 2와 같습니다)'
+        $ans = ''
+        try { $ans = Read-Host '답(1/2/3)' } catch { $ans = '' }
+        if ($ans -eq '1') {
+            Write-Host ''
+            Write-Host '새 헌법을 받아들입니다 — 설치를 한 번 더 돌립니다(그래야 manifest 가 맞습니다).'
+            Write-Host ''
+            & $PSCommandPath -AcceptConstitution -Target $Target
+            exit $LASTEXITCODE
+        }
+        else {
+            Write-Host "그대로 둡니다. 나중에 해소하려면: .\init.ps1 -AcceptConstitution -Target $Target"
+        }
+    }
+}
+
 # ── 9. 설치 검증 (Git Bash 필요) — verify_install.sh 가 verify_hooks.sh 를 품는다 ──
 $bash = $null
 $cmd = Get-Command bash -ErrorAction SilentlyContinue

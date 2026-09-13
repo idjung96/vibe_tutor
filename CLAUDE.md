@@ -57,7 +57,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 python3 tests/test_selfcheck.py           # 56항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 85항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 102항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -161,7 +161,11 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - 해시는 **CR 을 지우고** 계산한다 — Windows 에서 git 이 줄끝을 바꾼 것을 Owner 편집으로
   오인하면 헌법이 영영 갱신되지 않는다.
 - **`.new` 가 남아 있으면 그 파일만 옛 버전에 묶인 '헌법 동결' 상태다** — 절차·역할·권한은
-  새 버전이라 규칙이 어긋난다. 세 곳에서 보인다: 설치 시 두 버전을 숫자로 안내,
+  새 버전이라 규칙이 어긋난다. **설치 중 사람이 있으면 그 자리에서 3지선다로 묻는다**(1.채택 / 2.그대로 / 3.나중에).
+  기본 채택은 하지 않는다 — 이관 판정이 어림짐작이라 사람 판단이 필요한 줄이 남고, 새 헌법과
+  충돌하는 옛 줄이 되살아날 수 있다. 사람이 없으면(headless·CI) 묻지 않고 보존한다. 1번을
+  고르면 `--accept-constitution` 으로 설치를 한 번 더 돌린다(그래야 manifest 가 맞는다).
+  그 밖에 세 곳에서 보인다: 설치 시 두 버전을 숫자로 안내,
   `selfcheck` 의 `[constitution]` 줄(차단은 안 한다), team-dev "시작할 때" 절이 Owner 에게
   3지선다로 묻는다. 해소는 `./init.sh --accept-constitution <대상>` 한 명령이다 — Owner 가
   직접 넣은 줄을 `PROJECT_RULES.md` 로 옮기고, `.new` 를 본파일로 올린 뒤(이전 내용은

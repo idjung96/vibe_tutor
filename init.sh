@@ -543,6 +543,41 @@ if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; 
   echo ""
 fi
 
+# ── 8-2. 헌법이 동결됐으면 그 자리에서 묻는다 ────────────────────────────
+# 왜 여기서 묻나: 안내만 하고 끝내면 Owner 가 --accept-constitution 을 따로 돌리지 않는다.
+# 그러면 merge 게이트가 영영 막힌다. 그렇다고 기본으로 채택해 버릴 수는 없다 — 이관 판정은
+# 어절 겹침 어림짐작이라 사람 판단이 필요한 줄이 남고(실제 프로젝트에서 12줄), 새 헌법과
+# 충돌하는 옛 줄("Stage-Gate 는 쓰지 않는다")이 규칙으로 되살아날 수 있다. 남의 문서를
+# 묻지 않고 고쳐 쓰는 것이 이 저장소가 거듭 고친 실패 유형이다. 그래서 **물어본다.**
+#
+# 사람이 없으면(headless·CI) 묻지 않고 보존한다 — 무인 실행이 헌법을 고치면 안 된다.
+# HARNESS_FORCE_PROMPT 는 테스트용 문(門)이다. 이건 "묻게" 만들 뿐이고 답은 여전히 stdin
+# 에서 와야 한다. 답이 없으면(EOF) 2번(그대로)으로 간다 — 안전한 쪽이다.
+if [ "$ACCEPT_CONST" != "1" ] && { [ -f "$TARGET/AGENTS.md.new" ] || [ -f "$TARGET/CLAUDE.md.new" ]; }; then
+  if [ -t 0 ] || [ -n "${HARNESS_FORCE_PROMPT:-}" ]; then
+    echo ""
+    echo "헌법이 동결됐습니다. 지금 정하시겠습니까?"
+    echo "  1. 새 헌법을 받아들인다 — 직접 쓰신 규칙은 dev-agent-team/PROJECT_RULES.md 로"
+    echo "     옮기고, 옛 내용은 .owner-backup 에 남깁니다. 옮기지 못한 줄은 화면에 알립니다."
+    echo "  2. 그대로 둔다 — 단계 merge 게이트가 constitution 으로 계속 막습니다."
+    echo "  3. 나중에 정한다 (지금은 2와 같습니다)"
+    printf '답(1/2/3): '
+    ANS=""
+    read -r ANS || ANS=""
+    case "$ANS" in
+      1)
+        echo ""
+        echo "새 헌법을 받아들입니다 — 설치를 한 번 더 돌립니다(그래야 manifest 가 맞습니다)."
+        echo ""
+        exec bash "$SRC/init.sh" --accept-constitution "$TARGET"
+        ;;
+      *)
+        echo "그대로 둡니다. 나중에 해소하려면: ./init.sh --accept-constitution $TARGET"
+        ;;
+    esac
+  fi
+fi
+
 # ── 9. 설치 검증 (가드 훅 실동작 + 구성·파일·설정 건강검진) ──────────────
 # verify_install.sh 가 verify_hooks.sh 를 품는다. 설치가 "깔리긴 했는데 못 쓰는" 상태로
 # 끝나지 않게 여기서 한 번 다 본다. Owner 가 나중에 직접 돌려도 된다.

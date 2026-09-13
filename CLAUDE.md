@@ -57,7 +57,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 python3 tests/test_selfcheck.py           # 50항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 54항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 68항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -148,6 +148,11 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - `dev-agent-team/.harness-manifest` 는 `AGENTS.md`·`CLAUDE.md` 의 설치 시 해시다. 재설치 때
   Owner 편집 여부를 가려, 편집했으면 덮지 않고 `.new` 로 둔다. 강제 장치(훅·권한·역할·스킬)는
   이 규칙을 쓰지 않고 무조건 덮어쓴다.
+- **manifest 에 적는 것은 "이번에 설치한 것"의 해시다.** Owner 편집을 보존한 경우에는
+  아무것도 설치하지 않았으므로 **기록을 그대로 둔다**. 여기에 현재 파일(=편집본) 해시를
+  적었더니 다음 설치에서 `CURHASH == RECORDED` 가 되어 "Owner 가 안 건드림" 으로 보였고
+  **편집본이 백업도 없이 덮였다** — 동결이 딱 한 번의 설치만 버텼다. 실제 Owner 프로젝트의
+  157줄짜리 헌법이 재설치 두 번 만에 사라졌다.
 - 해시는 **CR 을 지우고** 계산한다 — Windows 에서 git 이 줄끝을 바꾼 것을 Owner 편집으로
   오인하면 헌법이 영영 갱신되지 않는다.
 - **`.new` 가 남아 있으면 그 파일만 옛 버전에 묶인 '헌법 동결' 상태다** — 절차·역할·권한은

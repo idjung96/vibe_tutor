@@ -150,6 +150,12 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
   render_stdout "$1" > "$TMP"
   NEWHASH=$(sha256_of "$TMP")
 
+  # manifest 에 적을 해시 = **이번에 설치한 것의 해시**. Owner 편집을 보존한 경우에는
+  # 아무것도 설치하지 않았으므로 기록도 그대로 둔다 — 여기에 "현재 파일(=편집본)" 해시를
+  # 적었더니, 다음 설치에서 CURHASH == RECORDED 가 되어 "Owner 가 안 건드림" 으로 보였고
+  # **편집본이 백업도 없이 덮였다.** 동결이 딱 한 번의 설치만 버틴 것이다. 실제로 Owner 의
+  # 프로젝트 헌법(157줄)이 재설치 두 번 만에 사라졌다.
+  RECORD="$NEWHASH"
   if [ ! -f "$2" ]; then
     mv "$TMP" "$2"
   else
@@ -160,6 +166,7 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
     if [ -z "$CURHASH" ] || [ -z "$NEWHASH" ]; then
       cp "$2" "$2.bak"
       mv "$TMP" "$2"
+      RECORD=""
       echo "알림: 해시 도구(sha256sum/shasum)가 없어 $3 을(를) 백업 후 갱신했습니다($3.bak)."
     elif RECORDED=$(manifest_get "$3"); then
       if [ -n "$CURHASH" ] && [ "$CURHASH" = "$RECORDED" ]; then
@@ -168,6 +175,7 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
         rm -f "$TMP"                       # 이미 새 내용과 같음
       else
         mv "$TMP" "$2.new"                 # Owner가 편집함 → 덮지 않는다
+        RECORD="$RECORDED"                 # 설치한 적 없으니 기록도 그대로 (위 주석 참조)
         # 편집을 지키는 건 맞지만, 그 대가로 이 파일만 옛 버전에 묶인다. 절차·역할·권한은
         # 새 버전으로 갱신되므로 규칙이 서로 어긋난다. 몇 버전 뒤처졌는지 숫자로 말해 준다.
         OLDV=$(sed -n 's/^HARNESS_VERSION: *//p' "$2" | head -1)
@@ -211,8 +219,7 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
       echo "알림: $3 을(를) 갱신했습니다. 이전 내용은 $3.bak 에 보관했습니다."
     fi
   fi
-  # 현재 파일 기준으로 기록한다(덮어썼으면 새 해시, 보존했으면 편집된 해시).
-  printf '%s  %s\n' "$(sha256_of "$2")" "$3" >> "$MANIFEST.tmp"
+  printf '%s  %s\n' "$RECORD" "$3" >> "$MANIFEST.tmp"
 }
 
 # 스킬 3종을 주어진 디렉터리에 렌더

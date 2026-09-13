@@ -298,6 +298,41 @@ def test_profile_downgrade_prunes_roles():
               "기존 프로파일 small" in install(tgt)[1], install(tgt)[1][:400])
 
 
+def test_freeze_survives_repeated_installs():
+    """동결이 재설치를 **여러 번** 버티는가.
+
+    manifest 에 "현재 파일(=Owner 편집본)" 해시를 적었더니, 다음 설치에서
+    CURHASH == RECORDED 가 되어 "Owner 가 안 건드림" 으로 보였고 편집본이 **백업도 없이**
+    덮였다. 동결이 딱 한 번의 설치만 버틴 것이다. 실제 Owner 프로젝트에서 직접 쓴
+    157줄짜리 헌법이 재설치 두 번 만에 사라졌다(git 에 있어 되살렸다).
+
+    manifest 는 "이번에 설치한 것" 의 해시다. 보존한 경우엔 아무것도 설치하지 않았으므로
+    기록도 그대로 둬야 한다.
+    """
+    print("\n[동결이 재설치를 여러 번 버틴다]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude")
+        mark = "## 우리 팀 규칙\n금요일 배포 금지\n"
+        for rel in ("AGENTS.md", "CLAUDE.md"):
+            f = tgt / rel
+            f.write_text(f.read_text(encoding="utf-8") + "\n" + mark, encoding="utf-8")
+        for n in (1, 2, 3):
+            rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+            for rel in ("AGENTS.md", "CLAUDE.md"):
+                check(f"{n}회차 재설치 후에도 {rel} 의 Owner 편집이 남는다",
+                      "금요일 배포 금지" in (tgt / rel).read_text(encoding="utf-8"),
+                      out[:600])
+                check(f"{n}회차: {rel}.new 로 새 버전이 계속 보류된다",
+                      (tgt / f"{rel}.new").is_file())
+        check("--accept-constitution 은 여전히 동결을 푼다",
+              install(tgt, "--accept-constitution")[0] == 0
+              and not (tgt / "AGENTS.md.new").is_file())
+        check("이관된 규칙이 PROJECT_RULES.md 에 있다",
+              "금요일 배포 금지"
+              in (tgt / "dev-agent-team/PROJECT_RULES.md").read_text(encoding="utf-8"))
+
+
 def main():
     if shutil.which("bash") is None:
         print("SKIP: bash 없음")
@@ -312,6 +347,7 @@ def main():
     test_freeze_is_not_install_failure()
     test_verify_failure_is_named()
     test_profile_downgrade_prunes_roles()
+    test_freeze_survives_repeated_installs()
     print(f"\n[설치기 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

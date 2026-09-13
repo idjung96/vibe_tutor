@@ -166,6 +166,10 @@ def check_installer_logic(sh, ps):
     check("옛 역할을 치울 때 보는 역할 목록이 같다", aa is not None and aa == bb,
           f"sh={aa}\nps={bb}")
 
+    # 동결을 보존할 때 manifest 에 무엇을 적는가 — 편집본 해시를 적으면 동결이 한 번만 버틴다
+    check("편집을 보존하면 manifest 기록을 그대로 둔다(양쪽)",
+          'RECORD="$RECORDED"' in sh and "$record = $recorded" in ps)
+
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))
     b = sorted(set(re.findall(r'"\$File\.([\w-]+)"', ps)))

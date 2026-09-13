@@ -163,6 +163,10 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
     [System.IO.File]::WriteAllText($tmp, (Render-String $SrcFile), $Utf8NoBom)
     $newHash = Sha256Of $tmp
 
+    # manifest 에 적을 해시 = 이번에 설치한 것의 해시. Owner 편집을 보존한 경우에는 아무것도
+    # 설치하지 않았으므로 기록도 그대로 둔다 — 여기에 편집본 해시를 적었더니 다음 설치에서
+    # "안 건드림" 으로 보여 편집본이 백업도 없이 덮였다(init.sh 와 동일).
+    $record = $newHash
     if (-not (Test-Path -LiteralPath $DstFile)) {
         Move-Item -LiteralPath $tmp $DstFile -Force
     }
@@ -178,6 +182,7 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
             }
             else {
                 Move-Item -LiteralPath $tmp "$DstFile.new" -Force    # 편집함 -> 보존
+                $record = $recorded                                  # 설치한 적 없으니 기록도 그대로
                 # init.sh 와 같은 안내여야 한다. 편집은 지키되 그 파일만 옛 버전에 묶이므로
                 # 절차·역할·권한과 어긋난다는 것을 숫자로 말해 준다.
                 $oldv = (Select-String -LiteralPath $DstFile -Pattern '^HARNESS_VERSION: *(.+)$' |
@@ -219,7 +224,7 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
             Write-Host "알림: $Rel 을(를) 갱신했습니다. 이전 내용은 $Rel.bak 에 보관했습니다."
         }
     }
-    $Script:ManifestNew.Add((Sha256Of $DstFile) + '  ' + $Rel)
+    $Script:ManifestNew.Add($record + '  ' + $Rel)
 }
 
 function Render($SrcFile, $DstFile) {

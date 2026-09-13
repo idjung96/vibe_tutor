@@ -41,7 +41,7 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 
 # 설치 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
 ./tests/verify_install.sh /tmp/t1     # 구성·파일·설정·헌법 동결 + 가드 훅 실동작까지
-./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 24항목(21은 .sh, 3은 guard.js — node 없으면 SKIP)
+./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 25항목(22는 .sh, 3은 guard.js — node 없으면 SKIP)
 
 # init.sh ↔ init.ps1 파리티 검증 (pwsh 없이 코드리뷰를 자동화한 것)
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
@@ -54,7 +54,7 @@ python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 
 python3 tests/test_selfcheck.py           # 33항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 16항목. init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 23항목(기존 프로젝트 설치 포함). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -216,8 +216,9 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - **C등급 정지 흐름**: planner가 dev-agent-team/OWNER_QUESTION.md 작성 → 가드레일이 도구 사용 차단 →
   Owner가 "답: 번호" 기입 → 자동 해제. 이 3박자는 계약이다(강제 방식만 에이전트별로 다름).
 - **세 경로 동기화**: 가드 로직을 바꾸면 `.sh` 2개와 `guard.js` 를 **함께** 고쳐야 한다.
-  `verify_hooks.sh` 22~24번이 같은 입력을 양쪽에 넣어 판정이 갈리는지 기계적으로 대조한다
-  (node 없으면 SKIP). 예전엔 21항목이 전부 `.sh` 만 봐서 `guard.js` 는 육안 대조뿐이었다.
+  `verify_hooks.sh` 의 guard.js 항목 3개가 같은 입력 6케이스를 양쪽에 넣어 판정이 갈리는지
+  기계적으로 대조한다(node 없으면 SKIP). 예전엔 전 항목이 `.sh` 만 봐서 `guard.js` 는
+  육안 대조뿐이었다. 중첩(`tests/sub/`·`test/utils/`)과 dart 케이스도 그 안에 있다.
 
 ## 에이전트 역할 경계 (단일 작성자 원칙)
 

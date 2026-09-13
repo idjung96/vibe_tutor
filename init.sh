@@ -358,10 +358,12 @@ accept_one() { # $1=본파일 경로  $2=표시 이름
   NEWV=$(sed -n 's/^HARNESS_VERSION: *//p' "$1.new" | head -1)
   # Owner 가 직접 넣은 줄을 PROJECT_RULES.md 로 옮긴다. 판정은 설치될 selfcheck 가 한다
   # (규칙 안의 줄과 하네스 옛 문장을 걸러 내는 로직이 거기 있다).
+  # **사람용 출력(--constitution-diff)을 긁지 않는다.** 그건 20줄에서 끊고 "… 외 N줄" 을
+  # 붙이며 파일도 안 가린다 — 그렇게 옮겼더니 157줄짜리 헌법에서 97줄이 조용히 사라지고,
+  # 생략 표시가 규칙으로 옮겨지고, 다른 파일 줄까지 딸려 가 중복됐다. 기계용 모드를 쓴다.
   OWNER_LINES=""
   if [ -f "$TARGET/dev-agent-team/selfcheck.py" ] && [ -n "$PY_BIN" ]; then
-    OWNER_LINES=$( cd "$TARGET" && "$PY_BIN" dev-agent-team/selfcheck.py --constitution-diff 2>/dev/null \
-      | sed -n 's/^\[scope\]     //p' )
+    OWNER_LINES=$( cd "$TARGET" && "$PY_BIN" dev-agent-team/selfcheck.py --owner-lines "$2" 2>/dev/null )
   fi
   if [ -n "$OWNER_LINES" ]; then
     mkdir -p "$TARGET/dev-agent-team"
@@ -370,8 +372,12 @@ accept_one() { # $1=본파일 경로  $2=표시 이름
       echo "<!-- 헌법을 좁히는 방향으로만 작동합니다. 안전장치는 무효화하지 못합니다. -->"
       printf '%s\n' "$OWNER_LINES"
     } >> "$TARGET/dev-agent-team/PROJECT_RULES.md"
-    echo "알림: $2 에 직접 쓰신 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮겼습니다:"
-    printf '%s\n' "$OWNER_LINES" | sed 's/^/        /'
+    N=$(printf '%s\n' "$OWNER_LINES" | grep -c "")
+    echo "알림: $2 에 직접 쓰신 규칙 ${N}줄을 dev-agent-team/PROJECT_RULES.md 로 옮겼습니다:"
+    printf '%s\n' "$OWNER_LINES" | head -12 | sed 's/^/        /'
+    if [ "$N" -gt 12 ]; then
+      echo "        … 외 $((N - 12))줄 — 전부 옮겨졌습니다(PROJECT_RULES.md 에서 확인하세요)."
+    fi
   fi
   cp "$1" "$1.owner-backup"
   mv "$1.new" "$1"

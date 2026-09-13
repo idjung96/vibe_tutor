@@ -373,9 +373,9 @@ function Accept-Constitution($File, $Name) {
     if ((Test-Path -LiteralPath $sc) -and $py) {
         Push-Location $Target
         try {
-            $out = & $py.Source 'dev-agent-team/selfcheck.py' '--constitution-diff' 2>$null
-            $ownerLines = @($out | Where-Object { $_ -match '^\[scope\]     ' } |
-                            ForEach-Object { $_ -replace '^\[scope\]     ', '' })
+            # 사람용 출력(--constitution-diff)을 긁지 않는다. 그건 20줄에서 끊고
+            # "… 외 N줄" 을 붙이며 파일도 안 가린다(init.sh 와 동일한 이유).
+            $ownerLines = @(& $py.Source 'dev-agent-team/selfcheck.py' '--owner-lines' $Name 2>$null)
         } finally { Pop-Location }
     }
     if ($ownerLines.Count -gt 0) {
@@ -385,8 +385,11 @@ function Accept-Constitution($File, $Name) {
                (($ownerLines -join "`n") + "`n")
         $cur = if (Test-Path -LiteralPath $pr) { [System.IO.File]::ReadAllText($pr) } else { '' }
         [System.IO.File]::WriteAllText($pr, $cur + $add, $Utf8NoBom)
-        Write-Host "알림: $Name 에 직접 쓰신 규칙을 dev-agent-team/PROJECT_RULES.md 로 옮겼습니다:"
-        $ownerLines | ForEach-Object { Write-Host "        $_" }
+        Write-Host "알림: $Name 에 직접 쓰신 규칙 $($ownerLines.Count)줄을 dev-agent-team/PROJECT_RULES.md 로 옮겼습니다:"
+        $ownerLines | Select-Object -First 12 | ForEach-Object { Write-Host "        $_" }
+        if ($ownerLines.Count -gt 12) {
+            Write-Host "        … 외 $($ownerLines.Count - 12)줄 — 전부 옮겨졌습니다(PROJECT_RULES.md 에서 확인하세요)."
+        }
     }
     Copy-Item -LiteralPath $File "$File.owner-backup" -Force
     Move-Item -LiteralPath "$File.new" $File -Force

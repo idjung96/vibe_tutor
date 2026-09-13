@@ -860,6 +860,24 @@ def _report_scope(name, cur_text, new_text):
             print(f"[scope]     … 외 {len(owner) - 20}줄")
 
 
+def owner_lines(name):
+    """한 헌법 파일의 Owner 줄만 **기계가 읽을 수 있게** 그대로 찍는다.
+
+    `--constitution-diff` 는 사람이 읽는 출력이라 20줄에서 끊고 "… 외 N줄" 을 붙인다.
+    설치기가 그걸 긁어 PROJECT_RULES.md 로 옮기고 있었다 — 그래서 21번째 줄부터는 조용히
+    사라졌고(157줄짜리 헌법에서 97줄), 생략 표시 "… 외 87줄" 자체가 규칙으로 옮겨졌으며,
+    파일을 안 가려 다른 파일의 줄까지 딸려 가 중복됐다. 옮길 것은 여기서 준다.
+    """
+    path = Path(name)
+    new = Path(str(path) + ".new")
+    if not (path.is_file() and new.is_file()):
+        return 0
+    for ln in _owner_only_lines(path.read_text(encoding="utf-8"),
+                                new.read_text(encoding="utf-8")):
+        print(ln)
+    return 0
+
+
 def constitution_diff():
     """헌법이 동결됐을 때 '무엇을 업데이트해야 하는지' 범위를 낸다."""
     found = False
@@ -1151,6 +1169,13 @@ def _run_gate(results, langs):
 
 def main():
     gate, record, score, target = _parse_args(sys.argv[1:])
+    if "--owner-lines" in sys.argv[1:]:
+        i = sys.argv.index("--owner-lines")
+        if i + 1 >= len(sys.argv):
+            print("--owner-lines 뒤에 파일 이름이 필요하다(AGENTS.md 또는 CLAUDE.md)",
+                  file=sys.stderr)
+            return 2
+        return owner_lines(sys.argv[i + 1])
     if "--constitution-diff" in sys.argv[1:]:
         return constitution_diff()
     if "--log-summary" in sys.argv[1:]:

@@ -359,6 +359,51 @@ def test_freeze_survives_repeated_installs():
               in (tgt / "dev-agent-team/PROJECT_RULES.md").read_text(encoding="utf-8"))
 
 
+def test_accept_migrates_every_owner_line():
+    """규칙 이관이 20줄에서 끊기지 않는가 — 그리고 파일별로 제대로 나뉘는가.
+
+    설치기가 `--constitution-diff`(사람용 출력)를 긁어 규칙을 옮기고 있었다. 그 출력은
+    20줄에서 끊고 "… 외 N줄" 을 붙이며 파일도 안 가린다. 그래서 실제 Owner 프로젝트에서
+    157줄짜리 헌법 중 **97줄이 조용히 사라졌고**, 생략 표시 자체가 규칙으로 옮겨졌으며,
+    AGENTS.md 의 이관 블록에 CLAUDE.md 줄까지 딸려 가 중복됐다. 안내는 "옮겼습니다" 였다.
+    """
+    print("\n[규칙 이관이 전부 옮기는가]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude")
+        a_lines = [f"- 우리 규칙 A{i}: 지켜야 한다" for i in range(1, 41)]   # 20줄 한참 넘게
+        c_lines = [f"- 우리 규칙 C{i}: 지켜야 한다" for i in range(1, 6)]
+        for rel, extra in (("AGENTS.md", a_lines), ("CLAUDE.md", c_lines)):
+            f = tgt / rel
+            f.write_text(f.read_text(encoding="utf-8") + "\n## 우리 팀 규칙\n"
+                         + "\n".join(extra) + "\n", encoding="utf-8")
+        install(tgt, "--profile", "large", "--agent", "claude")      # 동결 유발
+        rc, out = install(tgt, "--accept-constitution")
+        pr = (tgt / "dev-agent-team/PROJECT_RULES.md").read_text(encoding="utf-8")
+
+        missing = [l for l in a_lines + c_lines if l not in pr]
+        check("Owner 줄이 하나도 빠지지 않는다", not missing,
+              f"빠진 {len(missing)}줄: {missing[:3]}")
+        check("생략 표시를 규칙으로 옮기지 않는다", "외 " not in pr.replace("외부", ""),
+              [l for l in pr.splitlines() if "외 " in l][:3])
+        for l in a_lines[:3] + c_lines[:3]:
+            pass
+        check("한 줄도 중복되지 않는다",
+              all(pr.count(l) == 1 for l in a_lines + c_lines),
+              [l for l in a_lines + c_lines if pr.count(l) != 1][:3])
+
+        head_a = pr.index("## AGENTS.md 에서 옮겨온")
+        head_c = pr.index("## CLAUDE.md 에서 옮겨온")
+        block_a, block_c = pr[head_a:head_c], pr[head_c:]
+        check("AGENTS.md 블록에 CLAUDE.md 줄이 섞이지 않는다",
+              not any(l in block_a for l in c_lines))
+        check("CLAUDE.md 블록에 AGENTS.md 줄이 섞이지 않는다",
+              not any(l in block_c for l in a_lines))
+        check("몇 줄을 옮겼는지 숫자로 알린다",
+              "규칙 41줄을" in out and "규칙 6줄을" in out, out[:800])  # 40+제목, 5+제목
+        check("동결이 해소된다", not (tgt / "AGENTS.md.new").is_file(), out[-400:])
+
+
 def main():
     if shutil.which("bash") is None:
         print("SKIP: bash 없음")
@@ -367,6 +412,7 @@ def main():
     test_reinstall_keeps_shape()
     test_state_preserved()
     test_accept_constitution()
+    test_accept_migrates_every_owner_line()
     test_brownfield()
     test_test_log_migration()
     test_freeze_notice()

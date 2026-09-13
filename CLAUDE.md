@@ -57,7 +57,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 python3 tests/test_selfcheck.py           # 50항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 75항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 82항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -167,6 +167,10 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   직접 넣은 줄을 `PROJECT_RULES.md` 로 옮기고, `.new` 를 본파일로 올린 뒤(이전 내용은
   `.owner-backup`), 그대로 설치를 계속해 manifest 까지 맞춘다. 설치 알림은 마이너 버전 차이가
   5단계 이상이면 "정상 동작하지 않는다"고 강하게 말한다.
+  이관할 줄은 **`selfcheck.py --owner-lines <파일>` 이 준다**(기계용). 설치기가
+  `--constitution-diff`(사람용)를 긁어 옮기던 때는 그 출력이 20줄에서 끊기고 "… 외 N줄" 을
+  붙이며 파일도 안 가려서, 157줄짜리 헌법에서 **97줄이 조용히 사라지고** 생략 표시가 규칙으로
+  옮겨지고 다른 파일 줄까지 딸려 가 중복됐다. 안내는 "옮겼습니다" 였다.
   업데이트 **범위**는 `selfcheck.py --constitution-diff` 가 낸다 —
   바뀐 규칙 번호·새로 생긴 규칙·Owner 가 직접 넣은 줄을 **두 파일을 직접 비교해** 뽑는다
   (버전별 메타데이터를 손으로 들고 있지 않는다. 그런 표는 반드시 낡는다). 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로

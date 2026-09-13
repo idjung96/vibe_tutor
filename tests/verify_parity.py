@@ -174,6 +174,11 @@ def check_installer_logic(sh, ps):
     check("편집을 보존하면 manifest 기록을 그대로 둔다(양쪽)",
           'RECORD="$RECORDED"' in sh and "$record = $recorded" in ps)
 
+    # 규칙 이관은 기계용 모드에서 받아야 한다 — 사람용 출력은 20줄에서 끊긴다
+    check("규칙 이관이 --owner-lines 를 쓴다(양쪽)",
+          "--owner-lines" in sh and "'--owner-lines'" in ps
+          and "--constitution-diff' 2>$null" not in ps)
+
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))
     b = sorted(set(re.findall(r'"\$File\.([\w-]+)"', ps)))

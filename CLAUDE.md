@@ -54,7 +54,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 40항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 45항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 29항목(기존 프로젝트·TEST_LOG 마이그레이션 포함). init.sh 를 고치면 반드시 돌린다
@@ -187,6 +187,9 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 
 ### 정지 메커니즘
 - C등급 목록과 정지 메커니즘. 단계 merge 전 `selfcheck.py --gate` 가 collect·print·trace·full-test 를 차단한다.
+- **가드 스크립트가 없으면 게이트가 막는다**(`guards`). 훅은 실행에 실패해도 도구를 막지
+  않으므로, 파일이 지워지면 안전장치가 **조용히** 죽는다. 설치 검증은 설치 때만 도니
+  그 사이를 게이트가 본다(`hooks/*.sh` 2종 + opencode 설치본이면 `guard.js`).
 - **헌법 동결도 게이트가 막는다**(`constitution`). 버전이 뒤처진 경우만이고, 같은 버전에서
   Owner 가 편집만 한 경우는 막지 않는다. 그 상태의 팀은 옛 헌법 + 새 절차로 도는 것이라
   틀리게 간다 — 코드는 계속 쓸 수 있고 막히는 건 merge 뿐이다.

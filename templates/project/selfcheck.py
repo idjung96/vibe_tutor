@@ -89,6 +89,11 @@ README_PATH = Path("README.md")
 # 묶이고 절차·역할·권한은 새 버전이 된다 — 규칙이 서로 어긋난 채로 돈다. 설치 때 한 번
 # 스쳐 지나가는 알림 말고, 게이트를 돌 때마다 보이게 한다.
 CONSTITUTION = [Path("AGENTS.md"), Path("CLAUDE.md")]
+# 가드 스크립트. 이게 사라지면 append-only 테스트 보호도 C등급 정지도 동작하지 않는데,
+# 훅 실행 실패는 도구를 막지 않으므로 **조용히** 무방비가 된다. 게이트에서 확인한다.
+GUARD_FILES = [Path("dev-agent-team/hooks/protect_tests.sh"),
+               Path("dev-agent-team/hooks/block_on_owner_question.sh")]
+OPENCODE_GUARD = Path(".opencode/plugins/guard.js")
 TESTS_DIR = Path("tests")
 # 마지막 FULL 테스트 실행의 소스 트리 해시. 기록자와 검증자가 같은 코드라 파리티 위험이 없다.
 FULL_TEST_MARK = Path("dev-agent-team/.last-full-test")
@@ -720,6 +725,25 @@ def _version_in(path):
     return "?"
 
 
+def check_guards():
+    """가드 스크립트가 제자리에 있는지 본다. 없으면 merge 를 막는다.
+
+    훅이 실행에 실패하면(파일이 없으면) 도구 호출은 그냥 진행된다 — 안전장치가 조용히
+    죽는 것이다. 설치 검증은 설치 때만 돌므로, 그 사이를 여기서 본다.
+    """
+    missing = [str(f) for f in GUARD_FILES if not (f.is_file() and f.stat().st_size > 0)]
+    if OPENCODE_GUARD.parent.is_dir() and not (
+            OPENCODE_GUARD.is_file() and OPENCODE_GUARD.stat().st_size > 0):
+        missing.append(str(OPENCODE_GUARD))
+    if missing:
+        print(f"[guards] FAIL — 가드가 없다: {', '.join(missing)}")
+        print("         이 상태면 기존 테스트 보호도 Owner 질문 정지도 동작하지 않는다.")
+        print("         하네스를 다시 설치해 복구하라: ./init.sh <이 폴더>")
+        return False
+    print("[guards] OK")
+    return True
+
+
 def _split_rules(text):
     """'N. ' 로 시작하는 헌법 규칙을 {번호: 본문} 으로. 이어지는 들여쓴 줄은 같은 규칙이다."""
     rules, num, buf = {}, None, []
@@ -1073,14 +1097,15 @@ def _run_without_langs(langs, gate, record, score):
 
 
 def _run_gate(results, langs):
-    """게이트: 결정적 5종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
+    """게이트: 결정적 6종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
 
     constitution 은 검사 결과가 아니라 설치 상태지만, 틀린 규칙으로 main 에 합치는 것을
     막아야 하므로 같이 넣는다(버전이 뒤처진 동결일 때만. 같은 버전 편집은 막지 않는다).
     """
     results["full-test"] = check_full_test(langs)
     results["constitution"] = not COUNTS.get("constitution_behind")
-    blocking = [n for n in ("collect", "print", "trace", "full-test", "constitution")
+    results["guards"] = check_guards()
+    blocking = [n for n in ("collect", "print", "trace", "full-test", "constitution", "guards")
                 if not results[n]]
     if blocking:
         print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")

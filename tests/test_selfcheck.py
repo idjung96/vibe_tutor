@@ -131,6 +131,11 @@ def make_project(tmp, lang=True):
     (tmp / "tests").mkdir(exist_ok=True)
     (tmp / "src").mkdir(exist_ok=True)
     (tmp / "dev-agent-team/selfcheck.py").write_bytes(SELFCHECK.read_bytes())
+    # 실제 설치본에는 가드 훅이 늘 있다. 게이트의 [guards] 검사가 이걸 본다.
+    hooks = tmp / "dev-agent-team/hooks"
+    hooks.mkdir(exist_ok=True)
+    for name in ("protect_tests.sh", "block_on_owner_question.sh"):
+        (hooks / name).write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     if lang:
         (tmp / "go.mod").write_text("module x\n\ngo 1.21\n", encoding="utf-8")
         (tmp / "src/a.go").write_text("package main\n\nfunc F() int { return 1 }\n", encoding="utf-8")
@@ -218,6 +223,38 @@ def test_constitution_diff():
               "금요일엔 배포하지 않는다." in out and "첫째 규칙이다" not in out.split("Owner")[-1], out)
 
 
+def test_guards():
+    """가드 스크립트가 사라지면 게이트가 막는가.
+
+    훅이 실행에 실패하면(파일이 없으면) 도구 호출은 그냥 진행된다 — 안전장치가 조용히
+    죽는다. 설치 검증은 설치 때만 도니 그 사이를 게이트가 봐야 한다.
+    """
+    print("\n[guards]")
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        make_project(tmp)
+        hooks = tmp / "dev-agent-team/hooks"
+        run(tmp, "--record-full-test")
+        rc, out = run(tmp, "--gate")
+        check("가드가 있으면 [guards] OK", "[guards] OK" in out, out)
+
+        (hooks / "protect_tests.sh").unlink()
+        rc, out = run(tmp, "--gate")
+        check("가드가 없으면 게이트가 막는다",
+              rc == 1 and "guards" in out.split("[gate] FAIL")[-1], out)
+        check("무엇이 없는지 짚는다", "protect_tests.sh" in out, out)
+
+        (hooks / "protect_tests.sh").write_text("", encoding="utf-8")
+        rc, out = run(tmp, "--gate")
+        check("빈 파일도 없는 것으로 본다", "[guards] FAIL" in out, out)
+
+        (hooks / "protect_tests.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        (tmp / ".opencode/plugins").mkdir(parents=True)
+        rc, out = run(tmp, "--gate")
+        check("opencode 설치본이면 guard.js 도 본다",
+              "[guards] FAIL" in out and "guard.js" in out, out)
+
+
 def test_log_summary():
     """회고용 TEST_LOG 요약. 전체를 읽히지 않으려고 있다.
 
@@ -263,6 +300,7 @@ def main():
         os.chdir(cwd)
     test_main()
     test_constitution_diff()
+    test_guards()
     test_log_summary()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0

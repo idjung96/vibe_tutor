@@ -47,14 +47,17 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
 python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 비교
 
+# 회고용 TEST_LOG 요약 (17b 가 전체 대신 이걸 쓴다)
+python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
+
 # 헌법 동결 해소 — 한 명령으로 (Owner 규칙 이관 + 새 헌법 채택 + manifest 정정)
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 33항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 40항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 23항목(기존 프로젝트 설치 포함). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 29항목(기존 프로젝트·TEST_LOG 마이그레이션 포함). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app

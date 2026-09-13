@@ -9,6 +9,7 @@
     python3 dev-agent-team/selfcheck.py --record-full-test       # FULL 테스트 통과 상태를 기록
     python3 dev-agent-team/selfcheck.py --score                  # 산출물 점수 -> SCORE.json (아래 참조)
     python3 dev-agent-team/selfcheck.py --constitution-diff      # 헌법 동결 시 업데이트 범위
+    python3 dev-agent-team/selfcheck.py --log-summary            # 회고용 TEST_LOG 요약(추세+최근)
     python3 dev-agent-team/selfcheck.py tests/stage_1_test.py    # 특정 테스트만 수집 확인
     (Windows에 python3 가 없으면 python 으로 부른다.)
 
@@ -823,6 +824,84 @@ def constitution_diff():
     return 0
 
 
+TEST_LOG_PATH = Path("dev-agent-team/TEST_LOG.md")
+LOG_TAIL = 10            # --log-summary 가 원문으로 보여 주는 최근 단계 수
+
+
+def _log_rows():
+    """TEST_LOG 의 데이터 행을 (단계, 전체결과, 재시도, 리뷰지적) 으로 읽는다.
+
+    가운데 '전체 결과' 칸에는 본문 `|` 가 들어간다(실제 로그가 그렇다). 그래서 가운데를
+    쪼개지 않는다 — 앞에서 3칸, 뒤에서 3칸만 세고 나머지를 통째로 결과로 본다.
+    """
+    if not TEST_LOG_PATH.is_file():
+        return None
+    rows = []
+    for line in TEST_LOG_PATH.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|") or set(line) <= set("|- :"):
+            continue
+        cells = line.strip().strip("|").split("|")
+        if len(cells) < 7:
+            continue
+        stage = cells[0].strip()
+        if stage.startswith("단계"):
+            continue
+        retry, review = cells[-3].strip(), cells[-2].strip()
+        rows.append((stage, "|".join(cells[3:-3]).strip(), retry, review))
+    return rows
+
+
+def _num_stats(values):
+    """'-' 를 빼고 숫자만 모은다 -> (개수, 합, 평균, 빈칸수)."""
+    nums = []
+    blank = 0
+    for v in values:
+        head = re.match(r"-?\d+", v)
+        if head and v.strip() != "-":
+            nums.append(int(head.group()))
+        else:
+            blank += 1
+    avg = round(sum(nums) / len(nums), 1) if nums else None
+    return len(nums), sum(nums), avg, blank
+
+
+def log_summary():
+    """회고용 요약. TEST_LOG 전체를 읽히지 않기 위해 있다.
+
+    단계가 쌓이면 표가 수백 행이 되고 한 칸이 수백 자다(실제로 그랬다). 회고에 필요한 건
+    개별 행이 아니라 **추세**라서, 집계와 최근 몇 단계만 주면 된다.
+    """
+    rows = _log_rows()
+    if rows is None:
+        print("[log] TEST_LOG.md 가 없다.")
+        return 0
+    if not rows:
+        print("[log] 기록된 단계가 없다.")
+        return 0
+    print(f"[log] 단계 {len(rows)}개")
+    # 판정은 칸 **맨 앞** 단어만 본다. 칸 전체에서 찾으면 설명에 적힌 NEW_FAIL 같은 말까지
+    # 세어 버린다 — 실제 로그에서 전부 PASS 인데 14개가 FAIL 로 잡혔다.
+    fails = [r for r in rows if r[1].upper().startswith("FAIL")]
+    print(f"[log] 판정이 FAIL 인 단계: {len(fails)}개"
+          + (f" ({', '.join(r[0].split()[0] for r in fails[:8])})" if fails else ""))
+    for name, idx in (("재시도", 2), ("리뷰지적", 3)):
+        n, total, avg, blank = _num_stats([r[idx] for r in rows])
+        shown = avg if avg is not None else "없음"
+        print(f"[log] {name}: 값 있는 단계 {n}개 합계 {total} 평균 {shown}"
+              + (f" / 값 없음(-) {blank}개" if blank else ""))
+        if n >= 4:                      # 앞뒤 절반을 비교해 추세를 본다
+            half = len(rows) // 2
+            _, _, a1, _ = _num_stats([r[idx] for r in rows[:half]])
+            _, _, a2, _ = _num_stats([r[idx] for r in rows[half:]])
+            if a1 is not None and a2 is not None:
+                print(f"[log]   전반 평균 {a1} -> 후반 평균 {a2}"
+                      f" ({'늘어남' if a2 > a1 else '줄어듦' if a2 < a1 else '변화 없음'})")
+    print(f"[log] 최근 {min(LOG_TAIL, len(rows))}단계:")
+    for stage, result, retry, review in rows[-LOG_TAIL:]:
+        print(f"[log]   {stage[:40]} | 재시도 {retry} | 리뷰지적 {review} | {result[:70]}")
+    return 0
+
+
 def _doc_gap():
     """끝난 단계의 R번호 중 README.md 에 없는 것의 수. 문서 평가 축이다.
 
@@ -1014,6 +1093,8 @@ def main():
     gate, record, score, target = _parse_args(sys.argv[1:])
     if "--constitution-diff" in sys.argv[1:]:
         return constitution_diff()
+    if "--log-summary" in sys.argv[1:]:
+        return log_summary()
 
     # 헌법 동결은 제품 언어와 무관하다. 언어 미감지로 조기 반환하기 전에 먼저 본다 —
     # --record-full-test 만 돌릴 때는 조용해야 하므로 그때는 건너뛴다.

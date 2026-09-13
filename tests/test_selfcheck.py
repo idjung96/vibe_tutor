@@ -218,6 +218,40 @@ def test_constitution_diff():
               "금요일엔 배포하지 않는다." in out and "첫째 규칙이다" not in out.split("Owner")[-1], out)
 
 
+def test_log_summary():
+    """회고용 TEST_LOG 요약. 전체를 읽히지 않으려고 있다.
+
+    실제 프로젝트 로그로 만들다 두 가지를 잡았다 — 판정을 칸 전체에서 찾아 설명에 적힌
+    NEW_FAIL 까지 세었고(전부 PASS 인데 14개가 FAIL 로 잡혔다), 본문에 `|` 가 든 행을
+    가운데까지 쪼개려다 칸이 어긋났다.
+    """
+    print("\n[--log-summary]")
+    log = ("# 테스트 현황\n\n"
+           "| 단계 | 신규 | 누적 | 전체 결과 | 재시도 | 리뷰지적 | 커밋 |\n"
+           "|---|---|---|---|---|---|---|\n"
+           "| 1 (a) | 3 | 3 | PASS (NEW_FAIL 1회 뒤 통과) | 1 | 0 | c1 |\n"
+           "| 2 (b) | 2 | 5 | PASS (A | B 파이프 포함) | 1 | 2 | c2 |\n"
+           "| 3 (c) | 1 | 6 | FAIL (진짜 실패) | 5 | 4 | c3 |\n"
+           "| 4 (d) | 1 | 7 | PASS (정상) | 5 | 6 | c4 |\n")
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        make_project(tmp, lang=False)
+        (tmp / "dev-agent-team/TEST_LOG.md").write_text(log, encoding="utf-8")
+        rc, out = run(tmp, "--log-summary")
+        check("단계 수를 센다", rc == 0 and "단계 4개" in out, out)
+        check("판정은 칸 맨 앞만 본다(설명의 NEW_FAIL 을 세지 않는다)",
+              "FAIL 인 단계: 1개" in out, out)
+        check("재시도 합계", "재시도: 값 있는 단계 4개 합계 12" in out, out)
+        check("전반→후반 추세를 낸다", "전반 평균" in out and "늘어남" in out, out)
+        check("최근 단계를 원문으로 보여준다", "최근 4단계" in out, out)
+        check("본문에 | 가 든 행도 칸이 안 어긋난다",
+              "재시도 1 | 리뷰지적 2" in out, out)
+
+        (tmp / "dev-agent-team/TEST_LOG.md").unlink()
+        rc, out = run(tmp, "--log-summary")
+        check("TEST_LOG 가 없어도 죽지 않는다", rc == 0 and "없다" in out, out)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -229,6 +263,7 @@ def main():
         os.chdir(cwd)
     test_main()
     test_constitution_diff()
+    test_log_summary()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

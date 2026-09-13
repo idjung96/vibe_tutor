@@ -338,10 +338,18 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
     들어와 있으므로, 여기서는 소개·설치·실행을 완성하고 전체 흐름을 다듬는다.
 {{#IF_LARGE}}
 17b. lead를 "최종 회고" 모드로 호출한다. 프로젝트 전체를 돌아본다.
-     입력: dev-agent-team/TEST_LOG.md 전체 — 특히 재시도·리뷰지적 열이 단계가 갈수록
-     늘어나는지 본다. dev-agent-team/BACKLOG.md 두 섹션 전부,
-     dev-agent-team/DECISIONS.md, dev-agent-team/PROCESS.md(있으면),
-     그리고 12c에서 쌓인 [절차개선] 항목 전부.
+     입력은 **범위를 좁혀서** 준다. 단계가 쌓이면 TEST_LOG 는 수백 행이 되고 한 칸이
+     수백 자다 — 회고에 필요한 건 개별 행이 아니라 추세다.
+       - TEST_LOG: 전체를 주지 말고
+         python3 dev-agent-team/selfcheck.py --log-summary 출력을 준다
+         (단계 수·FAIL 수·재시도/리뷰지적 합계와 전반→후반 추세·최근 10단계).
+         특정 단계를 더 봐야겠다고 lead가 말하면 그 행만 찾아서 준다.
+       - BACKLOG "할 일": 미처리 항목 전부(넘겨야 하므로 줄이지 않는다).
+       - BACKLOG "메모·주의": 줄을 그대로 주지 말고 **유형별 건수**로 집계해서 준다
+         (예: "매직값 7건 · 테스트 누락 4건"). 재발 신호를 보는 것이 목적이다.
+         최근 20줄은 원문으로 함께 준다.
+       - dev-agent-team/DECISIONS.md 의 `- 변경:` 줄, PROCESS.md(있으면) 전부,
+         그리고 12c에서 쌓인 [절차개선] 항목 전부.
      IMPROVE가 있으면 절차 변경이므로 C등급으로 올린다(14번). Owner가 승인하면
      dev-agent-team/PROCESS.md에 P-번호로 append한다. 승인 못 받으면 반영하지 않는다.
      미처리 BACKLOG "할 일"은 지우지 않는다. 다음 개발에 그대로 넘긴다.

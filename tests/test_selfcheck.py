@@ -320,6 +320,33 @@ def test_log_summary():
         check("TEST_LOG 가 없어도 죽지 않는다", rc == 0 and "없다" in out, out)
 
 
+def test_owner_lines_split():
+    """애매한 줄을 조용히 버리지 않는가.
+
+    Owner 줄인지 하네스 옛 문장인지는 어절 겹침으로 어림잡는다. 그 어림짐작이 실제 프로젝트에서
+    "repos/ 에서는 어디로도 push 하지 않는다" 같은 **진짜 Owner 규칙 11줄**을 걸러 냈고,
+    걸러진 줄은 어디에도 보고되지 않았다. 반대로 전부 옮기면 "Stage-Gate 는 쓰지 않는다" 처럼
+    새 헌법과 충돌하는 옛 줄이 규칙으로 되살아난다. 그래서 활성화는 안 하되 **버리지도 않는다** —
+    두 통으로 나눠 내고 설치기가 양쪽 다 보고한다.
+    """
+    new_text = "1. 로그는 파일과 표준출력에 남긴다.\nHARNESS_VERSION: 9.9.9\n"
+    cur_text = ("HARNESS_VERSION: 1.0.0\n"
+                "금요일에는 배포하지 않는다.\n"          # 겹치는 어절 없음 -> 확실
+                "로그는 표준출력에만 남긴다.\n")          # '로그'·'표준출력' 겹침 -> 애매
+    mod = load_module()
+    sure, maybe = mod._owner_only_lines(cur_text, new_text, split=True)
+    check("확실한 Owner 줄은 이관 목록에", "금요일에는 배포하지 않는다." in sure, sure)
+    check("애매한 줄은 이관 목록에 없다", "로그는 표준출력에만 남긴다." not in sure, sure)
+    check("애매한 줄이 사라지지 않는다", "로그는 표준출력에만 남긴다." in maybe, maybe)
+    check("두 통을 합치면 한 줄도 빠지지 않는다",
+          set(sure) | set(maybe) == {"금요일에는 배포하지 않는다.", "로그는 표준출력에만 남긴다."},
+          (sure, maybe))
+    check("버전 줄은 어느 쪽에도 안 들어간다",
+          not any("HARNESS_VERSION" in l for l in sure + maybe), (sure, maybe))
+    check("split=False 는 예전처럼 확실한 것만 준다",
+          mod._owner_only_lines(cur_text, new_text) == sure)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -334,6 +361,7 @@ def main():
     test_guards()
     test_unreadable()
     test_log_summary()
+    test_owner_lines_split()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

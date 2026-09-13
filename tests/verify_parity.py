@@ -179,6 +179,10 @@ def check_installer_logic(sh, ps):
           "--owner-lines" in sh and "'--owner-lines'" in ps
           and "--constitution-diff' 2>$null" not in ps)
 
+    # 옮기지 않은 줄을 버리지 않고 보고하는가
+    check("옮기지 않은 줄을 양쪽 다 보고한다",
+          "--owner-lines-skipped" in sh and "'--owner-lines-skipped'" in ps)
+
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))
     b = sorted(set(re.findall(r'"\$File\.([\w-]+)"', ps)))

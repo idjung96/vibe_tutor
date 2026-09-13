@@ -791,7 +791,7 @@ def _split_rules(text):
     return {k: re.sub(r"\s+", " ", v).strip() for k, v in rules.items()}
 
 
-def _owner_only_lines(cur_text, new_text):
+def _owner_only_lines(cur_text, new_text, split=False):
     """Owner 가 직접 **덧붙인** 줄만 고른다.
 
     단순히 ".new 에 없는 줄" 로 잡으면 옛 하네스 규칙 본문이 전부 딸려 온다 — 그건 Owner 것이
@@ -816,7 +816,7 @@ def _owner_only_lines(cur_text, new_text):
     # 규칙 밖이어도 하네스의 '옛 문장'이 남는다(문구만 바뀐 설명 줄 등). 그건 Owner 것이
     # 아니다. .new 의 어떤 줄과 특징 어절을 여럿 공유하면 '바뀐 하네스 문장'으로 본다.
     new_sigs = [_sig_words(ln) for ln in new_text.splitlines() if ln.strip()]
-    out = []
+    out, maybe = [], []
     for ln in cur_text.splitlines():
         key = norm(ln)
         if not key or key in in_new or key in rule_lines:
@@ -825,9 +825,15 @@ def _owner_only_lines(cur_text, new_text):
             continue
         mine = _sig_words(ln)
         if mine and any(len(mine & sig) >= 2 for sig in new_sigs):
+            # 하네스 옛 문장처럼 보인다. 다만 이건 **어절 겹침 어림짐작**이라 Owner 규칙도
+            # 걸린다 — 실제로 "repos/ 에서는 어디로도 push 하지 않는다" 같은 줄이 걸렸다.
+            # 그렇다고 전부 옮기면 "Stage-Gate 는 쓰지 않는다" 처럼 새 헌법과 정면으로
+            # 충돌하는 옛 줄이 규칙으로 되살아난다. 그래서 **활성화하지 않되 버리지도 않고**
+            # 따로 내어 설치기가 Owner 에게 보고하게 한다.
+            maybe.append(ln.rstrip())
             continue
         out.append(ln.rstrip())
-    return out
+    return (out, maybe) if split else out
 
 
 def _sig_words(line):
@@ -860,7 +866,7 @@ def _report_scope(name, cur_text, new_text):
             print(f"[scope]     … 외 {len(owner) - 20}줄")
 
 
-def owner_lines(name):
+def owner_lines(name, which="sure"):
     """한 헌법 파일의 Owner 줄만 **기계가 읽을 수 있게** 그대로 찍는다.
 
     `--constitution-diff` 는 사람이 읽는 출력이라 20줄에서 끊고 "… 외 N줄" 을 붙인다.
@@ -872,8 +878,9 @@ def owner_lines(name):
     new = Path(str(path) + ".new")
     if not (path.is_file() and new.is_file()):
         return 0
-    for ln in _owner_only_lines(path.read_text(encoding="utf-8"),
-                                new.read_text(encoding="utf-8")):
+    sure, maybe = _owner_only_lines(path.read_text(encoding="utf-8"),
+                                    new.read_text(encoding="utf-8"), split=True)
+    for ln in (maybe if which == "skipped" else sure):
         print(ln)
     return 0
 
@@ -1169,13 +1176,14 @@ def _run_gate(results, langs):
 
 def main():
     gate, record, score, target = _parse_args(sys.argv[1:])
-    if "--owner-lines" in sys.argv[1:]:
-        i = sys.argv.index("--owner-lines")
-        if i + 1 >= len(sys.argv):
-            print("--owner-lines 뒤에 파일 이름이 필요하다(AGENTS.md 또는 CLAUDE.md)",
-                  file=sys.stderr)
-            return 2
-        return owner_lines(sys.argv[i + 1])
+    for flag, which in (("--owner-lines", "sure"), ("--owner-lines-skipped", "skipped")):
+        if flag in sys.argv[1:]:
+            i = sys.argv.index(flag)
+            if i + 1 >= len(sys.argv):
+                print(f"{flag} 뒤에 파일 이름이 필요하다(AGENTS.md 또는 CLAUDE.md)",
+                      file=sys.stderr)
+                return 2
+            return owner_lines(sys.argv[i + 1], which)
     if "--constitution-diff" in sys.argv[1:]:
         return constitution_diff()
     if "--log-summary" in sys.argv[1:]:

@@ -54,10 +54,10 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 50항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 56항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 82항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 85항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -171,6 +171,11 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   `--constitution-diff`(사람용)를 긁어 옮기던 때는 그 출력이 20줄에서 끊기고 "… 외 N줄" 을
   붙이며 파일도 안 가려서, 157줄짜리 헌법에서 **97줄이 조용히 사라지고** 생략 표시가 규칙으로
   옮겨지고 다른 파일 줄까지 딸려 가 중복됐다. 안내는 "옮겼습니다" 였다.
+  Owner 줄인지 하네스 옛 문장인지는 **어절 겹침 어림짐작**이라 양쪽으로 틀린다 — 진짜 Owner
+  규칙이 걸러지기도 하고(`repos/ 에는 push 하지 않는다`), 전부 옮기면 새 헌법과 충돌하는 옛
+  줄이 되살아나기도 한다(`Stage-Gate 는 쓰지 않는다`). 그래서 **활성화하지 않되 버리지도
+  않는다**: `--owner-lines` 는 확실한 것만, `--owner-lines-skipped` 는 애매한 것을 내고
+  설치기가 **양쪽 다 보고**한다. 고르는 것은 Owner 몫이다.
   업데이트 **범위**는 `selfcheck.py --constitution-diff` 가 낸다 —
   바뀐 규칙 번호·새로 생긴 규칙·Owner 가 직접 넣은 줄을 **두 파일을 직접 비교해** 뽑는다
   (버전별 메타데이터를 손으로 들고 있지 않는다. 그런 표는 반드시 낡는다). 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로

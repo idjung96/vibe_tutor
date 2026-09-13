@@ -391,6 +391,20 @@ function Accept-Constitution($File, $Name) {
             Write-Host "        … 외 $($ownerLines.Count - 12)줄 — 전부 옮겨졌습니다(PROJECT_RULES.md 에서 확인하세요)."
         }
     }
+    # 자동 판정이 애매해 옮기지 않은 줄은 버리지 말고 보고한다(init.sh 와 동일한 이유).
+    $skipped = @()
+    if ((Test-Path -LiteralPath $sc) -and $py) {
+        Push-Location $Target
+        try { $skipped = @(& $py.Source 'dev-agent-team/selfcheck.py' '--owner-lines-skipped' $Name 2>$null) }
+        finally { Pop-Location }
+    }
+    if ($skipped.Count -gt 0) {
+        Write-Host "알림: $($skipped.Count)줄은 하네스 옛 문장과 겹쳐 보여 **옮기지 않았습니다**(원문은 $Name.owner-backup):"
+        $skipped | Select-Object -First 8 | ForEach-Object { Write-Host "        $_" }
+        if ($skipped.Count -gt 8) { Write-Host "        … 외 $($skipped.Count - 8)줄" }
+        Write-Host '      직접 쓰신 규칙이 섞여 있으면 dev-agent-team/PROJECT_RULES.md 로 옮기세요.'
+        Write-Host '      새 헌법과 충돌하는 옛 줄일 수도 있어 자동으로 넣지 않습니다.'
+    }
     Copy-Item -LiteralPath $File "$File.owner-backup" -Force
     Move-Item -LiteralPath "$File.new" $File -Force
     Write-Host "알림: $Name 를 v$oldv -> v$newv 로 갱신했습니다(이전 내용은 $Name.owner-backup)."

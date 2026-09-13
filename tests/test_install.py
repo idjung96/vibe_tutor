@@ -403,6 +403,29 @@ def test_accept_migrates_every_owner_line():
               "규칙 41줄을" in out and "규칙 6줄을" in out, out[:800])  # 40+제목, 5+제목
         check("동결이 해소된다", not (tgt / "AGENTS.md.new").is_file(), out[-400:])
 
+        # 어림짐작에 걸려 옮기지 않은 줄은 버리지 말고 보고해야 한다.
+        # 걸리는 줄은 **실제 헌법에서 만든다** — 임의로 지어내면 안 걸려서 테스트가 헛돈다.
+        import re as _re
+        f = tgt / "AGENTS.md"
+        sig = None
+        for ln in f.read_text(encoding="utf-8").splitlines():
+            w = [x for x in _re.findall(r"[0-9A-Za-z_./\-]{3,}|[가-힣]{3,}", ln)
+                 if x not in ("dev-agent-team", "AGENTS.md", "CLAUDE.md")]
+            if len(set(w)) >= 2:
+                sig = sorted(set(w))[:2]
+                break
+        assert sig, "헌법에서 특징 어절을 못 찾았다"
+        bait = f"- 우리 프로젝트는 {sig[0]} 와 {sig[1]} 를 이렇게 다룬다."
+        f.write_text(f.read_text(encoding="utf-8") + "\n" + bait + "\n", encoding="utf-8")
+        install(tgt, "--profile", "large", "--agent", "claude")
+        rc, out = install(tgt, "--accept-constitution")
+        pr = (tgt / "dev-agent-team/PROJECT_RULES.md").read_text(encoding="utf-8")
+        check("새 헌법과 겹쳐 보이는 줄은 규칙으로 자동 활성화하지 않는다",
+              bait not in pr, pr[-300:])
+        check("그렇다고 조용히 버리지도 않는다 — 옮기지 않았다고 알린다",
+              "옮기지 않았습니다" in out and bait in out, out[:1500])
+        check("원문 위치를 알려 준다", "AGENTS.md.owner-backup" in out, out[:1200])
+
 
 def main():
     if shutil.which("bash") is None:

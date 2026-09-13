@@ -379,6 +379,23 @@ accept_one() { # $1=본파일 경로  $2=표시 이름
       echo "        … 외 $((N - 12))줄 — 전부 옮겨졌습니다(PROJECT_RULES.md 에서 확인하세요)."
     fi
   fi
+  # 자동 판정이 애매해 옮기지 않은 줄은 **버리지 말고 보고한다.** 어절 겹침 어림짐작이라
+  # Owner 규칙도 걸리고(“repos/ 에는 push 하지 않는다”), 반대로 전부 옮기면 새 헌법과
+  # 충돌하는 옛 줄이 되살아난다(“Stage-Gate 는 쓰지 않는다”). 고르는 것은 Owner 몫이다.
+  SKIPPED=""
+  if [ -f "$TARGET/dev-agent-team/selfcheck.py" ] && [ -n "$PY_BIN" ]; then
+    SKIPPED=$( cd "$TARGET" && "$PY_BIN" dev-agent-team/selfcheck.py --owner-lines-skipped "$2" 2>/dev/null )
+  fi
+  if [ -n "$SKIPPED" ]; then
+    M=$(printf '%s\n' "$SKIPPED" | grep -c "")
+    echo "알림: ${M}줄은 하네스 옛 문장과 겹쳐 보여 **옮기지 않았습니다**(원문은 $2.owner-backup):"
+    printf '%s\n' "$SKIPPED" | head -8 | sed 's/^/        /'
+    if [ "$M" -gt 8 ]; then
+      echo "        … 외 $((M - 8))줄"
+    fi
+    echo "      직접 쓰신 규칙이 섞여 있으면 dev-agent-team/PROJECT_RULES.md 로 옮기세요."
+    echo "      새 헌법과 충돌하는 옛 줄일 수도 있어 자동으로 넣지 않습니다."
+  fi
   cp "$1" "$1.owner-backup"
   mv "$1.new" "$1"
   echo "알림: $2 를 v${OLDV:-?} -> v${NEWV:-?} 로 갱신했습니다(이전 내용은 $2.owner-backup)."

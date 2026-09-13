@@ -160,6 +160,42 @@ def test_brownfield():
               "렌더되지 않은 {{ 마커" not in out, out)
 
 
+def test_test_log_migration():
+    """옛 5열 TEST_LOG 가 7열로 올라가는가.
+
+    실제 프로젝트에서 101행짜리 로그가 영원히 5열로 남아 있었다. 이유가 둘이었다 —
+    멱등 가드가 **파일 전체**에서 "재시도" 를 찾았는데 그 단어가 29단계 설명에 있었고,
+    행 변환이 **파이프 개수**로 판정해서 본문에 "|" 가 든 행은 통째로 빠졌다.
+    """
+    print("\n[TEST_LOG 5열 -> 7열]")
+    old = ("# 테스트 현황\n\n"
+           "| 단계 | 신규 | 누적 | 전체 결과 | 커밋 |\n"
+           "|---|---|---|---|---|\n"
+           "| 1 (infra) | 12 | 12 | PASS (평범한 행) | abc1111 |\n"
+           "| 29 (pin) | 23 | 468 | PASS (B-65 재시도 로직 정리) | abc2222 |\n"
+           "| 41 (kp) | 15 | 660 | PASS (A | B 파이프 포함) | abc3333 |\n")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        (tgt / "dev-agent-team").mkdir(parents=True)
+        (tgt / "dev-agent-team/TEST_LOG.md").write_text(old, encoding="utf-8")
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+        got = (tgt / "dev-agent-team/TEST_LOG.md").read_text(encoding="utf-8")
+
+        check("본문에 '재시도' 가 있어도 마이그레이션이 돈다",
+              "| 재시도 | 리뷰지적 |" in got, got)
+        rows = [l for l in got.splitlines() if l.startswith("|") and "---" not in l]
+        tails = [tuple(x.strip() for x in l.rstrip().rsplit("|", 4)[1:4]) for l in rows]
+        check("헤더 마지막 3칸이 재시도·리뷰지적·커밋",
+              tails[0] == ("재시도", "리뷰지적", "커밋"), tails)
+        check("모든 데이터 행이 7열로 채워진다(본문에 | 가 든 행 포함)",
+              all(t[:2] == ("-", "-") for t in tails[1:]) and len(tails) == 4, tails)
+        check("구분선도 7칸", "|---|---|---|---|---|---|---|" in got, got)
+        check("원본은 .bak 으로 남는다", (tgt / "dev-agent-team/TEST_LOG.md.bak").is_file())
+
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+        check("재설치해도 두 번 돌지 않는다(멱등)", "7열로 갱신" not in out, out)
+
+
 def main():
     if shutil.which("bash") is None:
         print("SKIP: bash 없음")
@@ -169,6 +205,7 @@ def main():
     test_state_preserved()
     test_accept_constitution()
     test_brownfield()
+    test_test_log_migration()
     print(f"\n[설치기 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

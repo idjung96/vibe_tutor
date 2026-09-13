@@ -283,30 +283,29 @@ function Opencode-Tools($r) { switch ($r) {
 function Migrate-TestLog($f) {
     if (-not (Test-Path $f)) { return }
     $lines = Get-Content -LiteralPath $f -Encoding UTF8
-    # 옛 5열 헤더가 있고 새 열이 아직 없을 때만 건드린다(멱등).
-    $oldHeader = '^\|\s*단계\s*\|\s*신규\s*\|\s*누적\s*\|\s*전체 결과\s*\|\s*커밋\s*\|$'
-    if (-not ($lines | Where-Object { $_ -match $oldHeader })) { return }
-    if ($lines | Where-Object { $_ -match '재시도' }) { return }
+    $hdr = $lines | Where-Object { $_ -match '^\|\s*단계\s*\|' } | Select-Object -First 1
+    if (-not $hdr) { return }
+    # 멱등 판정은 **헤더만** 본다(init.sh 와 같다). 파일 전체에서 "재시도" 를 찾으면
+    # 한국어 개발 로그 본문의 그 단어에 걸려 마이그레이션이 영원히 안 돈다.
+    if ($hdr -match '재시도') { return }
+    if ($hdr -notmatch '커밋') { return }
     Copy-Item -LiteralPath $f "$f.bak"
     $out = New-Object System.Collections.Generic.List[string]
+    $hdrDone = $false
     foreach ($line in $lines) {
-        # 파이프가 정확히 6개인 줄만 마지막 칸(커밋) 앞에 두 칸을 끼운다. 나머지 줄은 원문 유지.
-        if ($line.StartsWith('|') -and (($line.ToCharArray() | Where-Object { $_ -eq '|' }).Count -eq 6)) {
-            $a = $line -split '\|'
-            $head = $a[1] + '|' + $a[2] + '|' + $a[3] + '|' + $a[4]
-            $sep = $head -replace '[-| :]', ''
-            if ($a[1] -match '단계' -and $a[5] -match '커밋') {
-                # 헤더 앞에 새 열 설명을 넣는다(위 가드 덕에 아직 없는 것이 보장된다).
-                $out.Add('- 재시도: 이 단계에서 checker를 다시 부른 횟수(NEW_FAIL·REGRESSION 재시도 포함).')
-                $out.Add('- 리뷰지적: 이 단계에서 받은 코드·보안 리뷰 지적 건수. 리뷰 단계가 없으면 `-`.')
-                $out.Add('')
-                $mid = ' 재시도 | 리뷰지적 '
-            }
-            elseif ($sep -eq '') { $mid = '---|---' }
-            else { $mid = ' - | - ' }
-            $out.Add('|' + $head + '|' + $mid + '|' + $a[5] + '|')
+        if (-not $line.StartsWith('|')) { $out.Add($line); continue }
+        if (-not $hdrDone -and $line -match '단계' -and $line -match '커밋') {
+            $hdrDone = $true
+            $out.Add('- 재시도: 이 단계에서 checker를 다시 부른 횟수(NEW_FAIL·REGRESSION 재시도 포함).')
+            $out.Add('- 리뷰지적: 이 단계에서 받은 코드·보안 리뷰 지적 건수. 리뷰 단계가 없으면 `-`.')
+            $out.Add('')
+            # 줄 끝의 "| ... |" 를 기준으로 두 칸을 끼운다 — 파이프 개수로 세면 본문에
+            # "|" 가 든 행이 통째로 빠져 형식이 섞인다.
+            $out.Add(($line -replace '\|([^|]*)\|\s*$', '| 재시도 | 리뷰지적 |$1|'))
+            continue
         }
-        else { $out.Add($line) }
+        if (($line -replace '[-| :]', '') -eq '') { $out.Add('|---|---|---|---|---|---|---|'); continue }
+        $out.Add(($line -replace '\|([^|]*)\|\s*$', '| - | - |$1|'))
     }
     # 이 파일의 관행대로 BOM 없는 UTF-8 + LF 로 쓴다. Set-Content 는 PS5.1에서 BOM을 붙이고,
     # WriteAllLines 는 CRLF 를 써서 init.sh 의 awk 출력(LF)과 어긋난다.

@@ -251,33 +251,39 @@ esac; }
 migrate_test_log() {
   f="$1"
   [ -f "$f" ] || return 0
-  # 옛 5열 헤더가 있고 새 열이 아직 없을 때만 건드린다(멱등).
-  grep -qE "^\|[[:space:]]*단계[[:space:]]*\|[[:space:]]*신규[[:space:]]*\|[[:space:]]*누적[[:space:]]*\|[[:space:]]*전체 결과[[:space:]]*\|[[:space:]]*커밋[[:space:]]*\|$" "$f" || return 0
-  grep -q "재시도" "$f" && return 0
+  HDR=$(grep -n "^|[[:space:]]*단계[[:space:]]*|" "$f" | head -1)
+  [ -n "$HDR" ] || return 0
+  HDR_LINE=${HDR#*:}
+  # 멱등 판정은 **헤더만** 본다. 예전엔 파일 전체에서 "재시도" 를 찾았는데, 그 단어는
+  # 한국어 개발 로그 본문에 흔히 나온다 — 실제로 어느 프로젝트는 29단계 설명에 한 번
+  # 나왔다는 이유로 101행짜리 로그가 영원히 5열로 남았다.
+  case "$HDR_LINE" in *재시도*) return 0 ;; esac
+  case "$HDR_LINE" in *커밋*) ;; *) return 0 ;; esac
   cp "$f" "$f.bak"
-  # 파이프가 정확히 6개인 줄만 마지막 칸(커밋) 앞에 두 칸을 끼운다. 나머지 줄은 원문 유지.
+  # 마지막 칸(커밋) 앞에 두 칸을 끼운다. **줄 끝의 `| ... |` 를 기준**으로 삼는다 —
+  # 파이프 개수로 세면 본문에 `|` 가 든 행이 통째로 빠져 형식이 섞인다(실제로 그랬다).
   awk '
-    {
-      line = $0
-      if (substr(line, 1, 1) == "|" && gsub(/\|/, "|", line) == 6) {
-        split($0, a, "|")
-        head = a[2] "|" a[3] "|" a[4] "|" a[5]
-        sep = head
-        gsub(/[-| :]/, "", sep)
-        if (a[2] ~ /단계/ && a[6] ~ /커밋/) {
-          # 헤더 앞에 새 열 설명을 넣는다(위 가드 덕에 아직 없는 것이 보장된다).
-          print "- 재시도: 이 단계에서 checker를 다시 부른 횟수(NEW_FAIL·REGRESSION 재시도 포함)."
-          print "- 리뷰지적: 이 단계에서 받은 코드·보안 리뷰 지적 건수. 리뷰 단계가 없으면 `-`."
-          print ""
-          mid = " 재시도 | 리뷰지적 "
-        }
-        else if (sep == "") mid = "---|---"
-        else mid = " - | - "
-        print "|" head "|" mid "|" a[6] "|"
+    /^\|/ {
+      if ($0 ~ /단계/ && $0 ~ /커밋/ && !hdr) {
+        hdr = 1
+        print "- 재시도: 이 단계에서 checker를 다시 부른 횟수(NEW_FAIL·REGRESSION 재시도 포함)."
+        print "- 리뷰지적: 이 단계에서 받은 코드·보안 리뷰 지적 건수. 리뷰 단계가 없으면 `-`."
+        print ""
+        sub(/\|[^|]*\|[[:space:]]*$/, "| 재시도 | 리뷰지적 |&", $0)
+        sub(/\|[[:space:]]*$/, "", $0)
+        sub(/\| 재시도 \| 리뷰지적 \|\|/, "| 재시도 | 리뷰지적 |", $0)
+        print $0 "|"
         next
       }
+      bare = $0
+      gsub(/[-| :]/, "", bare)
+      if (bare == "") { print "|---|---|---|---|---|---|---|"; next }
+      sub(/\|([^|]*)\|[[:space:]]*$/, "| - | - |&", $0)
+      sub(/\| - \| - \|\|/, "| - | - |", $0)
       print
+      next
     }
+    { print }
   ' "$f.bak" > "$f.tmp" && mv "$f.tmp" "$f"
   echo "TEST_LOG.md를 7열로 갱신했습니다 (원본: dev-agent-team/TEST_LOG.md.bak)."
 }

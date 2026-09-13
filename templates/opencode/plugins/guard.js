@@ -1,6 +1,8 @@
 // team-dev-harness 가드레일 플러그인 (opencode)
 // Claude/Codex의 두 hook(block_on_owner_question, protect_tests)을 opencode 플러그인으로 포팅한다.
 // 1) dev-agent-team/OWNER_QUESTION.md 에 "답: 번호"가 없으면 모든 도구 사용을 막는다.
+//    판정은 **마지막** "답:" 줄만 본다(block_on_owner_question.sh 와 동기화) —
+//    본문에 예시로 적힌 "답: 2" 한 줄이 정지를 그 자리에서 풀어 버리기 때문이다.
 // 2) tests/ 와 test/ 밑 기존 테스트 파일의 수정/덮어쓰기를 막는다(언어 무관).
 //    python(*_test.py / test_*.py) · go(*_test.go) · rust(*_test.rs / test_*.rs)
 //    · node·ts(*.test.{js,jsx,ts,tsx,mjs,cjs} / *.spec.{...}) · dart(*_test.dart).
@@ -87,7 +89,9 @@ export const TeamGuard = async ({ directory }) => {
       const q = path.join(root, "dev-agent-team", "OWNER_QUESTION.md");
       if (fs.existsSync(q)) {
         const txt = fs.readFileSync(q, "utf8");
-        if (!/^답:\s*[0-9]/m.test(txt)) {
+        const answerLines = txt.split(/\r?\n/).filter((l) => /^답:/.test(l));
+        const lastAnswer = answerLines.length ? answerLines[answerLines.length - 1] : "";
+        if (!/^답:\s*[0-9]/.test(lastAnswer)) {
           throw new Error(
             "Owner 답변 대기 중: dev-agent-team/OWNER_QUESTION.md의 '답:'에 번호가 적힐 때까지 멈춘다."
           );

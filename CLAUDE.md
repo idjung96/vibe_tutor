@@ -41,7 +41,7 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 
 # 설치 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
 ./tests/verify_install.sh /tmp/t1     # 구성·파일·설정·헌법 동결 + 가드 훅 실동작까지
-./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 25항목(22는 .sh, 3은 guard.js — node 없으면 SKIP)
+./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 26항목(23은 .sh, 3은 guard.js — node 없으면 SKIP)
 
 # init.sh ↔ init.ps1 파리티 검증 (pwsh 없이 코드리뷰를 자동화한 것)
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
@@ -220,7 +220,8 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 ## 생성된 프로젝트의 안전장치 (= templates/ 에서 무엇을 깨면 안 되는가)
 
 - **공유 가드 스크립트 2개**(`dev-agent-team/hooks/`): `block_on_owner_question.sh`
-  (dev-agent-team/OWNER_QUESTION.md에 `^답: 숫자`가 없으면 exit 2 차단), `protect_tests.sh`
+  (OWNER_QUESTION.md 의 **마지막** `답:` 줄에 숫자가 없으면 exit 2 차단 — 아무 `답:` 줄이나
+  보면 질문 본문에 예시로 적힌 `답: 2` 한 줄이 정지를 풀어 버린다), `protect_tests.sh`
   (기존 테스트 파일 수정 시 exit 2 — 언어 무관: py/go/rs/js·ts/dart, `tests/`·`test/` **하위 폴더까지** 판정. 정규식은
   `protect_tests.sh` 와 `guard.js` 가 동일). exit 2 + stderr 규약 — 바꾸면 `verify_hooks.sh` 도 함께.
 - **에이전트별 연결**: Claude=`.claude/settings.json` hooks가 `dev-agent-team/hooks/*.sh` 호출 +

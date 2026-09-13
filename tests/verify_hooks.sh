@@ -166,6 +166,21 @@ printf '{"tool_name":"Write","tool_input":{"file_path":"tests/stage_9_test.py","
 check "파이썬 추출 실패 시 차단(fail-closed)" 2 $?
 rm -f "$T2"; rm -rf "$STUB"
 
+# 20a. 질문 본문에 예시로 적힌 "답: 2" 가 정지를 풀어 버리지 않는가.
+#      가드가 아무 "답:" 줄이나 보면, planner 가 안내로 적은 예시 한 줄이 그 자리에서
+#      정지를 해제한다 — C등급 안전장치의 fail-open 이다. 마지막 "답:" 줄만 본다.
+EX_BAD=0
+printf '# 질문\n아래처럼 적으세요:\n답: 2\n답:\n' > "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
+printf '{"tool_name":"Edit","tool_input":{"file_path":"x.py"}}' \
+  | ( cd "$SANDBOX" && bash "$H/block_on_owner_question.sh" ) >/dev/null 2>&1
+[ "$?" = "2" ] || { echo "    예시 줄이 정지를 풀었다"; EX_BAD=1; }
+printf '# 질문\n번호를 적고 저장하세요(예: 2).\n답: 1\n' > "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
+printf '{"tool_name":"Edit","tool_input":{"file_path":"x.py"}}' \
+  | ( cd "$SANDBOX" && bash "$H/block_on_owner_question.sh" ) >/dev/null 2>&1
+[ "$?" = "0" ] || { echo "    실제 답인데 안 풀렸다"; EX_BAD=1; }
+check "질문 본문의 예시 '답: N' 이 정지를 풀지 않는다" 0 $EX_BAD
+rm -f "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
+
 # 20b. 중첩 테스트와 dart 도 보호되는가.
 #      정규식이 [^/]* 라 tests/sub/... 가 통째로 샜다(모든 언어). dart 는 test/utils/ 처럼
 #      중첩이 관례라 이걸 놓치면 Dart 프로젝트의 테스트가 거의 다 무방비다.

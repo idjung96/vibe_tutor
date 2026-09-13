@@ -733,7 +733,8 @@ def check_constitution():
                   "dev-agent-team/PROJECT_RULES.md 로 옮기는 것이 낫다.")
         else:
             behind = True
-            print(f"[constitution] 동결 — {name} 는 v{cur} 인데 절차·역할·권한은 v{nxt} 다.")
+            where = "버전 표기가 없고" if cur == "?" else f"v{cur} 인데"
+            print(f"[constitution] 동결 — {name} 는 {where} 절차·역할·권한은 v{nxt} 다.")
             print(f"               규칙이 어긋난 채로 돌고 있다. {name}.new 를 확인하라.")
     if behind:
         COUNTS["constitution_behind"] = True

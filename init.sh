@@ -171,13 +171,29 @@ render_managed() { # $1=템플릿 $2=대상 $3=상대경로
         # 편집을 지키는 건 맞지만, 그 대가로 이 파일만 옛 버전에 묶인다. 절차·역할·권한은
         # 새 버전으로 갱신되므로 규칙이 서로 어긋난다. 몇 버전 뒤처졌는지 숫자로 말해 준다.
         OLDV=$(sed -n 's/^HARNESS_VERSION: *//p' "$2" | head -1)
-        GAP=$(( $(ver_minor "$VERSION") - $(ver_minor "${OLDV:-$VERSION}") ))
+        OLDN=$(ver_minor "$OLDV"); NEWN=$(ver_minor "$VERSION")
         echo "알림: $3 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $3.new 입니다."
-        echo "      주의: $3 는 v${OLDV:-?} 에 묶입니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
+        if [ -n "$OLDN" ]; then
+          echo "      주의: $3 는 v$OLDV 에 묶입니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
+        else
+          echo "      주의: $3 의 버전을 읽지 못했습니다. 절차·역할·권한은 v$VERSION 으로 갱신되므로"
+        fi
         echo "      규칙이 서로 어긋난 상태로 돌게 됩니다."
-        if [ "$GAP" -ge 5 ] 2>/dev/null; then
+        # 버전을 못 읽으면 "차이 없음"이 아니라 **가장 오래된 것**으로 본다. HARNESS_VERSION
+        # 줄은 헌법에 오래전부터 있었으니, 없다는 건 그 표기가 생기기 전이거나 헤더가 갈렸다는
+        # 뜻이다. 어느 쪽이든 안전한 쪽은 "갱신하라"다.
+        # 예전엔 못 읽은 버전을 현재 버전으로 대체해 GAP=0 이 되어 경고가 아예 안 나갔고,
+        # 파싱 안 되는 값이면 빈 값이 산술식에 들어가 set -e 가 함수를 중단시켜 **이 안내
+        # 전체가 사라지고** manifest 기록까지 빠졌다(다음 설치가 헌법을 덮어쓴다).
+        if [ -z "$OLDN" ] || [ -z "$NEWN" ]; then
           echo ""
-          echo "      *** 버전 차이가 큽니다(마이너 $GAP 단계). 그 사이에 절차·역할·권한이 여러 번"
+          echo "      *** $3 의 버전을 읽을 수 없습니다(HARNESS_VERSION 줄 없음). 버전 표기가 생기기"
+          echo "          전의 아주 오래된 헌법입니다. 그 사이에 절차·역할·권한이 여러 번 바뀌었으므로"
+          echo "          이 상태의 팀은 정상 동작하지 않습니다. 반드시 갱신하세요. ***"
+          echo ""
+        elif [ "$(( NEWN - OLDN ))" -ge 5 ]; then
+          echo ""
+          echo "      *** 버전 차이가 큽니다(마이너 $(( NEWN - OLDN )) 단계). 그 사이에 절차·역할·권한이 여러 번"
           echo "          바뀌었으므로 이 상태의 팀은 정상 동작하지 않습니다. 반드시 갱신하세요. ***"
           echo ""
         fi
@@ -292,6 +308,23 @@ migrate_test_log() {
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 ROLES="planner tester coder checker documenter designer"
 [ "$PROFILE" = large ] && ROLES="$ROLES lead reviewer critic security evaluator"
+# 프로파일을 낮춰 재설치하면(large -> small) 먼저 깔린 large 전용 역할이 그대로 남았다.
+# 역할 파일은 "무조건 덮어쓰는" 강제 장치인데 덮어쓰기만 있고 **치우기가 없었다** — 남으면
+# small 팀이 쓸 수 없는 역할(reviewer·critic·security·evaluator)을 계속 부른다. 게다가
+# 재설치 프로파일 추론이 lead.md 의 존재를 보므로, 한 번 남으면 영영 large 로 되돌아온다.
+# **알려진 역할 이름만** 지운다 — Owner 가 직접 넣은 에이전트는 건드리지 않는다.
+ROLES_ALL="planner tester coder checker documenter designer lead reviewer critic security evaluator"
+PRUNED=""
+prune_role() { # $1=지울 파일/폴더 경로, $2=역할명
+  [ -e "$1" ] || return 0
+  rm -rf "$1"
+  case " $PRUNED " in *" $2 "*) ;; *) PRUNED="$PRUNED $2" ;; esac
+}
+stale_roles() {
+  for r in $ROLES_ALL; do
+    case " $ROLES " in *" $r "*) ;; *) echo "$r" ;; esac
+  done
+}
 
 echo "프로파일: $PROFILE_LABEL / 에이전트: $AGENTS → $TARGET"
 
@@ -394,6 +427,7 @@ if has_agent claude; then
       printf '%s\n' "$body"
     } > "$TARGET/.claude/agents/$r.md"
   done
+  for r in $(stale_roles); do prune_role "$TARGET/.claude/agents/$r.md" "$r"; done
 fi
 
 # ── 6. Codex 오버레이 ─────────────────────────────────────────
@@ -408,6 +442,7 @@ if has_agent codex; then
     { printf -- "---\nname: %s\ndescription: %s\n---\n" "$r" "$(role_desc "$r")"
       printf '%s\n' "$body"; } > "$TARGET/.agents/skills/$r/SKILL.md"
   done
+  for r in $(stale_roles); do prune_role "$TARGET/.agents/skills/$r" "$r"; done
 fi
 
 # ── 7. opencode 오버레이 ──────────────────────────────────────
@@ -422,6 +457,10 @@ if has_agent opencode; then
     { printf -- "---\ndescription: %s\nmode: subagent\ntools:\n%s\n---\n" "$(role_desc "$r")" "$(opencode_tools "$r")"
       printf '%s\n' "$body"; } > "$TARGET/.opencode/agents/$r.md"
   done
+  for r in $(stale_roles); do prune_role "$TARGET/.opencode/agents/$r.md" "$r"; done
+fi
+if [ -n "$PRUNED" ]; then
+  echo "알림: 이 프로파일($PROFILE)에 없는 역할을 치웠습니다 —$PRUNED"
 fi
 
 # manifest 확정. 이번에 렌더하지 않은 항목(에이전트 구성을 바꿔 설치한 경우)은 그대로
@@ -466,7 +505,9 @@ fi
 # ── 9. 설치 검증 (가드 훅 실동작 + 구성·파일·설정 건강검진) ──────────────
 # verify_install.sh 가 verify_hooks.sh 를 품는다. 설치가 "깔리긴 했는데 못 쓰는" 상태로
 # 끝나지 않게 여기서 한 번 다 본다. Owner 가 나중에 직접 돌려도 된다.
-if bash "$SRC/tests/verify_install.sh" "$TARGET"; then
+VERIFY_OUT=$(bash "$SRC/tests/verify_install.sh" "$TARGET" 2>&1) && VERIFY_RC=0 || VERIFY_RC=$?
+printf '%s\n' "$VERIFY_OUT"
+if [ "$VERIFY_RC" -eq 0 ]; then
   echo ""
   echo "설치 완료 (v$VERSION, $PROFILE, [$AGENTS])."
   echo "다음: $TARGET 에서 코딩 에이전트를 열고 '개발 시작'이라고 입력하세요."
@@ -478,8 +519,11 @@ if bash "$SRC/tests/verify_install.sh" "$TARGET"; then
     echo "opencode 주의: 가드레일 플러그인은 .opencode/plugins/guard.js 로 자동 로드됩니다(bun/node 필요)."
   fi
 else
+  # 무엇이 걸렸는지 그대로 옮긴다. 예전엔 어떤 항목이 실패했든 "hook 검증 실패" 라고만 해서,
+  # 가드 훅이 26/26 통과한 설치에도 "안전장치가 동작하지 않을 수 있습니다" 가 나갔다.
   echo ""
-  echo "경고: hook 검증 실패. 안전장치가 동작하지 않을 수 있습니다."
-  echo "이 상태로 사용하지 말고 관리자에게 문의하세요."
+  echo "경고: 설치 검증이 통과하지 않았습니다. 걸린 항목:"
+  printf '%s\n' "$VERIFY_OUT" | sed -n 's/^  FAIL:/      -/p'
+  echo "위 지적을 해소한 뒤 다시 설치하세요. 안전장치가 온전한지 확인되지 않은 상태입니다."
   exit 1
 fi

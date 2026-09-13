@@ -129,7 +129,12 @@ fi
 
 # ── 7. 헌법 동결 / 게이트 ──────────────────────────────────────────────────
 if have AGENTS.md.new || have CLAUDE.md.new; then
-  bad "헌법이 동결돼 있다" "옛 헌법 + 새 절차로 돌게 됩니다. 해소: ./init.sh --accept-constitution $TARGET"
+  # FAIL 이 아니라 WARN 이다. 이건 설치기가 Owner 편집을 지키려고 **일부러** 남긴 상태라,
+  # 설치기가 스스로 만든 상태를 놓고 "설치 실패" 라고 할 수는 없다. 막는 일은 merge
+  # 게이트(constitution)가 이미 fail-closed 로 한다.
+  warn "헌법이 동결돼 있다 — 단계 merge 가 막힌다" "옛 헌법 + 새 절차로 돌게 됩니다. 코드는 계속 쓸 수 있고
+        막히는 것은 단계 merge 게이트입니다(selfcheck --gate 의 constitution).
+        해소: ./init.sh --accept-constitution $TARGET"
 else
   ok "헌법 동결 없음"
 fi

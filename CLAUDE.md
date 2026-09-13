@@ -57,7 +57,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 python3 tests/test_selfcheck.py           # 50항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 29항목(기존 프로젝트·TEST_LOG 마이그레이션 포함). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 54항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -161,6 +161,16 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   바뀐 규칙 번호·새로 생긴 규칙·Owner 가 직접 넣은 줄을 **두 파일을 직접 비교해** 뽑는다
   (버전별 메타데이터를 손으로 들고 있지 않는다. 그런 표는 반드시 낡는다). 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로
   옮긴 뒤 **설치를 한 번 더** 돌리는 것이다(그래야 manifest 가 맞는다).
+- **프로파일을 낮추면 옛 역할을 치운다.** 역할·스킬·훅은 무조건 덮어쓰는 강제 장치인데
+  덮어쓰기만 있고 치우기가 없어, large→small 재설치 후에도 lead·reviewer·critic·security·
+  evaluator 가 남았다. 남은 `lead.md` 는 **재설치 프로파일 추론과 설치 검증이 둘 다 보는
+  흔적**이라, 한 번 남으면 영영 large 로 되돌아오고 검증도 못 잡는다(흔적으로 판정한 대가).
+  지우는 대상은 **알려진 역할 이름 11개뿐** — Owner 가 직접 넣은 에이전트는 건드리지 않는다.
+- **헌법 동결은 설치 실패가 아니다.** 설치기가 Owner 편집을 지키려고 일부러 남긴 상태이므로
+  `verify_install.sh` 에서 WARN 이다. 막는 일은 merge 게이트(`constitution`)가 fail-closed 로
+  한다. 설치 검증이 실패하면 init 은 **걸린 항목을 그대로 옮긴다** — 예전엔 무엇이 걸렸든
+  "hook 검증 실패" 라고만 해서, 가드 훅이 26/26 통과한 설치에도 "안전장치가 동작하지 않을 수
+  있습니다" 가 나갔다.
 - `.gitattributes` — 가드 훅 `*.sh` 의 줄끝을 대상 프로젝트의 git 에서도 LF 로 고정한다.
   없으면 Windows 클론 시 `block_on_owner_question` 이 exit 255 로 실패해 정지 메커니즘이
   무력화된다. Owner 가 이미 쓰던 파일이면 덮지 않고 `team-dev-harness-eol-guard` 블록만 덧붙인다.

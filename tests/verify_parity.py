@@ -146,11 +146,25 @@ def check_installer_logic(sh, ps):
     check("에이전트 추론 마커와 순서가 같다", a == b, f"sh={a}\nps={b}")
 
     # "버전 차이가 크다" 임계값
-    a = re.search(r'\[ "\$GAP" -ge (\d+) \]', sh)
-    b = re.search(r"\$gap -ge (\d+)", ps)
+    a = re.search(r'\[ "\$\(\( NEWN - OLDN \)\)" -ge (\d+) \]', sh)
+    b = re.search(r"\(\$newn - \$oldn\) -ge (\d+)", ps)
     ok = a and b and a.group(1) == b.group(1)
     check("버전 차이 경고 임계값이 같다", ok,
           "" if ok else f"sh={a and a.group(1)} ps={b and b.group(1)}")
+
+    # 옛 헌법의 버전을 못 읽었을 때 — 양쪽 다 "차이 없음"이 아니라 강한 경고여야 한다.
+    # sh 는 빈 값을 현재 버전으로 대체해 GAP=0 을 만들었고 경고가 아예 안 나갔다.
+    check("버전을 못 읽으면 양쪽 다 강한 경고를 낸다",
+          '[ -z "$OLDN" ] || [ -z "$NEWN" ]' in sh
+          and "$null -eq $oldn -or $null -eq $newn" in ps)
+
+    # 프로파일을 낮췄을 때 치우는 역할 목록이 같은가
+    a = re.search(r'ROLES_ALL="([^"]+)"', sh)
+    b = re.search(r"\$RolesAll = @\(([^)]+)\)", ps, re.S)
+    aa = a.group(1).split() if a else None
+    bb = re.findall(r"'(\w+)'", b.group(1)) if b else None
+    check("옛 역할을 치울 때 보는 역할 목록이 같다", aa is not None and aa == bb,
+          f"sh={aa}\nps={bb}")
 
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))

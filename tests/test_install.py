@@ -196,6 +196,108 @@ def test_test_log_migration():
         check("재설치해도 두 번 돌지 않는다(멱등)", "7열로 갱신" not in out, out)
 
 
+def _freeze(tgt, version_line):
+    """헌법을 Owner 가 편집한 것처럼 만들고, HARNESS_VERSION 줄을 원하는 값으로 바꾼다."""
+    import re
+    f = Path(tgt) / "AGENTS.md"
+    t = re.sub(r"^HARNESS_VERSION: .*$", version_line, f.read_text(encoding="utf-8"),
+               count=1, flags=re.M)
+    f.write_text(t + "\n## 우리 팀 규칙\n금요일 배포 금지\n", encoding="utf-8")
+
+
+def test_freeze_notice():
+    """헌법 동결 안내가 실제로 나가는가 — 버전을 못 읽는 경우까지.
+
+    실제 프로젝트에서 버전 표기가 없는 옛 헌법을 만났더니 두 가지가 한꺼번에 샜다.
+    빈 값을 현재 버전으로 대체해 GAP=0 이 되니 "정상 동작하지 않는다" 경고가 아예 안 나갔고,
+    파싱 안 되는 값이면 빈 값이 산술식에 들어가 set -e 가 함수를 중단시켰다 — 그러면 안내
+    **전체**가 사라지고 Owner 는 bash 산술 오류 한 줄만 본다. manifest 기록까지 빠져서
+    다음 설치가 헌법을 덮어쓴다. 못 읽은 것을 "차이 없음"으로 본 fail-open 이다.
+    """
+    print("\n[헌법 동결 안내]")
+    cases = (("HARNESS_VERSION: 1.20.0", "버전 차이가 큽니다", "버전이 많이 뒤처짐"),
+             ("(줄 없음)", "버전을 읽을 수 없습니다", "HARNESS_VERSION 줄이 없음"),
+             ("HARNESS_VERSION: 구버전", "버전을 읽을 수 없습니다", "버전이 파싱 안 됨"))
+    for line, want, label in cases:
+        with tempfile.TemporaryDirectory() as d:
+            tgt = Path(d) / "proj"
+            install(tgt, "--profile", "large", "--agent", "claude")
+            if line == "(줄 없음)":
+                f = tgt / "AGENTS.md"
+                f.write_text("\n".join(l for l in f.read_text(encoding="utf-8").splitlines()
+                                       if not l.startswith("HARNESS_VERSION:"))
+                             + "\n## 우리 팀 규칙\n금요일 배포 금지\n", encoding="utf-8")
+            else:
+                _freeze(tgt, line)
+            rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+            check(f"{label}: 강한 경고가 나온다", want in out, out[:900])
+            check(f"{label}: 해소 명령을 안내한다", "--accept-constitution" in out, out[:900])
+            check(f"{label}: 산술 오류로 안내가 끊기지 않는다",
+                  "syntax error" not in out and "unbound variable" not in out, out[:900])
+            check(f"{label}: manifest 에 AGENTS.md 기록이 남는다",
+                  "AGENTS.md" in (tgt / "dev-agent-team/.harness-manifest").read_text(encoding="utf-8"))
+
+
+def test_freeze_is_not_install_failure():
+    """헌법 동결은 설치 실패가 아니다.
+
+    설치기가 Owner 편집을 지키려고 일부러 남긴 상태인데, 설치 검증이 FAIL 을 내고 init.sh 가
+    "hook 검증 실패. 안전장치가 동작하지 않을 수 있습니다. 관리자에게 문의하세요" 로 끝냈다.
+    같은 출력에 "가드 훅 실동작 PASS 26 / FAIL 0" 이 찍혀 있었다 — 오진이다.
+    """
+    print("\n[헌법 동결은 설치 실패가 아니다]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude")
+        _freeze(tgt, "HARNESS_VERSION: 1.20.0")
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+        check("설치가 성공으로 끝난다", rc == 0, out[-900:])
+        check("'설치 완료' 로 끝난다", "설치 완료" in out, out[-500:])
+        check("가드 훅을 탓하지 않는다", "hook 검증 실패" not in out, out[-500:])
+        check("merge 가 막힌다는 것은 알린다", "merge 가 막힌다" in out, out[-900:])
+
+
+def test_verify_failure_is_named():
+    """설치 검증이 실패하면 **무엇이** 걸렸는지 그대로 옮기는가(결함 주입)."""
+    print("\n[검증 실패를 그대로 옮긴다]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude")
+        (tgt / "opencode.json").write_text("{ 이건 JSON 이 아니다", encoding="utf-8")
+        rc, out = install(tgt, "--profile", "large", "--agent", "claude")
+        check("검증 실패면 설치도 실패한다", rc != 0, out[-600:])
+        check("걸린 항목을 나열한다", "걸린 항목:" in out, out[-900:])
+        check("실제 실패 항목이 찍힌다", "JSON 파손" in out, out[-900:])
+
+
+def test_profile_downgrade_prunes_roles():
+    """large -> small 로 낮추면 large 전용 역할을 치우는가.
+
+    역할 파일은 "무조건 덮어쓰는" 강제 장치인데 덮어쓰기만 있고 치우기가 없었다. 남은
+    lead.md 때문에 재설치 프로파일 추론이 계속 large 를 고르고, 설치 검증도 프로파일을
+    추론하므로 **영영 감지되지 않는다**(흔적으로 판정한 대가다).
+    """
+    print("\n[프로파일 강등]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude,opencode")
+        (tgt / ".claude/agents/mine.md").write_text("# 내가 넣은 에이전트\n", encoding="utf-8")
+        rc, out = install(tgt, "--profile", "small", "--agent", "claude,opencode")
+        roles = sorted(p.stem for p in (tgt / ".claude/agents").glob("*.md"))
+        check("large 전용 역할이 사라진다",
+              not any(r in roles for r in ("lead", "reviewer", "critic", "security", "evaluator")),
+              roles)
+        check("공통 6역할은 남는다",
+              all(r in roles for r in ("planner", "tester", "coder", "checker",
+                                       "documenter", "designer")), roles)
+        check("Owner 가 넣은 에이전트는 건드리지 않는다", "mine" in roles, roles)
+        check("opencode 쪽도 같이 치운다",
+              not (tgt / ".opencode/agents/lead.md").is_file())
+        check("무엇을 치웠는지 알린다", "역할을 치웠습니다" in out, out[:900])
+        check("이후 플래그 없는 재설치가 small 을 유지한다",
+              "기존 프로파일 small" in install(tgt)[1], install(tgt)[1][:400])
+
+
 def main():
     if shutil.which("bash") is None:
         print("SKIP: bash 없음")
@@ -206,6 +308,10 @@ def main():
     test_accept_constitution()
     test_brownfield()
     test_test_log_migration()
+    test_freeze_notice()
+    test_freeze_is_not_install_failure()
+    test_verify_failure_is_named()
+    test_profile_downgrade_prunes_roles()
     print(f"\n[설치기 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

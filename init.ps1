@@ -182,14 +182,25 @@ function Render-Managed($SrcFile, $DstFile, $Rel) {
                 # 절차·역할·권한과 어긋난다는 것을 숫자로 말해 준다.
                 $oldv = (Select-String -LiteralPath $DstFile -Pattern '^HARNESS_VERSION: *(.+)$' |
                          Select-Object -First 1).Matches.Groups[1].Value
-                if (-not $oldv) { $oldv = '?' }
+                $oldn = Ver-Minor $oldv
+                $newn = Ver-Minor $Version
                 Write-Host "알림: $Rel 을(를) 직접 수정한 것으로 보여 덮어쓰지 않았습니다. 새 버전은 $Rel.new 입니다."
-                Write-Host "      주의: $Rel 는 v$oldv 에 묶입니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
+                if ($null -ne $oldn) {
+                    Write-Host "      주의: $Rel 는 v$oldv 에 묶입니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
+                } else {
+                    Write-Host "      주의: $Rel 의 버전을 읽지 못했습니다. 절차·역할·권한은 v$Version 으로 갱신되므로"
+                }
                 Write-Host '      규칙이 서로 어긋난 상태로 돌게 됩니다.'
-                $gap = (Ver-Minor $Version) - (Ver-Minor $oldv)
-                if ($null -ne $gap -and $gap -ge 5) {
+                # 버전을 못 읽으면 "차이 없음"이 아니라 가장 오래된 것으로 본다(init.sh 와 동일).
+                if ($null -eq $oldn -or $null -eq $newn) {
                     Write-Host ''
-                    Write-Host "      *** 버전 차이가 큽니다(마이너 $gap 단계). 그 사이에 절차·역할·권한이 여러 번"
+                    Write-Host "      *** $Rel 의 버전을 읽을 수 없습니다(HARNESS_VERSION 줄 없음). 버전 표기가 생기기"
+                    Write-Host '          전의 아주 오래된 헌법입니다. 그 사이에 절차·역할·권한이 여러 번 바뀌었으므로'
+                    Write-Host '          이 상태의 팀은 정상 동작하지 않습니다. 반드시 갱신하세요. ***'
+                    Write-Host ''
+                } elseif (($newn - $oldn) -ge 5) {
+                    Write-Host ''
+                    Write-Host "      *** 버전 차이가 큽니다(마이너 $($newn - $oldn) 단계). 그 사이에 절차·역할·권한이 여러 번"
                     Write-Host '          바뀌었으므로 이 상태의 팀은 정상 동작하지 않습니다. 반드시 갱신하세요. ***'
                     Write-Host ''
                 }
@@ -317,6 +328,19 @@ function Migrate-TestLog($f) {
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 $Roles = @('planner', 'tester', 'coder', 'checker', 'documenter', 'designer')
 if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security', 'evaluator') }
+# 프로파일을 낮춰 재설치하면(large -> small) 먼저 깔린 large 전용 역할이 그대로 남았다.
+# 역할 파일은 "무조건 덮어쓰는" 강제 장치인데 덮어쓰기만 있고 치우기가 없었다. 알려진 역할
+# 이름만 지운다 — Owner 가 직접 넣은 에이전트는 건드리지 않는다(init.sh 와 동일).
+$RolesAll = @('planner', 'tester', 'coder', 'checker', 'documenter', 'designer',
+              'lead', 'reviewer', 'critic', 'security', 'evaluator')
+$StaleRoles = $RolesAll | Where-Object { $Roles -notcontains $_ }
+$Pruned = @()
+function Prune-Role($Path, $Role) {
+    if (Test-Path -LiteralPath $Path) {
+        Remove-Item -LiteralPath $Path -Recurse -Force
+        if ($Pruned -notcontains $Role) { $script:Pruned += $Role }
+    }
+}
 
 Write-Host "프로파일: $($conf['PROFILE_LABEL']) / 에이전트: $($Agents -join ' ') → $Target"
 
@@ -423,6 +447,7 @@ if (Has-Agent 'claude') {
         $fm += "tools: $(Claude-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".claude\agents\$r.md") ($fm + $body)
     }
+    foreach ($r in $StaleRoles) { Prune-Role (Join-Path $Target ".claude\agents\$r.md") $r }
 }
 
 # ── 6. Codex 오버레이 ─────────────────────────────────────────
@@ -435,6 +460,7 @@ if (Has-Agent 'codex') {
         $fm = "---`nname: $r`ndescription: $(Role-Desc $r)`n---`n"
         Write-Text (Join-Path $Target ".agents\skills\$r\SKILL.md") ($fm + $body)
     }
+    foreach ($r in $StaleRoles) { Prune-Role (Join-Path $Target ".agents\skills\$r") $r }
 }
 
 # ── 7. opencode 오버레이 ──────────────────────────────────────
@@ -449,6 +475,10 @@ if (Has-Agent 'opencode') {
         $fm = "---`ndescription: $(Role-Desc $r)`nmode: subagent`ntools:`n$(Opencode-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".opencode\agents\$r.md") ($fm + $body)
     }
+    foreach ($r in $StaleRoles) { Prune-Role (Join-Path $Target ".opencode\agents\$r.md") $r }
+}
+if ($Pruned.Count -gt 0) {
+    Write-Host "알림: 이 프로파일($Profile)에 없는 역할을 치웠습니다 — $($Pruned -join ' ')"
 }
 
 # manifest 확정. 이번에 렌더하지 않은 항목(에이전트 구성을 바꿔 설치한 경우)은 그대로
@@ -511,11 +541,17 @@ else {
 if ($bash) {
     $srcU = $Src -replace '\\', '/'
     $tgtU = $Target -replace '\\', '/'
-    & $bash "$srcU/tests/verify_install.sh" "$tgtU"
-    if ($LASTEXITCODE -ne 0) {
+    $verifyOut = & $bash "$srcU/tests/verify_install.sh" "$tgtU" 2>&1
+    $verifyRc = $LASTEXITCODE
+    $verifyOut | ForEach-Object { Write-Host $_ }
+    if ($verifyRc -ne 0) {
+        # 무엇이 걸렸는지 그대로 옮긴다. 예전엔 어떤 항목이 실패했든 "hook 검증 실패" 라고만 해서,
+        # 가드 훅이 전부 통과한 설치에도 "안전장치가 동작하지 않을 수 있습니다" 가 나갔다.
         Write-Host ''
-        Write-Host '경고: hook 검증 실패. 안전장치가 동작하지 않을 수 있습니다.'
-        Write-Host '이 상태로 사용하지 말고 관리자에게 문의하세요.'
+        Write-Host '경고: 설치 검증이 통과하지 않았습니다. 걸린 항목:'
+        $verifyOut | Where-Object { $_ -match '^  FAIL:' } |
+            ForEach-Object { Write-Host ($_ -replace '^  FAIL:', '      -') }
+        Write-Host '위 지적을 해소한 뒤 다시 설치하세요. 안전장치가 온전한지 확인되지 않은 상태입니다.'
         exit 1
     }
 }

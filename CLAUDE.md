@@ -52,7 +52,7 @@ python3 dev-agent-team/selfcheck.py --process-active coder
 python3 dev-agent-team/selfcheck.py --process-stats      # 얼마나 쌓였나 · 통합이 필요한가
 python3 dev-agent-team/selfcheck.py --direction-head     # DIRECTION 은 마지막 절만
 python3 dev-agent-team/selfcheck.py --ledger DECISIONS.md  # 제목 인덱스 + 최근 단계 본문
-python3 dev-agent-team/selfcheck.py --ledger-stats         # 누적 문서가 얼마나 자랐나
+python3 dev-agent-team/selfcheck.py --ledger-stats         # 누적 문서 크기 · 큰 절 · 묵은 백로그
 
 # 회고가 필요한 단계인지 기계로 판정 (12c 가 매번 이걸 먼저 돌린다)
 python3 dev-agent-team/selfcheck.py --retro-check
@@ -64,7 +64,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 97항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 107항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 111항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -289,6 +289,31 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - **완료된 백로그는 `BACKLOG_DONE.md` 로 옮긴다**(12b-1). 지우는 게 아니라 옮기는 것이다.
   BACKLOG 는 planner·coder·designer·lead 가 매 단계 읽는다. 이 관례는 실제 프로젝트 팀이
   **하네스에 없는데도 스스로 만들어 쓰고 있었다** — 필요가 실재한다는 증거라 정식화했다.
+  GitHub 이슈(45건 참조)와 `evidence/` 도 같은 경우다. 팀이 스스로 만든 관례는 **결함이
+  아니라 요구사항**이다 — 하네스에 없는 것을 세 번 발견했으면 하네스가 모자란 것이다.
+
+### 결정 기록과 백로그를 작게 유지하는 법
+- **항목 수가 아니라 한 항목의 크기가 문제다.** 실측: DECISIONS 208건 5421줄인데 중앙값은
+  7줄이고, **41줄 넘는 26건(12%)이 전체의 63%**를 차지했다. 한 건이 1447줄이었고 그중 결정은
+  앞 30줄, 나머지는 조사 기록이었다.
+- **코드를 읽어 알 수 있는 것은 적지 않는다.** `payment_screen.dart:431` 같은 위치 증거는
+  적는 순간부터 낡아 거짓말을 한다. 꼭 가리켜야 하면 커밋 해시로 가리킨다.
+  적어야 하는 것은 코드가 절대 말해 주지 않는 것 — 무엇을 골랐나, 무엇을 왜 버렸나,
+  되돌리는 데 무엇이 드나, 코드에 없는 외부 제약.
+- 조사는 **GitHub 이슈**(remote 있으면)나 `dev-agent-team/evidence/` 로 빼고 번호만 남긴다.
+  단 **이슈를 못 읽어도 결정은 온전해야 한다** — 이슈가 사라져 곤란해지는 내용이면 그건
+  조사가 아니라 결정이다(원칙 1).
+- **백로그는 컬럼을 늘리지 않는다.** 단계를 하나씩 도므로 WIP 는 이미 1이고, todo/done 은
+  `- [ ]` 와 `BACKLOG_DONE.md` 로 이미 나뉘어 있다. 모자란 것은 컬럼이 아니라 **진행 표시
+  (`- [~] · 진행:stageN`)와 계측**이었다.
+- **쌓이는 것은 목록이 부족해서가 아니라 버리는 결정을 아무도 안 해서다**(열린 항목 279개 중
+  139개가 20단계 넘게 묵음). 그루밍을 7-0에 묶어 두면 관심이 단계 초점으로 가서 안 돈다 —
+  **7-0b 백로그 정리**를 조건부 별도 단계로 뒀다. 폐기는 삭제가 아니라 `BACKLOG_DONE.md` 로
+  **이동**이고, 사유는 넷 중 하나여야 한다(이미 해결됨/요구사항 변경/흡수됨/재현 안 됨).
+  출처가 Owner 인 항목은 팀이 스스로 폐기하지 않는다(C등급).
+- `--ledger-stats` 는 **문서 종류마다 다른 잣대**를 댄다. ledger(결정·개정·방향)는 절이
+  크면 조사가 섞인 것, list(백로그)는 길어도 정상, spec(설계·요구사항)은 요약이 아니라
+  분할 대상. 전부에 같은 경고를 울리면 늘 울리고, 늘 울리는 경보는 무시된다.
 - **보관과 주입은 다른 문제다.** `PROCESS.md`·`DIRECTION.md` 는 이력이라 append-only 이고
   **절대 자르지 않는다.** 대신 역할 호출에는 전문이 아니라 파생본만 준다.
 - 안 그러면 프롬프트가 계속 무거워진다. 실측: P-규칙 76개 1558줄, 그중 `대상: 전체` 가

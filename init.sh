@@ -408,7 +408,8 @@ fi
 
 render_managed "$SRC/templates/AGENTS.md.tmpl" "$TARGET/AGENTS.md" "AGENTS.md"
 mkdir -p "$TARGET/common" "$TARGET/tests" "$TARGET/logs" \
-         "$TARGET/dev-agent-team/libs" "$TARGET/dev-agent-team/guides" "$TARGET/dev-agent-team/answered" "$TARGET/dev-agent-team/hooks"
+         "$TARGET/dev-agent-team/libs" "$TARGET/dev-agent-team/guides" "$TARGET/dev-agent-team/answered" "$TARGET/dev-agent-team/hooks" \
+         "$TARGET/dev-agent-team/evidence"
 # common/ 은 **제품 디렉터리**다. 이미 쓰던 로거가 있으면 덮지 않는다 — 기존 프로젝트에
 # 설치할 때 Owner 의 코드를 지우는 것이 된다(실제로 그랬다). 로그 "형식"이 계약이지
 # 이 파일이 계약은 아니다(logging-rule 스킬이 정본).
@@ -447,7 +448,7 @@ elif ! grep -q 'team-dev-harness-eol-guard' "$GA"; then
   echo "알림: .gitattributes 끝에 가드 훅 줄끝 고정 규칙을 추가했습니다."
 fi
 
-touch "$TARGET/logs/.gitkeep" "$TARGET/dev-agent-team/answered/.gitkeep"
+touch "$TARGET/logs/.gitkeep" "$TARGET/dev-agent-team/answered/.gitkeep" "$TARGET/dev-agent-team/evidence/.gitkeep"
 
 # ── 5. Claude Code 오버레이 ───────────────────────────────────
 if has_agent claude; then

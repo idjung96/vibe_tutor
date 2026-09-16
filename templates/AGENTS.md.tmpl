@@ -27,6 +27,10 @@ planner(계획·결정·질문), tester(테스트 작성), coder(구현), checke
   단계 merge 후·전체 종료 시(회고 모드)에 호출한다.
   critic은 planner 결정 직후, reviewer·security는 단계 PASS 후 merge 전에 호출한다.
   reviewer·security의 지적은 고친 뒤에도 유형을 BACKLOG "메모·주의"에 남겨 lead 회고의 재발 신호로 쓴다.
+- **DECISIONS 한 건은 짧게 쓴다(15줄 목표).** 등급·질문·선택·이유·버린 대안·되돌리기·조사 링크만.
+  코드를 읽어 알 수 있는 것(구현 설명, `file:431` 같은 위치 증거)은 적지 않는다 — 줄 번호는
+  움직이고, 낡은 문서는 거짓말을 한다. 조사 과정은 GitHub 이슈(remote 있으면)나
+  `dev-agent-team/evidence/` 로 빼고 번호만 남긴다. **단, 이슈를 못 읽어도 결정은 온전해야 한다.**
 - PROCESS.md와 DIRECTION.md는 **이력이라 자르지 않는다.** 대신 역할에 줄 때는 전문이 아니라
   `selfcheck --process-active <역할>`·`--direction-head` 가 뽑은 것만 준다. 줄이는 방법은
   삭제가 아니라 **통합**이다 — 새 항목이 옛 항목을 "대체한다"고 적으면 원문은 남는다.

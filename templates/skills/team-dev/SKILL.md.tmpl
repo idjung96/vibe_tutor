@@ -182,6 +182,23 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
      append한다. 폐기는 삭제가 아니라 새 항목으로 표현한다. 승인 못 받으면 반영하지 않는다.
      ESCALATE가 있으면 14번으로 간다.
 {{/IF_LARGE}}
+7-0b. **백로그를 정리한다.** 돌릴지는 기계가 정한다:
+     python3 dev-agent-team/selfcheck.py --ledger-stats
+     "묵은 열린 항목" 수가 나오면 이 단계를 돈다. 안 나오면 7번으로 간다.
+     그루밍이 7-0에 묶여 있으면 관심이 단계 초점 고르기로 가서 정리가 안 된다.
+     실측 프로젝트에서 열린 항목 279개 중 139개가 20단계 넘게 묵어 있었다.
+
+     하는 일은 **지우는 것이 아니라 옮기는 것**이다. 이력은 남긴다.
+     a. lead가 낸 GROOMING에서 폐기 후보를 받는다(없으면 묵은 항목 중 우선순위 "하"부터).
+     b. 폐기할 항목을 dev-agent-team/BACKLOG_DONE.md 로 옮긴다:
+        - [-] B-번호 설명 · 출처:stageN/역할 · 폐기:stageM · 사유: 한 줄
+        BACKLOG.md 에서는 그 줄을 지운다.
+     c. **출처가 Owner인 항목은 스스로 폐기하지 않는다.** C등급으로 올린다(14번).
+        Owner가 낸 일을 팀이 조용히 버리면 안 된다.
+     d. 폐기 사유는 한 줄로 적는다. "안 할 것 같아서"는 사유가 아니다 —
+        이미 해결됨 / 요구사항이 바뀜 / 다른 항목에 흡수됨 / 재현 안 됨 중 하나여야 한다.
+     e. 정리 뒤 --ledger-stats 를 다시 돌려 묵은 수가 줄었는지 본다. 안 줄었으면 안 된 것이다.
+
 7. planner를 호출한다. dev-agent-team/BACKLOG.md의 "할 일"을 읽어 이번 단계에 반영한다.
    이 단계의 B등급 결정을 모두 내린다.
    결과를 dev-agent-team/DECISIONS.md에 기록한다. C등급이 나오면 14번으로 간다. (Gate 2, 자동)
@@ -317,6 +334,29 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
     - coder가 "기존 테스트가 틀렸다"고 주장한다: C등급이다.
     - 이 단계에서 checker 호출이 {{MAX_CHECKER_CALLS}}회를 넘었다: C등급이다.
 {{#IF_LARGE}}
+## 결정을 적을 때 (DECISIONS.md)
+
+한 건은 **15줄 목표**다. 형식은 dev-agent-team/DECISIONS.md 머리에 있다 —
+등급·질문·선택·이유·버린 대안·되돌리기·조사 링크.
+
+**코드를 읽으면 알 수 있는 것은 적지 않는다.** 적는 순간부터 낡고, 낡은 문서는 거짓말을 한다.
+- 구현 설명, `file.dart:431` 같은 위치 증거 → 적지 않는다. 줄 번호는 움직인다.
+  꼭 가리켜야 하면 커밋 해시로 가리킨다.
+- 조사 과정·케이스별 추적 → **밖으로 뺀다**(아래). 결정에는 번호만 남긴다.
+- 임시 상태("BACKLOG 4건이 이미 해결돼 있었다") → 결정이 아니다. BACKLOG로.
+
+**조사를 어디에 두나** — remote가 있으면 GitHub 이슈, 없으면 파일이다.
+- remote 있음: `gh issue create` 로 올리고 `- 조사: #번호` 만 남긴다(`gh` 는 ask 대상이다).
+  이슈 번호는 줄 번호와 달리 **안 썩는다.**
+- remote 없음(온프레미스·오프라인): `dev-agent-team/evidence/<stageN>-<주제>.md` 로 빼고
+  `- 조사: evidence/<파일>` 을 남긴다. 이 폴더는 역할 호출에 주지 않는다.
+- **결정 자체는 언제나 DECISIONS.md 안에 온전해야 한다.** 이슈를 못 읽는 상황(오프라인·권한
+  없음·저장소 이전)에서도 무엇을 why 골랐는지는 알 수 있어야 한다. 이슈가 사라져서 곤란해지는
+  내용이면 그건 결정이지 조사가 아니다 — 파일에 적어라.
+
+얼마나 커졌는지는 `python3 dev-agent-team/selfcheck.py --ledger-stats` 가 본다.
+40줄 넘는 절을 짚어 준다. 이미 쓴 것을 소급해 고칠 필요는 없다.
+
 12b-1. merge가 끝나면 **완료된 백로그를 아카이브로 옮긴다.** dev-agent-team/BACKLOG.md 의
      `[x]` 항목을 dev-agent-team/BACKLOG_DONE.md 끝에 붙이고 BACKLOG.md 에서 지운다.
      지우는 것이 아니라 옮기는 것이다 — 이력은 남는다. BACKLOG.md 는 planner·coder·

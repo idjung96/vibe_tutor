@@ -537,6 +537,62 @@ def test_ledger():
         check("통계가 줄수·절수를 센다", "DECISIONS.md" in st and "절 6개" in st, st)
 
 
+def test_ledger_stats_by_kind():
+    """문서 종류마다 다른 잣대를 대는가 — 전부에 같은 경고를 울리면 늘 울린다.
+
+    처음엔 "40줄 넘는 절" 경고를 모든 문서에 걸었더니 BACKLOG(목록)와 DESIGN(명세)까지
+    걸렸다. 그 둘은 절이 긴 것이 정상이다. 늘 울리는 경보는 무시되고, 무시되는 검사는
+    장식이다. 절 하나가 **한 건**인 문서(ledger)에만 크기를 따진다.
+    """
+    print("\n[문서 종류별 잣대]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        long_sec = "## [2026-01-01] stage-9: 큰 결정\n" + "본문\n" * 60
+        Path("dev-agent-team/DECISIONS.md").write_text("# 결정\n\n" + long_sec, encoding="utf-8")
+        # 명세·목록도 문턱을 넘겨 본다 — 넘어도 "조사" 라고 하면 안 된다.
+        Path("dev-agent-team/DESIGN.md").write_text(
+            "# 설계\n\n## 화면 A\n" + "명세\n" * 1600, encoding="utf-8")
+        Path("dev-agent-team/BACKLOG.md").write_text(
+            "# 백로그\n\n## 할 일\n" + "- [ ] B-1 일 · 출처:stage1/lead\n" * 600, encoding="utf-8")
+        out = subprocess.run([sys.executable, str(SELFCHECK), "--ledger-stats"],
+                             capture_output=True, text=True).stdout
+        check("ledger(결정)는 큰 절을 지적한다", "조사가 섞여 있다" in out, out)
+        check("spec(설계)은 '조사' 가 아니라 분할을 안내한다",
+              "명세라 긴 것 자체는 정상" in out and "분할" in out, out)
+        check("list(백로그)도 '조사' 가 아니다", "목록이라 긴 것 자체는 정상" in out, out)
+        check("지적이 DECISIONS 한 곳에만 뜬다", out.count("조사가 섞여 있다") == 1, out)
+
+
+def test_backlog_states():
+    """칸반의 todo/doing/done 을 파일 셋이 아니라 **줄의 상태**로 센다."""
+    print("\n[백로그 상태]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        Path("dev-agent-team/PLAN.json").write_text(
+            json.dumps({"current_stage": 30, "stages": [{"id": 1}]}), encoding="utf-8")
+        Path("dev-agent-team/BACKLOG.md").write_text(
+            "# 백로그\n\n## 할 일\n"
+            "- [ ] B-1 묵은 일 · 출처:stage1/lead\n"      # 29단계 묵음 -> stale
+            "- [ ] B-2 최근 일 · 출처:stage29/lead\n"     # 1단계 -> 안 묵음
+            "- [~] B-3 하는 중 · 출처:stage28/lead · 진행:stage30\n"
+            "- [x] B-4 끝난 일 · 출처:stage27/lead → stage29 처리\n"
+            + "채우기\n" * 520, encoding="utf-8")
+        out = subprocess.run([sys.executable, str(SELFCHECK), "--ledger-stats"],
+                             capture_output=True, text=True).stdout
+        check("대기·진행·완료를 센다", "열림 2개" in out and "완료 표시된 채 남은 것 1개" in out, out)
+        check("오래 묵은 항목을 센다", "묵은 열린 항목이 1개" in out, out)
+        check("완료분 이관을 시킨다", "BACKLOG_DONE.md 로 옮겨라" in out, out)
+        check("현재 단계를 못 읽으면 묵음 판정을 하지 않는다(추측하지 않는다)",
+              True)
+        Path("dev-agent-team/PLAN.json").unlink()
+        out2 = subprocess.run([sys.executable, str(SELFCHECK), "--ledger-stats"],
+                              capture_output=True, text=True).stdout
+        check("PLAN 이 없으면 묵음 지적이 사라진다", "묵은 열린 항목" not in out2, out2)
+        check("그래도 대기·완료 수는 센다", "열림 2개" in out2, out2)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -556,6 +612,8 @@ def main():
     test_process_injection()
     test_direction_head()
     test_ledger()
+    test_ledger_stats_by_kind()
+    test_backlog_states()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

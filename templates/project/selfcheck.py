@@ -1064,6 +1064,22 @@ def process_stats():
 # 단계 번호를 못 읽는 절은 **자르지 않고 그대로 준다**(43개가 그랬다). 판정할 수 없으면
 # 빼지 않는 쪽으로 기운다.
 LEDGER_KEEP = 5          # 본문을 통째로 주는 최근 단계 수
+# 한 절이 이 줄수를 넘으면 "결정이 아니라 조사가 들어갔다" 는 신호다. 실측 프로젝트에서
+# 41줄 넘는 26건(12%)이 파일의 63%를 차지했고, 최대 한 건이 1447줄이었다. 그 1447줄 중
+# 결정은 앞 30줄이고 나머지는 조사 기록이었다. 조사는 이슈나 evidence/ 로 뺀다.
+LEDGER_SECTION_WARN = 40
+# 문서 종류가 다르면 큰 절의 뜻이 다르다. 전부에 같은 경고를 울리면 늘 울리고, 늘 울리는
+# 경보는 무시된다. 절 하나가 **한 건**인 문서에서만 크기를 따진다.
+#   ledger: 절 = 한 건(결정·개정·방향). 크면 조사가 섞여 들어간 것이다.
+#   list  : 절 = 항목 묶음(백로그). 길어도 정상이고, 줄이는 방법은 완료분 아카이브다.
+#   spec  : 명세(설계·요구사항). 길 수 있다. 줄이려면 분할이지 요약이 아니다.
+LEDGER_KIND = {
+    "DECISIONS.md": "ledger", "PROCESS.md": "ledger", "DIRECTION.md": "ledger",
+    "BACKLOG.md": "list", "BACKLOG_DONE.md": "list",
+    "DESIGN.md": "spec", "REQUIREMENTS.md": "spec", "TEST_LOG.md": "list",
+}
+SPEC_WARN_LINES = 1500   # 명세가 이보다 크면 분할을 권한다(경고 아님, 안내)
+BACKLOG_STALE = 20       # 이 단계 수 이상 묵은 열린 항목은 그루밍 대상이다
 
 
 def _ledger_sections(path):
@@ -1123,11 +1139,38 @@ def ledger(name, keep=None):
     return 0
 
 
+def backlog_counts():
+    """BACKLOG 의 상태를 센다 — 칸반의 todo/doing/done 에 해당한다.
+
+    컬럼(파일)을 셋으로 쪼개지 않는다. 이 팀은 단계를 하나씩 도므로 WIP 는 이미 1이고,
+    todo 는 `- [ ]`, done 은 BACKLOG_DONE.md 로 이미 나뉘어 있다. 모자란 것은 컬럼이 아니라
+    **진행 표시와 계측**이었다(실제 프로젝트는 손으로 25건 진행 표시를 하고 있었다).
+    """
+    p = Path("dev-agent-team/BACKLOG.md")
+    if not p.is_file():
+        return None
+    txt = p.read_text(encoding="utf-8", errors="replace")
+    plan = _read_plan()
+    cur = plan[1] if plan else None      # (stages, current_stage) 중 뒤가 단계 번호다
+    todo = re.findall(r"^- \[ \][^\n]*", txt, re.M)
+    out = {"todo": len(todo),
+           "doing": len(re.findall(r"^- \[~\]", txt, re.M)) + len(re.findall(r"·\s*진행:stage", txt)),
+           "done": len(re.findall(r"^- \[x\]", txt, re.M)),
+           "stale": 0}
+    if cur:
+        for line in todo:
+            m = re.search(r"출처:stage(\d+)", line)
+            if m and cur - int(m.group(1)) >= BACKLOG_STALE:
+                out["stale"] += 1
+    return out
+
+
 def ledger_stats():
     """누적 문서가 얼마나 자랐는지 한눈에. 아무것도 막지 않는다."""
     names = ["DECISIONS.md", "PROCESS.md", "DIRECTION.md", "BACKLOG.md",
              "DESIGN.md", "TEST_LOG.md", "REQUIREMENTS.md"]
     print("[ledger] 누적 문서 크기 (이력이라 지우지 않는다. 주는 양만 줄인다)")
+    fat, spec, lists = [], [], []
     for n in names:
         p = Path("dev-agent-team") / n
         if not p.is_file():
@@ -1136,6 +1179,41 @@ def ledger_stats():
         nl = len(txt.splitlines())
         _, secs = _ledger_sections(p) if nl else ([], [])
         print(f"  {n:<16} {nl:>6}줄 {len(txt)//1024:>5}KB  절 {len(secs)}개")
+        kind = LEDGER_KIND.get(n, "ledger")
+        if kind == "ledger":
+            big = [(h, len(b) + 1) for h, b, _ in secs if len(b) + 1 > LEDGER_SECTION_WARN]
+            if big:
+                fat.append((n, big, sum(x for _, x in big) * 100 // max(nl, 1)))
+        elif kind == "spec" and nl > SPEC_WARN_LINES:
+            spec.append((n, nl, len(secs)))
+        elif kind == "list" and n == "BACKLOG.md" and nl > SPEC_WARN_LINES // 3:
+            lists.append((n, nl))
+
+    for name, big, share in fat:
+        print(f"\n[ledger] {name}: {LEDGER_SECTION_WARN}줄 넘는 절 {len(big)}개가 "
+              f"파일의 {share}% 를 차지한다. 절 하나가 한 건인 문서인데 **조사가 섞여 있다.**")
+        for h, k in sorted(big, key=lambda x: -x[1])[:5]:
+            print(f"  {k:>5}줄  {h.lstrip('# ').strip()[:70]}")
+        print("  조사는 이슈(#번호)나 dev-agent-team/evidence/ 로 빼고 번호만 남겨라.")
+        print("  이미 쓴 것을 소급해 고칠 필요는 없다 — --ledger 가 제목만 준다.")
+    for name, nl, ns in spec:
+        print(f"\n[ledger] {name}: {nl}줄 · 절 {ns}개. 명세라 긴 것 자체는 정상이다.")
+        print("  줄이려면 요약이 아니라 **분할**이다(화면·모듈 단위로 파일을 나누고 링크).")
+    for name, nl in lists:
+        print(f"\n[ledger] {name}: {nl}줄. 목록이라 긴 것 자체는 정상이다.")
+        b = backlog_counts()
+        if b:
+            print(f"  열림 {b['todo']}개 · 진행 {b['doing']}개 · 완료 표시된 채 남은 것 {b['done']}개")
+            if b["done"]:
+                print(f"  → 완료 {b['done']}개를 dev-agent-team/BACKLOG_DONE.md 로 옮겨라(12b-1).")
+            if b["stale"]:
+                print(f"  → {BACKLOG_STALE}단계 이상 묵은 열린 항목이 {b['stale']}개다. "
+                      "lead 그루밍에서 우선순위를 내리거나 폐기를 제안하게 하라.")
+            if b["doing"] > 1:
+                print(f"  → 동시에 진행 중인 항목이 {b['doing']}개다. 단계는 하나씩 돈다 — "
+                      "끝난 것의 진행 표시를 지웠는지 확인하라.")
+    if not (fat or spec or lists):
+        print(f"\n[ledger] 지적 없음. 결정은 결정만, 목록은 목록만 담고 있다.")
     return 0
 
 

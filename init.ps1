@@ -412,7 +412,7 @@ if ($AcceptConstitution) {
 }
 
 Render-Managed (Join-Path $Src 'templates\AGENTS.md.tmpl') (Join-Path $Target 'AGENTS.md') 'AGENTS.md'
-foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks') {
+foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks', 'dev-agent-team\evidence') {
     New-Item -ItemType Directory -Force -Path (Join-Path $Target $d) | Out-Null
 }
 # init.sh 와 같다 — common/ 은 제품 디렉터리라 이미 있으면 덮지 않는다.
@@ -449,7 +449,8 @@ foreach ($pair in @(
         @('templates\project\PROJECT_RULES.md', 'dev-agent-team\PROJECT_RULES.md'),
         @('templates\project\TEST_LOG.md', 'dev-agent-team\TEST_LOG.md'),
         @('templates\project\docs-libs-INDEX.md', 'dev-agent-team\libs\INDEX.md'),
-        @('templates\project\BACKLOG.md', 'dev-agent-team\BACKLOG.md'))) {
+        @('templates\project\BACKLOG.md', 'dev-agent-team\BACKLOG.md'),
+        @('templates\project\BACKLOG_DONE.md', 'dev-agent-team\BACKLOG_DONE.md'))) {
     $dst = Join-Path $Target $pair[1]
     if (-not (Test-Path $dst)) { Copy-Item (Join-Path $Src $pair[0]) $dst }
 }
@@ -457,7 +458,7 @@ Migrate-TestLog (Join-Path $Target 'dev-agent-team\TEST_LOG.md')
 if ($Profile -eq 'large' -and -not (Test-Path (Join-Path $Target 'dev-agent-team\DIRECTION.md'))) {
     Copy-Item (Join-Path $Src 'templates\project\DIRECTION.md') (Join-Path $Target 'dev-agent-team\DIRECTION.md')
 }
-foreach ($k in 'logs\.gitkeep', 'dev-agent-team\answered\.gitkeep') {
+foreach ($k in 'logs\.gitkeep', 'dev-agent-team\answered\.gitkeep', 'dev-agent-team\evidence\.gitkeep') {
     New-Item -ItemType File -Force -Path (Join-Path $Target $k) | Out-Null
 }
 

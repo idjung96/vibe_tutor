@@ -51,7 +51,8 @@ python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 
 python3 dev-agent-team/selfcheck.py --process-active coder
 python3 dev-agent-team/selfcheck.py --process-stats      # 얼마나 쌓였나 · 통합이 필요한가
 python3 dev-agent-team/selfcheck.py --direction-head     # DIRECTION 은 마지막 절만
-python3 dev-agent-team/selfcheck.py --ledger DECISIONS.md  # 제목 인덱스 + 최근 단계 본문
+python3 dev-agent-team/selfcheck.py --ledger DECISIONS.md  # 예산 안에서 최근 것부터
+python3 dev-agent-team/selfcheck.py --ledger-archive DECISIONS.md --keep 10  # 파일을 줄인다
 python3 dev-agent-team/selfcheck.py --ledger-stats         # 누적 문서 크기 · 큰 절 · 묵은 백로그
 
 # 회고가 필요한 단계인지 기계로 판정 (12c 가 매번 이걸 먼저 돌린다)
@@ -64,7 +65,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 107항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 122항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 111항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -279,11 +280,19 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - **분할 축은 "활성 / 아카이브" 하나다.** 브랜치별로 나누지 않는다 — 단계 브랜치는 main 에
   합쳐져 사라지고, "상태가 전부 파일에 있다"는 전제(무손실 모델 전환)가 깨진다.
   모듈·파일 단위도 축이 못 된다 — 결정은 대개 교차 관심사다.
-- **긴 이력은 `--ledger <문서>`** 로 준다: **전체 제목 인덱스 + 최근 N단계 본문**(ADR 방식).
-  최근 것만 잘라 주면 안 된다 — stage-2 의 "sqlite 를 쓴다" 같은 기초 결정이 창 밖으로
-  나가면 critic 이 모순을 못 보고 통과시킨다(원칙 1). 제목은 전부 주므로 **옛 결정이 있다는
-  사실은 언제나 보인다.** 단계 번호를 못 읽는 절은 자르지 않는다.
-  실측: `DECISIONS.md` 5424줄 → `--keep 3` 에서 634줄, 제목 208건은 그대로 보인다.
+- **주입에는 줄 예산이 있다**(`LEDGER_BUDGET`, 기본 400). 제목을 전부 주면 결정이 늘수록
+  주입도 늘어 **O(n)** 이 된다 — 실측에서 634줄 중 337줄(53%)이 이미 제목이었다. 예산 안에서
+  최근 본문부터 채우고, 남는 예산으로 제목을 채우고, 넘치면 **"그 이전 N건이 있다"는 한 줄로
+  접는다.** 접어도 있다는 사실은 숨기지 않는다. 절 하나가 예산보다 크면 잘라서 준다 —
+  안 자르면 상한이 상한이 아니다(실측에 1447줄짜리 결정이 있었다).
+- **파일을 줄이는 것은 `--ledger-archive`** 다. 오래된 절을 `<문서>_ARCHIVE.md` 로 **옮기고**
+  원본에 포인터 한 줄을 남긴다. 멱등이고, 단계 번호를 못 읽으면 옮기지 않는다.
+- **순서가 있다: 승격 먼저, 아카이브 나중.** 오래됐다고 안 중요한 것이 아니다.
+  "우리는 sqlite 를 쓴다" 같은 **계속 유효한 제약**은 로그에 두면 접히거나 묻힌다 —
+  `PROJECT_RULES.md` 로 승격한다(언제나 통째로 전달된다). 판단 기준: **"이걸 모르고 작업하면
+  팀이 틀리게 가는가?"** 승격 없이 내리면 유효한 제약이 사라진다(원칙 1).
+  **접히는 것은 지나간 로그뿐이어야 한다.**
+  실측: 5424줄 → 아카이브(keep 10) 뒤 파일 2534줄, 주입 122줄.
 - 크기는 `--ledger-stats` 로 본다. 실측(단계 202 시점): DECISIONS 5424 · DESIGN 4880 ·
   PROCESS 1671 · BACKLOG 891 · DIRECTION 481줄.
 - **완료된 백로그는 `BACKLOG_DONE.md` 로 옮긴다**(12b-1). 지우는 게 아니라 옮기는 것이다.

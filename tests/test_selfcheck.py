@@ -11,6 +11,7 @@ pytest 를 쓰지 않는다 — 이 저장소의 tests/ 는 의존성 없이 도
 (verify_hooks.sh·verify_parity.py), 대상인 selfcheck.py 자체도 표준 라이브러리만 쓴다.
 """
 import importlib.util
+import re
 import json
 import os
 import subprocess
@@ -516,20 +517,27 @@ def test_ledger():
 
         out = run("--ledger", "DECISIONS.md", "--keep", "2")
         check("최근 단계 본문은 준다", "본문 12" in out and "본문 11" in out, out)
-        check("옛 단계 본문은 빼고", "본문 2" not in out and "본문 3" not in out, out)
+        # 부분 일치로 판정하지 않는다 — 꼬리말의 "전문=3개" 같은 낱말이 본문 줄과 겹친다.
+        body_lines = out.split("## 본문", 1)[1] if "## 본문" in out else ""
+        check("옛 단계 본문은 빼고",
+              "\n본문 2\n" not in body_lines and "\n본문 3\n" not in body_lines, out)
         check("**제목은 전부 준다**(옛 결정이 있다는 사실을 숨기지 않는다)",
               out.count("결정 2") and out.count("결정 3") and out.count("결정 10"), out)
         check("제목만 준 것은 표시한다", "(제목만)" in out, out)
         check("단계를 못 읽는 절은 본문째 준다(판정 불가 -> 빼지 않는다)",
               "본문 X" in out, out)
         check("머리말은 유지한다", "형식 설명 줄" in out, out)
-        check("몇 건을 줄였는지 알린다", "제목만 줬다" in out, out)
+        check("무엇을 얼마나 줬는지 알린다", "전문=" in out and "제목만=" in out, out)
 
         check("원본은 그대로다(이력 보존)",
               "본문 2" in Path("dev-agent-team/DECISIONS.md").read_text(encoding="utf-8"))
 
         wide = run("--ledger", "DECISIONS.md", "--keep", "100")
-        check("창이 넓으면 전부 본문", "본문 2" in wide and "제목만" not in wide, wide)
+        wide_body = wide.split("## 본문", 1)[1]
+        check("창이 넓으면 전부 본문",
+              "\n본문 2\n" in wide_body and "(제목만)" not in wide, wide)
+        check("예산을 넘기지 않는다",
+              len(run("--ledger", "DECISIONS.md", "--keep", "100").splitlines()) <= 400)
 
         check("없는 문서는 그렇다고 말한다", "가 없다" in run("--ledger", "NOPE.md"))
 
@@ -593,6 +601,69 @@ def test_backlog_states():
         check("그래도 대기·완료 수는 센다", "열림 2개" in out2, out2)
 
 
+def test_ledger_budget_and_archive():
+    """주입에 상한이 있는가, 그리고 파일 자체가 줄어드는가.
+
+    제목 인덱스를 전부 주면 결정이 늘수록 주입도 같이 늘어 O(n) 이 된다 — 실측에서
+    634줄 중 337줄(53%)이 이미 제목이었다. 예산 안에서 최근 것부터 채우고, 넘치면
+    "그 이전 N건이 있다"는 한 줄로 접는다. 접어도 **있다는 사실은 숨기지 않는다.**
+
+    파일은 --ledger-archive 로 **옮겨서** 줄인다. 지우지 않는다. 그리고 순서가 있다 —
+    계속 유효한 제약을 PROJECT_RULES.md 로 승격한 **뒤에** 내려야 한다. 오래됐다고
+    안 중요한 것이 아니다.
+    """
+    print("\n[주입 상한과 아카이브]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        doc = ["# 결정 기록", ""]
+        for st in range(1, 121):                      # 120건, 각 6줄
+            doc += [f"## [2026-01-01] stage-{st}: 결정 {st}"] + [f"내용 {st}"] * 5 + [""]
+        Path("dev-agent-team/DECISIONS.md").write_text("\n".join(doc), encoding="utf-8")
+
+        def run(*a):
+            return subprocess.run([sys.executable, str(SELFCHECK), *a],
+                                  capture_output=True, text=True).stdout
+
+        out = run("--ledger", "DECISIONS.md", "--keep", "200")
+        check("결정 120건이어도 예산 안에 든다", len(out.splitlines()) <= 400, len(out.splitlines()))
+        check("접은 건수를 알린다", "접음=" in out, out[-300:])
+        check("접힌 것이 있다는 사실을 숨기지 않는다", "있다는 것만 알아 둬라" in out, out[:800])
+        check("어디를 봐야 하는지 알려 준다", "PROJECT_RULES.md" in out, out[:800])
+
+        # 절 하나가 예산보다 커도 상한을 지킨다(실측에 1447줄짜리 결정이 있었다).
+        Path("dev-agent-team/DECISIONS.md").write_text(
+            "# 결정\n\n## [2026-01-01] stage-9: 거대한 결정\n" + "줄\n" * 900, encoding="utf-8")
+        out = run("--ledger", "DECISIONS.md")
+        check("절 하나가 예산보다 커도 잘라서 상한을 지킨다",
+              len(out.splitlines()) <= 430, len(out.splitlines()))
+        check("잘랐다는 사실과 원문 위치를 말한다", "줄만 줬다" in out, out[-400:])
+
+        # 아카이브: 옮기는 것이지 지우는 것이 아니다.
+        Path("dev-agent-team/DECISIONS.md").write_text("\n".join(doc), encoding="utf-8")
+        before = Path("dev-agent-team/DECISIONS.md").read_text(encoding="utf-8")
+        r = run("--ledger-archive", "DECISIONS.md", "--keep", "10")
+        now = Path("dev-agent-team/DECISIONS.md").read_text(encoding="utf-8")
+        arc = Path("dev-agent-team/DECISIONS_ARCHIVE.md")
+        check("파일이 실제로 줄어든다", len(now.splitlines()) < len(before.splitlines()) // 2,
+              (len(before.splitlines()), len(now.splitlines())))
+        check("아카이브 파일이 생긴다", arc.is_file(), r)
+        heads = re.findall(r"^##\s+\[.*$", before, re.M)
+        both = now + arc.read_text(encoding="utf-8")
+        check("절이 하나도 사라지지 않는다", all(h in both for h in heads),
+              [h for h in heads if h not in both][:3])
+        check("원본에 어디로 옮겼는지 남는다", "DECISIONS_ARCHIVE.md 으로 옮겼다" in now, now[:400])
+        check("승격을 먼저 하라고 알린다", "승격" in r, r)
+        check("다시 돌려도 두 번 옮기지 않는다(멱등)",
+              "옮길 것이 없다" in run("--ledger-archive", "DECISIONS.md", "--keep", "10"))
+        check("아카이브 뒤 주입이 더 짧아진다",
+              len(run("--ledger", "DECISIONS.md").splitlines()) < 200)
+        check("단계 번호를 못 읽으면 옮기지 않는다(추측하지 않는다)",
+              "옮기지 않는다" in (lambda: (Path("dev-agent-team/X.md").write_text(
+                  "# X\n\n## 번호 없는 절\n내용\n", encoding="utf-8"),
+                  run("--ledger-archive", "X.md"))[1])())
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -612,6 +683,7 @@ def main():
     test_process_injection()
     test_direction_head()
     test_ledger()
+    test_ledger_budget_and_archive()
     test_ledger_stats_by_kind()
     test_backlog_states()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")

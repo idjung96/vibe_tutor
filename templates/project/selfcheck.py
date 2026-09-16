@@ -1064,6 +1064,10 @@ def process_stats():
 # 단계 번호를 못 읽는 절은 **자르지 않고 그대로 준다**(43개가 그랬다). 판정할 수 없으면
 # 빼지 않는 쪽으로 기운다.
 LEDGER_KEEP = 5          # 본문을 통째로 주는 최근 단계 수
+# 주입에는 **상한**이 있어야 한다. 제목 인덱스를 전부 주면 결정이 늘수록 주입도 같이 늘어
+# O(n) 이 된다 — 실측에서 634줄 중 337줄(53%)이 이미 제목이었다. 예산을 정하고 그 안에
+# 최근 것부터 채운다. 넘치면 **존재는 한 줄로 알리고** 목록을 접는다. 없는 척하지 않는다.
+LEDGER_BUDGET = 400      # 한 문서를 주입할 때 쓰는 최대 줄 수
 # 한 절이 이 줄수를 넘으면 "결정이 아니라 조사가 들어갔다" 는 신호다. 실측 프로젝트에서
 # 41줄 넘는 26건(12%)이 파일의 63%를 차지했고, 최대 한 건이 1447줄이었다. 그 1447줄 중
 # 결정은 앞 30줄이고 나머지는 조사 기록이었다. 조사는 이슈나 evidence/ 로 뺀다.
@@ -1121,21 +1125,62 @@ def ledger(name, keep=None):
     def full(stage):
         return stage is None or cut is None or stage > cut
 
-    print("\n".join(head).rstrip())
-    print(f"\n## 전체 목록 ({len(secs)}건) — 본문은 최근 {keep}단계만 아래에 있다")
-    for h, _, st in secs:
-        mark = "" if full(st) else "  (제목만)"
+    head_txt = "\n".join(head).rstrip()
+    budget = LEDGER_BUDGET - len(head_txt.splitlines()) - 8   # 머리말·제목줄·꼬리 몫
+
+    # 최근 것부터 본문을 채운다. 한 건의 값은 본문 줄수 + 헤더·빈줄 2 + 목록 제목 1 이다.
+    # keep 창은 **상한**으로만 쓴다(창 밖은 애초에 본문 후보가 아니다). 예산이 진짜 한계다.
+    body, used = [], 0
+    for h, bl, st in reversed(secs):
+        if not full(st):
+            continue
+        cost = len(bl) + 3
+        if body and used + cost > budget:
+            break
+        body.append(h); used += min(cost, budget)
+    body_ids = {id(h) for h in body}
+
+    # 남는 예산으로 더 옛것의 **제목만** 채운다. 본문을 넣은 건은 이미 제목값을 냈다.
+    titles, extra = [], 0
+    for h, _, _ in reversed(secs):
+        if id(h) in body_ids:
+            titles.append(h); continue
+        if used + extra + 1 > budget:
+            break
+        titles.append(h); extra += 1
+    titles.reverse()
+    folded = len(secs) - len(titles)
+    bodies = {id(h): bl for h, bl, _ in secs}
+
+    print(head_txt)
+    print(f"\n## 목록 (전체 {len(secs)}건 중 {len(titles)}건)")
+    for h in titles:
+        mark = "" if id(h) in body_ids else "  (제목만)"
         print(f"- {h.lstrip('# ').strip()}{mark}")
-    kept = [(h, b) for h, b, st in secs if full(st)]
-    print(f"\n## 본문")
-    for h, b in kept:
+    if folded:
+        print(f"- … 그 이전 {folded}건은 제목도 접었다. **있다는 것만 알아 둬라.** "
+              f"계속 유효한 제약이라면 이 로그가 아니라 REQUIREMENTS.md·PROJECT_RULES.md 에 "
+              f"있어야 한다. 원문은 {path}.")
+    print("\n## 본문")
+    for h in titles:
+        if id(h) not in body_ids:
+            continue
         print(h)
-        print("\n".join(b).rstrip())
+        bl = bodies[id(h)]
+        # 절 하나가 예산보다 크면 잘라서 준다. 안 자르면 상한이 상한이 아니다 —
+        # 실측에 1447줄짜리 결정이 있었다. 자른 사실과 원문 위치를 반드시 말한다.
+        if len(bl) > budget:
+            print("\n".join(bl[:budget]).rstrip())
+            print(f"… (이 절은 {len(bl)}줄이라 {budget}줄만 줬다. "
+                  f"원문: {path} — 결정 한 건은 15줄 목표다)")
+        else:
+            print("\n".join(bl).rstrip())
         print()
-    older = len(secs) - len(kept)
-    if older:
-        print(f"<!-- [ledger] 옛 절 {older}건은 제목만 줬다. 본문이 필요하면 {path} 를 "
-              "직접 읽어라. 제목에 단계 번호가 없는 절은 자르지 않고 전부 줬다. -->")
+    # 꼬리말 낱말이 본문 텍스트와 겹치지 않게 쓴다("본문 3건" 은 본문 줄 "본문 3" 과
+    # 부분 일치한다). 사람이 읽는 줄이라도 기계가 뒤에서 세는 일이 있다.
+    print(f"<!-- [ledger] 예산={LEDGER_BUDGET}줄 · 절: 전문={len(body)}개 "
+          f"제목만={len(titles) - len(body)}개 접음={folded}개 · "
+          f"원문={path} (한 줄도 지우지 않았다) -->")
     return 0
 
 
@@ -1163,6 +1208,57 @@ def backlog_counts():
             if m and cur - int(m.group(1)) >= BACKLOG_STALE:
                 out["stale"] += 1
     return out
+
+
+def ledger_archive(name, keep=None):
+    """오래된 절을 `<문서>_ARCHIVE.md` 로 **옮긴다**(지우지 않는다). 파일 자체를 줄인다.
+
+    주입만 줄이면 파일은 계속 자라고, 제목 인덱스가 O(n) 으로 늘어 주입도 결국 는다.
+    그래서 파일을 줄여야 하는데 — **오래됐다고 안 중요한 것은 아니다.** "우리는 sqlite 를
+    쓴다" 같은 계속 유효한 제약이 아카이브로 내려가면 팀이 그걸 모르고 어긴다.
+
+    그래서 순서가 있다. 먼저 **계속 유효한 제약을 REQUIREMENTS.md·PROJECT_RULES.md 로
+    승격**하고(사람이 판단한다. 7-0b), 그 다음에 남은 로그를 내린다. 이 명령은 뒤쪽만 한다.
+    """
+    keep = LEDGER_KEEP if keep is None else keep
+    path = Path(name if "/" in name else f"dev-agent-team/{name}")
+    if not path.is_file():
+        print(f"[archive] {path} 가 없다.")
+        return 0
+    head, secs = _ledger_sections(path)
+    known = [st for _, _, st in secs if st is not None]
+    if not known:
+        print(f"[archive] {path} 에서 단계 번호를 읽을 수 있는 절이 없다. 옮기지 않는다.")
+        return 0
+    cut = max(known) - keep
+    old = [(h, b) for h, b, st in secs if st is not None and st <= cut]
+    new = [(h, b) for h, b, st in secs if not (st is not None and st <= cut)]
+    if not old:
+        print(f"[archive] {path}: 최근 {keep}단계 밖의 절이 없다. 옮길 것이 없다.")
+        return 0
+
+    arc = path.with_name(path.stem + "_ARCHIVE.md")
+    block = "\n".join(f"{h}\n" + "\n".join(b).rstrip() + "\n" for h, b in old)
+    if arc.is_file():
+        arc.write_text(arc.read_text(encoding="utf-8").rstrip() + "\n\n" + block, encoding="utf-8")
+    else:
+        arc.write_text(f"# {path.stem} — 아카이브\n\n"
+                       "여기 있는 것은 **지나간 로그**다. 계속 유효한 제약은 여기 있으면 안 된다 —\n"
+                       "그런 것은 REQUIREMENTS.md 나 dev-agent-team/PROJECT_RULES.md 로 승격한다.\n"
+                       "지우지 않는다. 옮긴 것이다.\n\n" + block, encoding="utf-8")
+    # 아카이브를 먼저 쓰고 **확인한 뒤에** 원본을 줄인다. 반대로 하면 중간에 죽을 때 사라진다.
+    if not arc.is_file() or len(arc.read_text(encoding="utf-8")) < len(block) // 2:
+        print(f"[archive] 아카이브 쓰기를 확인하지 못했다. 원본을 건드리지 않는다.")
+        return 1
+    pointer = (f"\n> 단계 {min(st for _, _, st in secs if st is not None)}~{cut} 의 {len(old)}건은 "
+               f"{arc.name} 으로 옮겼다(지우지 않았다).\n")
+    body = "\n".join(f"{h}\n" + "\n".join(b).rstrip() + "\n" for h, b in new)
+    path.write_text("\n".join(head).rstrip() + "\n" + pointer + "\n" + body, encoding="utf-8")
+    print(f"[archive] {path}: {len(old)}건을 {arc.name} 으로 옮겼다. "
+          f"남은 절 {len(new)}건.")
+    print(f"[archive] 옮기기 전에 **계속 유효한 제약을 승격했는지** 확인하라 — "
+          "오래됐다고 안 중요한 것이 아니다.")
+    return 0
 
 
 def ledger_stats():
@@ -1544,6 +1640,17 @@ def main():
         return direction_head()
     if "--ledger-stats" in sys.argv[1:]:
         return ledger_stats()
+    if "--ledger-archive" in sys.argv[1:]:
+        i = sys.argv.index("--ledger-archive")
+        if i + 1 >= len(sys.argv):
+            print("--ledger-archive 뒤에 문서 이름이 필요하다", file=sys.stderr)
+            return 2
+        keep = None
+        if "--keep" in sys.argv[1:]:
+            j = sys.argv.index("--keep")
+            if j + 1 < len(sys.argv) and sys.argv[j + 1].isdigit():
+                keep = int(sys.argv[j + 1])
+        return ledger_archive(sys.argv[i + 1], keep)
     if "--ledger" in sys.argv[1:]:
         i = sys.argv.index("--ledger")
         if i + 1 >= len(sys.argv):

@@ -658,7 +658,8 @@ def test_ledger_budget_and_archive():
         check("절이 하나도 사라지지 않는다", all(h in both for h in heads),
               [h for h in heads if h not in both][:3])
         check("원본에 어디로 옮겼는지 남는다", "DECISIONS_ARCHIVE.md 으로 옮겼다" in now, now[:400])
-        check("승격을 먼저 하라고 알린다", "승격" in r, r)
+        check("무엇을 옮겼는지 제목을 보여 준다", "옮긴 것:" in r and "stage-" in r, r)
+        check("규칙이 섞였으면 고정하라고 알려 준다", "[규칙]" in r, r)
         check("다시 돌려도 두 번 옮기지 않는다(멱등)",
               "옮길 것이 없다" in run("--ledger-archive", "DECISIONS.md", "--keep", "10"))
         check("아카이브 뒤 주입이 더 짧아진다",
@@ -707,6 +708,49 @@ def test_design_head_is_pinned():
               "AppFontSize 체계를 쓴다" in run("--ledger", "DESIGN.md"))
 
 
+def test_pinned_sections():
+    """`[규칙]` 절은 접히지도 아카이브되지도 않는가.
+
+    "승격 먼저, 아카이브 나중" 은 절차 문장이라 지켜지지 않는다 — 이 저장소에서 P-규칙
+    통합이 76개 중 2번뿐이었던 것과 같은 이유다. 그래서 구조로 막는다.
+    실측 DESIGN.md 에 `§121 폰트 크기 토큰 체계(AppFontSize, 전역 타이포 정리)` 가
+    단계 절에 있었다. 전역 규칙인데 그 단계가 아카이브되면 다음 designer 가 못 본다.
+
+    판정은 **쓰는 사람이 단 표시**로 한다. 자유 텍스트에서 "전역"·"규칙" 을 찾아
+    추측하지 않는다(원칙 2).
+    """
+    print("\n[고정 절]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        doc = ["# 화면 설계", ""]
+        doc += ["## [규칙] 단계121: 폰트 크기 토큰 체계", "AppFontSize 만 쓴다", ""]
+        for st in range(1, 80):
+            doc += [f"## 단계{st}: 화면 {st}"] + [f"명세 {st}"] * 8 + [""]
+        Path("dev-agent-team/DESIGN.md").write_text("\n".join(doc), encoding="utf-8")
+
+        def run(*a):
+            return subprocess.run([sys.executable, str(SELFCHECK), *a],
+                                  capture_output=True, text=True).stdout
+
+        out = run("--ledger", "DESIGN.md")
+        check("고정 절은 접히지 않고 본문째 들어간다", "AppFontSize 만 쓴다" in out, out[:600])
+        check("접힌 것이 있어도 그렇다", "접음=" in out, out[-200:])
+        check("예산은 그대로 지킨다", len(out.splitlines()) <= 430, len(out.splitlines()))
+
+        r = run("--ledger-archive", "DESIGN.md", "--keep", "5")
+        now = Path("dev-agent-team/DESIGN.md").read_text(encoding="utf-8")
+        arc = Path("dev-agent-team/DESIGN_ARCHIVE.md").read_text(encoding="utf-8")
+        check("고정 절은 아카이브로 내려가지 않는다", "AppFontSize 만 쓴다" not in arc, arc[:400])
+        check("고정 절은 원본에 남는다", "AppFontSize 만 쓴다" in now, now[:400])
+        check("단계 번호가 있어도 고정이면 안 내려간다", "단계121" in now and "단계121" not in arc)
+        check("고정이 몇 건인지 알린다", "고정 1건" in r, r)
+        check("옛 단계는 내려간다", "## 단계1:" in arc)
+
+        check("아카이브 뒤에도 고정 절은 주입된다",
+              "AppFontSize 만 쓴다" in run("--ledger", "DESIGN.md"))
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -728,6 +772,7 @@ def main():
     test_ledger()
     test_ledger_budget_and_archive()
     test_design_head_is_pinned()
+    test_pinned_sections()
     test_ledger_stats_by_kind()
     test_backlog_states()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")

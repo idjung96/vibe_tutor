@@ -1090,6 +1090,15 @@ LEDGER_KIND = {
 # 계속 유효한 규칙(디자인 토큰 체계 같은 것)은 절이 아니라 여기에 둔다. 다만 여기도
 # 무한정 자라면 예산을 먹으므로 이 비율을 넘으면 알린다.
 LEDGER_HEAD_SHARE = 0.4
+# 제목에 이 표시가 있는 절은 **고정**이다 — 접히지도 아카이브되지도 않고 언제나 통째로 간다.
+# "승격 먼저, 아카이브 나중" 은 절차 문장이라 지켜지지 않는다(이 저장소에서 통합이 76개 중
+# 2번뿐이었다). 그래서 구조로 막는다. 실측 DESIGN.md 에 `§121 폰트 크기 토큰 체계
+# (AppFontSize, 전역 타이포 정리)` 가 단계 절에 들어 있었다 — 전역 규칙인데 그 단계가
+# 아카이브되면 다음 designer 가 못 본다. 그런 절에 이 표시를 단다.
+#
+# 자유 텍스트에서 "전역"·"규칙" 같은 낱말을 찾아 추측하지 않는다(원칙 2). 쓰는 사람이
+# 표시한다. 표시가 없으면 로그로 본다.
+LEDGER_PIN = "[규칙]"
 # ledger 라고 다 절이 짧아야 하는 건 아니다. 결정·개정·방향은 한 절이 한 건이라 길면
 # 조사가 섞인 것이지만, DESIGN 의 한 절은 **화면 하나의 명세**라 500줄이 정상이다.
 # 전부에 같은 잣대를 대면 또 늘 울린다.
@@ -1115,6 +1124,9 @@ def _ledger_sections(path):
         secs.append(cur)
     out = []
     for h, body in secs:
+        if LEDGER_PIN in h:
+            out.append((h, body, "pin"))      # 고정 절: 단계와 무관하게 언제나 준다
+            continue
         m = re.search(r"stage-?(\d+)|단계\s*(\d+)", h)
         out.append((h, body, int(m.group(1) or m.group(2)) if m else None))
     return head, out
@@ -1131,11 +1143,11 @@ def ledger(name, keep=None):
     if not secs:
         print("\n".join(head).rstrip())
         return 0
-    known = [s for _, _, s in secs if s is not None]
+    known = [s for _, _, s in secs if isinstance(s, int)]
     cut = (max(known) - keep) if known else None
 
     def full(stage):
-        return stage is None or cut is None or stage > cut
+        return not isinstance(stage, int) or cut is None or stage > cut
 
     head_txt = "\n".join(head).rstrip()
     budget = LEDGER_BUDGET - len(head_txt.splitlines()) - 8   # 머리말·제목줄·꼬리 몫
@@ -1143,8 +1155,11 @@ def ledger(name, keep=None):
     # 최근 것부터 본문을 채운다. 한 건의 값은 본문 줄수 + 헤더·빈줄 2 + 목록 제목 1 이다.
     # keep 창은 **상한**으로만 쓴다(창 밖은 애초에 본문 후보가 아니다). 예산이 진짜 한계다.
     body, used = [], 0
+    for h, bl, st in secs:                    # 고정 절 먼저(파일 순서대로)
+        if st == "pin":
+            body.append(h); used += len(bl) + 3
     for h, bl, st in reversed(secs):
-        if not full(st):
+        if st == "pin" or not full(st):
             continue
         cost = len(bl) + 3
         if body and used + cost > budget:
@@ -1238,13 +1253,15 @@ def ledger_archive(name, keep=None):
         print(f"[archive] {path} 가 없다.")
         return 0
     head, secs = _ledger_sections(path)
-    known = [st for _, _, st in secs if st is not None]
+    known = [st for _, _, st in secs if isinstance(st, int)]
     if not known:
         print(f"[archive] {path} 에서 단계 번호를 읽을 수 있는 절이 없다. 옮기지 않는다.")
         return 0
     cut = max(known) - keep
-    old = [(h, b) for h, b, st in secs if st is not None and st <= cut]
-    new = [(h, b) for h, b, st in secs if not (st is not None and st <= cut)]
+    # 고정 절은 옮기지 않는다. 오래됐다고 안 중요한 것이 아니다.
+    old = [(h, b) for h, b, st in secs if isinstance(st, int) and st <= cut]
+    new = [(h, b) for h, b, st in secs if not (isinstance(st, int) and st <= cut)]
+    pinned = sum(1 for _, _, st in secs if st == "pin")
     if not old:
         print(f"[archive] {path}: 최근 {keep}단계 밖의 절이 없다. 옮길 것이 없다.")
         return 0
@@ -1262,14 +1279,19 @@ def ledger_archive(name, keep=None):
     if not arc.is_file() or len(arc.read_text(encoding="utf-8")) < len(block) // 2:
         print(f"[archive] 아카이브 쓰기를 확인하지 못했다. 원본을 건드리지 않는다.")
         return 1
-    pointer = (f"\n> 단계 {min(st for _, _, st in secs if st is not None)}~{cut} 의 {len(old)}건은 "
-               f"{arc.name} 으로 옮겼다(지우지 않았다).\n")
+    pointer = (f"\n> 단계 {min(st for _, _, st in secs if isinstance(st, int))}~{cut} 의 "
+               f"{len(old)}건은 {arc.name} 으로 옮겼다(지우지 않았다).\n")
     body = "\n".join(f"{h}\n" + "\n".join(b).rstrip() + "\n" for h, b in new)
     path.write_text("\n".join(head).rstrip() + "\n" + pointer + "\n" + body, encoding="utf-8")
     print(f"[archive] {path}: {len(old)}건을 {arc.name} 으로 옮겼다. "
-          f"남은 절 {len(new)}건.")
-    print(f"[archive] 옮기기 전에 **계속 유효한 제약을 승격했는지** 확인하라 — "
-          "오래됐다고 안 중요한 것이 아니다.")
+          f"남은 절 {len(new)}건(그중 고정 {pinned}건은 옮기지 않았다).")
+    print("[archive] 옮긴 것:")
+    for h, _ in old[-8:]:
+        print(f"  - {h.lstrip('# ').strip()[:72]}")
+    if len(old) > 8:
+        print(f"  … 외 {len(old) - 8}건")
+    print(f"[archive] 이 중 **계속 지켜야 할 규칙**이 있으면 되돌려서 제목에 "
+          f"{LEDGER_PIN} 를 달아라 — 고정 절은 다시 내려가지 않는다.")
     return 0
 
 

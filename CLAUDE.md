@@ -65,7 +65,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 131항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 141항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 111항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -298,6 +298,13 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   다만 **고정으로 남길 곳이 다르다**: 디자인 규칙(토큰 체계·용어·컴포넌트 규약)은
   `PROJECT_RULES.md`(모든 역할에 감)가 아니라 **`DESIGN.md` 머리말**(첫 `##` 앞)에 둔다.
   머리말은 접히지도 아카이브되지도 않고 designer 호출에 언제나 통째로 간다.
+- **`## [규칙] …` 절은 고정이다** — 단계 번호가 붙어 있어도 **아카이브되지 않고 주입에서도
+  접히지 않는다.** "승격 먼저, 아카이브 나중" 은 절차 문장이라 지켜지지 않으므로(이 저장소에서
+  P-규칙 통합이 76개 중 2번뿐이었다) 구조로 막는다. 판정은 **쓰는 사람이 단 표시**로 한다 —
+  자유 텍스트에서 "전역"·"규칙" 을 찾아 추측하지 않는다(원칙 2).
+  실측 근거: `§121 폰트 크기 토큰 체계(AppFontSize, 전역 타이포 정리)` 가 단계121 절에
+  묶여 있었다. 전역 타이포 규칙인데 그 단계가 아카이브되면 다음 designer 가 못 본다.
+  `--ledger-archive` 는 옮긴 절 제목을 보여 주어 섞여 든 규칙을 되돌릴 수 있게 한다.
 - **머리말은 모든 ledger 에서 고정이다.** 그래서 머리말이 예산의 40%를 넘으면 알린다.
 - **단계 번호가 없는 절은 아카이브되지 않는다**(추측하지 않는다). 실측에서 DECISIONS 43개·
   DESIGN 7개가 그랬다 — 영영 쌓인다. `--ledger-stats` 가 센다.

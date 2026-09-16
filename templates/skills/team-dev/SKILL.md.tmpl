@@ -362,6 +362,15 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
     - coder가 "기존 테스트가 틀렸다"고 주장한다: C등급이다.
     - 이 단계에서 checker 호출이 {{MAX_CHECKER_CALLS}}회를 넘었다: C등급이다.
 {{#IF_LARGE}}
+## 하네스를 올린 직후 한 번 (마이그레이션)
+
+새 규약은 앞으로 쓸 것에만 적용된다 — 이미 쓴 것은 그대로다. 규약이 안 맞으면 도구가
+덜 먹는다(단계 번호가 없으면 아카이브가 안 되고, `[규칙]` 이 없으면 지켜야 할 것이 로그와
+함께 내려간다). 한 번 보고 가라:
+  python3 dev-agent-team/selfcheck.py --migrate-check
+**아무것도 자동으로 고치지 않는다.** Owner 의 글을 설치기가 고쳐 쓰는 것은 하지 않는다.
+급하지 않으니 7-0b 정리 때마다 몇 건씩 줄인다. 무엇을 옮길지는 Owner 가 정한다.
+
 ## 결정을 적을 때 (DECISIONS.md)
 
 한 건은 **15줄 목표**다. 형식은 dev-agent-team/DECISIONS.md 머리에 있다 —

@@ -323,6 +323,10 @@ migrate_test_log() {
 
 # 역할 목록: designer는 양 프로파일 공통(UI 단계에서만 호출).
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
+# 파이썬 경로는 여러 곳에서 쓴다(헌법 채택·마이그레이션 점검). set -u 라 한 분기 안에서만
+# 정의하면 다른 분기에서 "unbound variable" 로 스크립트가 죽는다 — 실제로 그랬다.
+PY_BIN=$(command -v python3 || command -v python || true)
+
 ROLES="planner tester coder checker documenter designer"
 [ "$PROFILE" = large ] && ROLES="$ROLES lead reviewer critic security"
 # 프로파일을 낮춰 재설치하면(large -> small) 먼저 깔린 large 전용 역할이 그대로 남았다.
@@ -401,7 +405,6 @@ accept_one() { # $1=본파일 경로  $2=표시 이름
   echo "알림: $2 를 v${OLDV:-?} -> v${NEWV:-?} 로 갱신했습니다(이전 내용은 $2.owner-backup)."
 }
 if [ "$ACCEPT_CONST" = "1" ]; then
-  PY_BIN=$(command -v python3 || command -v python || true)
   accept_one "$TARGET/AGENTS.md" "AGENTS.md"
   accept_one "$TARGET/CLAUDE.md" "CLAUDE.md"
 fi
@@ -594,6 +597,17 @@ printf '%s\n' "$VERIFY_OUT"
 if [ "$VERIFY_RC" -eq 0 ]; then
   echo ""
   echo "설치 완료 (v$VERSION, $PROFILE, [$AGENTS])."
+  # 하네스를 올리면 규약이 늘어난다. 기존 내용은 그 규약을 안 따르므로 도구가 덜 먹는다.
+  # 자동으로 고치지 않는다 — Owner 의 글이다. 얼마나 어긋나는지만 보여 준다.
+  if [ -n "$PY_BIN" ] && [ -f "$TARGET/dev-agent-team/DECISIONS.md" ]; then
+    MIG=$( cd "$TARGET" && "$PY_BIN" dev-agent-team/selfcheck.py --migrate-check 2>/dev/null \
+           | grep -c '^  \[' )
+    if [ "${MIG:-0}" -gt 0 ]; then
+      echo "알림: 기존 내용 ${MIG}종이 지금 규약과 어긋납니다(자동으로 고치지 않았습니다)."
+      echo "      무엇인지 보려면: cd $TARGET && python3 dev-agent-team/selfcheck.py --migrate-check"
+      echo "      급하지 않습니다. 단계마다 조금씩 줄이면 컨텍스트가 작아집니다."
+    fi
+  fi
   echo "다음: $TARGET 에서 코딩 에이전트를 열고 '개발 시작'이라고 입력하세요."
   echo "초보자 안내: $TARGET/dev-agent-team/guides/OWNER_GUIDE.md"
   if has_agent codex; then

@@ -54,6 +54,7 @@ python3 dev-agent-team/selfcheck.py --direction-head     # DIRECTION 은 마지�
 python3 dev-agent-team/selfcheck.py --ledger DECISIONS.md  # 예산 안에서 최근 것부터
 python3 dev-agent-team/selfcheck.py --ledger-archive DECISIONS.md --keep 10  # 파일을 줄인다
 python3 dev-agent-team/selfcheck.py --ledger-stats         # 누적 문서 크기 · 큰 절 · 묵은 백로그
+python3 dev-agent-team/selfcheck.py --migrate-check         # 기존 내용이 새 규약과 어긋나는 곳
 
 # 회고가 필요한 단계인지 기계로 판정 (12c 가 매번 이걸 먼저 돌린다)
 python3 dev-agent-team/selfcheck.py --retro-check
@@ -65,10 +66,10 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 141항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 150항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 111항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 116항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -354,6 +355,28 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - **폐지한 역할은 `ROLES_ALL` 에 남겨 둔다.** 빼면 옛 설치본에서 영영 안 치워진다.
   치우기는 에이전트 블록 **밖**에서 세 경로를 모두 본다 — 안 그러면 지금 설치하는
   오버레이만 치워서, 예전에 codex 로 깔았다 뺀 `.agents/skills/<role>` 이 남는다.
+
+### 하네스를 올린 뒤 기존 내용 (`selfcheck.py --migrate-check`)
+- **새 규약은 앞으로 쓸 것에만 적용된다.** 이미 쓴 수백 건은 그대로다 — 규약이 안 맞으면
+  도구가 덜 먹는다(단계 번호가 없으면 아카이브가 안 되고, `[규칙]` 이 없으면 지켜야 할 것이
+  로그와 함께 내려간다). 그 격차를 `--migrate-check` 가 센다.
+- **아무것도 자동으로 고치지 않는다.** Owner 의 글을 설치기가 고쳐 쓰는 것은 이 저장소가
+  크게 데인 길이다(재설치 두 번에 157줄짜리 헌법이 사라졌다). 무엇을 옮길지는 사람이 정한다.
+- `init.sh` 가 설치 끝에 어긋난 종수만 알린다(갓 설치한 빈 프로젝트에서는 안 뜬다).
+- 실측(v1.65.0 시점): 11종 — 단계 번호 없는 절(DECISIONS 43·DIRECTION 31·DESIGN 7),
+  고정 절 0개, 40줄 넘는 절 26개, PROCESS 주입 1305줄, 완료 미이관 5건, 묵은 항목 139건.
+- 문서 종류마다 잣대가 다르다: **PROCESS 는 규칙 집합이라 단계 번호를 요구하지 않는다**
+  (P-번호로 산다. 아카이브 대상도 아니고 줄이는 방법은 통합뿐이다).
+- 파서는 **코드블록 안의 `##` 를 절로 세지 않는다** — 템플릿의 형식 예시가 유령 절이 됐다.
+
+### 컨텍스트 총량 (역할 하나를 부를 때, 실측)
+- 바탕 = `AGENTS.md` + `PROJECT_RULES.md`. 여기에 역할 본문·PROCESS 개정·역할별 문서가 붙는다.
+- v1.58→v1.64 로 줄어든 폭: lead 8859→2526, critic 7797→1566, designer 6744→1440,
+  checker·reviewer·security 1869→1183.
+- **남은 병목은 도구로 못 줄인다.** PROCESS 가 모든 호출에 988줄(coder 1247), BACKLOG 가
+  915줄이다. PROCESS 에 예산을 걸 수 없는 이유: 로그는 접혀도 이력이 안 보일 뿐이지만
+  **규칙을 조용히 빼면 그 규칙이 안 지켜진다**(원칙 1). 원천에서 통합해야 한다.
+  BACKLOG 도 7-0b 폐기가 돌아야 준다. 둘 다 운영이지 도구가 아니다.
 
 ### 권한과 그 밖의 원칙
 - deny/ask 목록 — `git push` 전체와 `gh pr` 은 **ask**(Owner 승인 후 에이전트가 실행).

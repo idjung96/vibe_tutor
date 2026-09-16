@@ -1110,9 +1110,11 @@ BACKLOG_STALE = 20       # 이 단계 수 이상 묵은 열린 항목은 그루�
 def _ledger_sections(path):
     """`## ` 헤더로 절을 나눈다 -> [(헤더, 본문줄들, 단계번호|None)]. 머리말은 따로."""
     lines = Path(path).read_text(encoding="utf-8").splitlines()
-    head, secs, cur = [], [], None
+    head, secs, cur, fence = [], [], None, False
     for ln in lines:
-        if re.match(r"^##\s+\S", ln):
+        if ln.lstrip().startswith("```"):
+            fence = not fence          # 코드블록 안의 `##` 는 절 머리가 아니다
+        if not fence and re.match(r"^##\s+\S", ln):
             if cur:
                 secs.append(cur)
             cur = [ln, []]
@@ -1292,6 +1294,81 @@ def ledger_archive(name, keep=None):
         print(f"  … 외 {len(old) - 8}건")
     print(f"[archive] 이 중 **계속 지켜야 할 규칙**이 있으면 되돌려서 제목에 "
           f"{LEDGER_PIN} 를 달아라 — 고정 절은 다시 내려가지 않는다.")
+    return 0
+
+
+def migrate_check():
+    """하네스를 올린 뒤, **기존 내용이 새 규약을 따르는지** 본다.
+
+    새 규약은 앞으로 쓸 것에만 적용된다 — 이미 쓴 수백 건은 그대로다. 그런데 규약이
+    안 맞으면 도구가 안 먹는다(단계 번호가 없으면 아카이브가 안 되고, `[규칙]` 이 없으면
+    지켜야 할 것이 로그와 함께 내려간다). 그 격차를 여기서 센다.
+
+    **고치지 않는다. 세어서 보여 줄 뿐이다.** Owner 의 글을 설치기가 자동으로 고쳐 쓰는
+    것은 이 저장소가 이미 크게 데인 길이다(재설치 두 번에 157줄짜리 헌법이 사라졌다).
+    무엇을 옮길지는 사람이 정한다.
+    """
+    todo = []
+    # PROCESS 는 단계 로그가 아니라 **규칙 집합**이다(P-번호로 산다). 단계 번호를 요구하지
+    # 않고 아카이브 대상도 아니다 — 줄이는 방법은 통합뿐이다. 아래에서 따로 본다.
+    for name in ("DECISIONS.md", "DESIGN.md", "DIRECTION.md"):
+        p = Path("dev-agent-team") / name
+        if not p.is_file():
+            continue
+        _, secs = _ledger_sections(p)
+        if not secs:
+            continue
+        nost = [h for h, _, st in secs if st is None]
+        pins = [h for h, _, st in secs if st == "pin"]
+        if nost:
+            todo.append((name, "단계 번호 없는 절", len(nost),
+                         "제목에 `단계N`·`stage-N` 을 넣어라. 없으면 아카이브가 안 되고 영영 쌓인다.",
+                         [h.lstrip("# ").strip()[:60] for h in nost[:3]]))
+        if not pins and len(secs) > 10:
+            todo.append((name, "고정 절이 하나도 없다", 0,
+                         f"계속 지켜야 할 것이 로그에 섞여 있으면 제목에 {LEDGER_PIN} 를 달아라. "
+                         "안 달면 아카이브될 때 같이 내려간다.", []))
+        if name in SECTION_TERSE:
+            big = [h for h, b, _ in secs if len(b) + 1 > LEDGER_SECTION_WARN]
+            if big:
+                todo.append((name, f"{LEDGER_SECTION_WARN}줄 넘는 절", len(big),
+                             "조사는 이슈(#번호)나 dev-agent-team/evidence/ 로 빼라. 결정은 15줄 목표다.",
+                             [h.lstrip("# ").strip()[:60] for h in big[:3]]))
+    pa = Path("dev-agent-team/PROCESS.md")
+    if pa.is_file():
+        blocks = _process_blocks()
+        alive = [b for b in blocks if b[0] not in _superseded(blocks)]
+        worst = max((sum(len(b[2]) for b in alive if "전체" in b[1] or r in b[1])
+                     for r in ("coder", "tester", "planner")), default=0)
+        if worst > PROCESS_WARN_LINES:
+            todo.append(("PROCESS.md", "역할 하나가 받는 개정", worst,
+                         "규칙은 주입에서 뺄 수 없다(빼면 안 지켜진다). 원천에서 통합해라 — "
+                         "새 P-번호가 옛 것들을 '대체한다'고 적으면 이력은 남는다.", []))
+    b = backlog_counts()
+    if b:
+        if b["done"]:
+            todo.append(("BACKLOG.md", "완료 표시된 채 남은 항목", b["done"],
+                         "dev-agent-team/BACKLOG_DONE.md 로 옮겨라(12b-1).", []))
+        if b["stale"]:
+            todo.append(("BACKLOG.md", f"{BACKLOG_STALE}단계 이상 묵은 항목", b["stale"],
+                         "7-0b 백로그 정리를 돌려라. 폐기는 삭제가 아니라 이동이다.", []))
+    for f in ("BACKLOG_DONE.md", "evidence"):
+        if not (Path("dev-agent-team") / f).exists():
+            todo.append((f, "없다", 0, "init.sh 를 다시 돌리면 생긴다.", []))
+
+    if not todo:
+        print("[migrate] 기존 내용이 지금 규약을 따르고 있다. 할 일 없음.")
+        return 0
+    print(f"[migrate] 지금 규약과 어긋나는 것 {len(todo)}종. "
+          "**아무것도 자동으로 고치지 않았다** — 무엇을 옮길지는 Owner 가 정한다.")
+    for name, what, n, how, samples in todo:
+        cnt = f" {n}건" if n else ""
+        print(f"\n  [{name}] {what}{cnt}")
+        for x in samples:
+            print(f"      · {x}")
+        print(f"      → {how}")
+    print("\n[migrate] 급하지 않다. 도구는 이 상태에서도 돈다 — 다만 아카이브·고정이")
+    print("[migrate] 안 먹는 만큼 컨텍스트가 계속 자란다. 단계마다 조금씩 줄여라.")
     return 0
 
 
@@ -1695,6 +1772,8 @@ def main():
         return direction_head()
     if "--ledger-stats" in sys.argv[1:]:
         return ledger_stats()
+    if "--migrate-check" in sys.argv[1:]:
+        return migrate_check()
     if "--ledger-archive" in sys.argv[1:]:
         i = sys.argv.index("--ledger-archive")
         if i + 1 >= len(sys.argv):

@@ -484,6 +484,28 @@ def test_freeze_prompt():
               "직접 수정한 것으로 보여" not in install(tgt)[1], install(tgt)[1][:400])
 
 
+def test_no_unbound_vars():
+    """설치가 `set -u` 에서 미정의 변수로 죽지 않는가.
+
+    PY_BIN 을 --accept-constitution 분기 안에서만 정의해 두고 설치 끝에서 썼더니
+    "unbound variable" 로 죽었다. 설치 검증은 이미 통과한 뒤라 화면상 성공처럼 보였고,
+    run_all 만 잡았다. 같은 유형을 버전 비교 산술에서도 겪었다.
+    """
+    print("\n[미정의 변수]")
+    with tempfile.TemporaryDirectory() as d:
+        for i, args in enumerate((("--profile", "large", "--agent", "claude"),
+                                  ("--profile", "small", "--agent", "claude,opencode"),
+                                  ("--profile", "large", "--agent", "all"))):
+            tgt = Path(d) / f"p{i}"
+            rc, out = install(tgt, *args)
+            check(f"{' '.join(args)}: unbound variable 없음",
+                  "unbound variable" not in out and rc == 0, out[-400:])
+        tgt = Path(d) / "p0"
+        rc, out = install(tgt, "--accept-constitution")
+        check("--accept-constitution 도 마찬가지",
+              "unbound variable" not in out and rc == 0, out[-400:])
+
+
 def test_evaluator_retired():
     """폐지한 역할(evaluator)이 새로 깔리지 않고, 옛 설치본에서는 치워지는가.
 
@@ -537,6 +559,7 @@ def main():
     test_freeze_prompt()
     test_verify_failure_is_named()
     test_profile_downgrade_prunes_roles()
+    test_no_unbound_vars()
     test_evaluator_retired()
     test_freeze_survives_repeated_installs()
     print(f"\n[설치기 테스트] PASS {PASS} / FAIL {FAIL}")

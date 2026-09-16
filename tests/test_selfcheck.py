@@ -751,6 +751,62 @@ def test_pinned_sections():
               "AppFontSize 만 쓴다" in run("--ledger", "DESIGN.md"))
 
 
+def test_migrate_check():
+    """하네스를 올린 뒤 기존 내용이 새 규약과 얼마나 어긋나는지 세는가.
+
+    새 규약은 앞으로 쓸 것에만 적용된다. 규약이 안 맞으면 도구가 덜 먹는다 — 단계 번호가
+    없으면 아카이브가 안 되고, `[규칙]` 이 없으면 지켜야 할 것이 로그와 함께 내려간다.
+    **고치지는 않는다.** Owner 의 글을 설치기가 고쳐 쓰는 것은 이 저장소가 크게 데인 길이다.
+    """
+    print("\n[마이그레이션 점검]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        Path("dev-agent-team/evidence").mkdir()
+        Path("dev-agent-team/BACKLOG_DONE.md").write_text("# 완료\n", encoding="utf-8")
+
+        def run():
+            return subprocess.run([sys.executable, str(SELFCHECK), "--migrate-check"],
+                                  capture_output=True, text=True).stdout
+
+        # 규약을 지키는 상태 — 지적이 없어야 한다.
+        Path("dev-agent-team/DECISIONS.md").write_text(
+            "# 결정\n\n## [규칙] 로그는 common/logger 만 쓴다\n지킨다\n\n"
+            + "".join(f"## [2026-01-01] stage-{i}: 결정\n한 줄\n\n" for i in range(1, 12)),
+            encoding="utf-8")
+        check("규약을 지키면 조용하다", "할 일 없음" in run(), run())
+
+        # 규약을 어긴 상태를 주입한다.
+        Path("dev-agent-team/DECISIONS.md").write_text(
+            "# 결정\n\n" + "".join(f"## 번호 없는 결정 {i}\n한 줄\n\n" for i in range(1, 13))
+            + "## [2026-01-01] stage-9: 긴 결정\n" + "조사\n" * 60, encoding="utf-8")
+        out = run()
+        check("단계 번호 없는 절을 센다", "단계 번호 없는 절 12건" in out, out)
+        check("고정 절이 없다고 알린다", "고정 절이 하나도 없다" in out, out)
+        check("긴 절을 센다", "40줄 넘는 절 1건" in out, out)
+        check("어떻게 고치는지 알려 준다", "evidence" in out and "[규칙]" in out, out)
+        check("자동으로 고치지 않았다고 분명히 말한다",
+              "자동으로 고치지 않았다" in out, out)
+        check("파일을 실제로 건드리지 않는다",
+              "번호 없는 결정 1" in Path("dev-agent-team/DECISIONS.md").read_text(encoding="utf-8"))
+
+        # 코드블록 안의 `##` 는 절이 아니다(템플릿의 형식 예시가 유령 절이 되던 것).
+        Path("dev-agent-team/DECISIONS.md").write_text(
+            "# 결정\n\n형식:\n\n```\n## [날짜] 단계N: 제목\n- 등급: A\n```\n\n"
+            "## [규칙] 고정\n지킨다\n\n"
+            + "".join(f"## [2026-01-01] stage-{i}: 결정\n한 줄\n\n" for i in range(1, 12)),
+            encoding="utf-8")
+        check("코드블록 안의 ## 를 절로 세지 않는다", "할 일 없음" in run(), run())
+
+        # PROCESS 는 규칙 집합이라 단계 번호를 요구하지 않는다.
+        Path("dev-agent-team/PROCESS.md").write_text(
+            "# 절차\n\n" + "".join(f"## P-{i}: 개정\n대상: coder\n본문\n\n" for i in range(1, 9)),
+            encoding="utf-8")
+        out = run()
+        check("PROCESS 에 단계 번호를 요구하지 않는다",
+              "[PROCESS.md] 단계 번호" not in out, out)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -773,6 +829,7 @@ def main():
     test_ledger_budget_and_archive()
     test_design_head_is_pinned()
     test_pinned_sections()
+    test_migrate_check()
     test_ledger_stats_by_kind()
     test_backlog_states()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")

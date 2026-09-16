@@ -32,8 +32,9 @@ reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12�
 그대로 주면 호출마다 프롬프트가 수백 줄씩 불어난다 — 실측으로 coder 한 번에 1200줄이 넘었다.
 DIRECTION.md 도 같다. 전문이 아니라 마지막 절만 준다:
   python3 dev-agent-team/selfcheck.py --direction-head
-DECISIONS.md 처럼 긴 이력은 전문 대신 **전체 제목 인덱스 + 최근 단계 본문**을 준다:
+DECISIONS.md·DESIGN.md 처럼 긴 이력은 전문 대신 예산 안의 발췌를 준다:
   python3 dev-agent-team/selfcheck.py --ledger DECISIONS.md
+  python3 dev-agent-team/selfcheck.py --ledger DESIGN.md
 최근 것만 잘라 주면 안 된다 — 옛 기초 결정이 창 밖으로 나가면 모순을 못 본다.
 제목 인덱스는 전부 주므로 옛 결정이 있다는 사실은 언제나 보이고, 본문이 필요하면
 원문을 직접 읽으면 된다.
@@ -205,6 +206,11 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
      e. 정리 뒤 --ledger-stats 를 다시 돌려 묵은 수가 줄었는지 본다. 안 줄었으면 안 된 것이다.
 
      f. **이력 문서도 같이 정리한다.** 먼저 가른다 — 지나간 로그인가, 계속 유효한 제약인가.
+        대상은 DECISIONS.md 와 DESIGN.md 둘 다다. DESIGN도 단계순 로그다(실측 24개 절 중
+        19개가 `단계N`·`stage-N` 에 묶여 있었다). 다만 **고정으로 남길 곳이 다르다** —
+        디자인 규칙(토큰 체계·용어·컴포넌트 규약)은 PROJECT_RULES가 아니라
+        **DESIGN.md 머리말**(첫 `##` 앞)에 둔다. 거기는 접히지도 아카이브되지도 않고
+        designer 호출에 언제나 통째로 간다. 다른 역할에는 안 간다.
         - **계속 유효한 제약**(예: "우리는 sqlite 를 쓴다", "argonet 저장소에 push 하지
           않는다")은 로그에 두면 안 된다. 오래되면 창 밖으로 나가 팀이 모르고 어긴다.
           dev-agent-team/PROJECT_RULES.md 로 **승격**한다(프로젝트 고유 규칙). 요구사항

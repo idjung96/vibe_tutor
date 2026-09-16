@@ -1077,11 +1077,23 @@ LEDGER_SECTION_WARN = 40
 #   ledger: 절 = 한 건(결정·개정·방향). 크면 조사가 섞여 들어간 것이다.
 #   list  : 절 = 항목 묶음(백로그). 길어도 정상이고, 줄이는 방법은 완료분 아카이브다.
 #   spec  : 명세(설계·요구사항). 길 수 있다. 줄이려면 분할이지 요약이 아니다.
+# DESIGN.md 는 처음에 spec 으로 뒀는데 실물을 보니 **단계순 로그**였다 — 24개 절 중 19개가
+# `단계10 … 단계199 … stage-202` 로 붙어 있었다. 명세가 아니라 "그 단계에 무슨 화면을
+# 어떻게 만들었나" 의 기록이다. 그래서 ledger 로 다룬다.
 LEDGER_KIND = {
     "DECISIONS.md": "ledger", "PROCESS.md": "ledger", "DIRECTION.md": "ledger",
-    "BACKLOG.md": "list", "BACKLOG_DONE.md": "list",
-    "DESIGN.md": "spec", "REQUIREMENTS.md": "spec", "TEST_LOG.md": "list",
+    "DESIGN.md": "ledger",
+    "BACKLOG.md": "list", "BACKLOG_DONE.md": "list", "TEST_LOG.md": "list",
+    "REQUIREMENTS.md": "spec",
 }
+# 머리말(첫 `##` 앞)은 **고정**이다 — 접히지도 아카이브되지도 않고 언제나 통째로 간다.
+# 계속 유효한 규칙(디자인 토큰 체계 같은 것)은 절이 아니라 여기에 둔다. 다만 여기도
+# 무한정 자라면 예산을 먹으므로 이 비율을 넘으면 알린다.
+LEDGER_HEAD_SHARE = 0.4
+# ledger 라고 다 절이 짧아야 하는 건 아니다. 결정·개정·방향은 한 절이 한 건이라 길면
+# 조사가 섞인 것이지만, DESIGN 의 한 절은 **화면 하나의 명세**라 500줄이 정상이다.
+# 전부에 같은 잣대를 대면 또 늘 울린다.
+SECTION_TERSE = {"DECISIONS.md", "PROCESS.md", "DIRECTION.md"}
 SPEC_WARN_LINES = 1500   # 명세가 이보다 크면 분할을 권한다(경고 아님, 안내)
 BACKLOG_STALE = 20       # 이 단계 수 이상 묵은 열린 항목은 그루밍 대상이다
 
@@ -1266,7 +1278,7 @@ def ledger_stats():
     names = ["DECISIONS.md", "PROCESS.md", "DIRECTION.md", "BACKLOG.md",
              "DESIGN.md", "TEST_LOG.md", "REQUIREMENTS.md"]
     print("[ledger] 누적 문서 크기 (이력이라 지우지 않는다. 주는 양만 줄인다)")
-    fat, spec, lists = [], [], []
+    fat, spec, lists, heads, unstaged, bulky = [], [], [], [], [], []
     for n in names:
         p = Path("dev-agent-team") / n
         if not p.is_file():
@@ -1277,7 +1289,16 @@ def ledger_stats():
         print(f"  {n:<16} {nl:>6}줄 {len(txt)//1024:>5}KB  절 {len(secs)}개")
         kind = LEDGER_KIND.get(n, "ledger")
         if kind == "ledger":
-            big = [(h, len(b) + 1) for h, b, _ in secs if len(b) + 1 > LEDGER_SECTION_WARN]
+            hd, _ = _ledger_sections(p)
+            if n not in SECTION_TERSE and nl > SPEC_WARN_LINES:
+                bulky.append((n, nl, len(secs)))
+            if len(hd) > LEDGER_BUDGET * LEDGER_HEAD_SHARE:
+                heads.append((n, len(hd)))
+            nost = [h for h, _, st in secs if st is None]
+            if nost:
+                unstaged.append((n, len(nost)))
+            big = [(h, len(b) + 1) for h, b, _ in secs
+                   if n in SECTION_TERSE and len(b) + 1 > LEDGER_SECTION_WARN]
             if big:
                 fat.append((n, big, sum(x for _, x in big) * 100 // max(nl, 1)))
         elif kind == "spec" and nl > SPEC_WARN_LINES:
@@ -1308,7 +1329,19 @@ def ledger_stats():
             if b["doing"] > 1:
                 print(f"  → 동시에 진행 중인 항목이 {b['doing']}개다. 단계는 하나씩 돈다 — "
                       "끝난 것의 진행 표시를 지웠는지 확인하라.")
-    if not (fat or spec or lists):
+    for name, nl, ns in bulky:
+        print(f"\n[ledger] {name}: {nl}줄 · 절 {ns}개. 절 하나가 화면·주제 하나라 긴 것은 정상이다.")
+        print(f"  줄이려면 오래된 절을 내려라: "
+              f"python3 dev-agent-team/selfcheck.py --ledger-archive {name} --keep 10")
+    for name, hl in heads:
+        print(f"\n[ledger] {name}: 머리말이 {hl}줄이다(예산 {LEDGER_BUDGET}의 "
+              f"{int(LEDGER_HEAD_SHARE*100)}% 초과). 머리말은 접히지도 아카이브되지도 않고")
+        print("  언제나 통째로 간다. 계속 유효한 규칙만 두고 나머지는 절로 내려라.")
+    for name, k in unstaged:
+        print(f"\n[ledger] {name}: 단계 번호가 없는 절이 {k}개다. **아카이브되지 않는다**")
+        print("  (단계를 모르면 옮기지 않는다 — 추측하지 않는다). 제목에 `단계N` 또는")
+        print("  `stage-N` 을 넣어라. 계속 유효한 규칙이면 머리말로 올려라.")
+    if not (fat or spec or lists or heads or unstaged or bulky):
         print(f"\n[ledger] 지적 없음. 결정은 결정만, 목록은 목록만 담고 있다.")
     return 0
 

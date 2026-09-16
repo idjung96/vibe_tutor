@@ -558,16 +558,21 @@ def test_ledger_stats_by_kind():
         Path("dev-agent-team").mkdir()
         long_sec = "## [2026-01-01] stage-9: 큰 결정\n" + "본문\n" * 60
         Path("dev-agent-team/DECISIONS.md").write_text("# 결정\n\n" + long_sec, encoding="utf-8")
-        # 명세·목록도 문턱을 넘겨 본다 — 넘어도 "조사" 라고 하면 안 된다.
+        # 명세·목록·화면명세도 문턱을 넘겨 본다 — 넘어도 "조사" 라고 하면 안 된다.
+        # DESIGN 은 단계순 ledger 지만 한 절이 화면 하나라 길어도 정상이다(잣대가 다르다).
         Path("dev-agent-team/DESIGN.md").write_text(
-            "# 설계\n\n## 화면 A\n" + "명세\n" * 1600, encoding="utf-8")
+            "# 설계\n\n## 단계9: 화면 A\n" + "명세\n" * 1600, encoding="utf-8")
+        Path("dev-agent-team/REQUIREMENTS.md").write_text(
+            "# 요구사항\n\n## R1\n" + "요구\n" * 1600, encoding="utf-8")
         Path("dev-agent-team/BACKLOG.md").write_text(
             "# 백로그\n\n## 할 일\n" + "- [ ] B-1 일 · 출처:stage1/lead\n" * 600, encoding="utf-8")
         out = subprocess.run([sys.executable, str(SELFCHECK), "--ledger-stats"],
                              capture_output=True, text=True).stdout
         check("ledger(결정)는 큰 절을 지적한다", "조사가 섞여 있다" in out, out)
-        check("spec(설계)은 '조사' 가 아니라 분할을 안내한다",
+        check("spec(요구사항)은 '조사' 가 아니라 분할을 안내한다",
               "명세라 긴 것 자체는 정상" in out and "분할" in out, out)
+        check("DESIGN(화면 명세)은 '조사' 가 아니라 아카이브를 안내한다",
+              "화면·주제 하나라 긴 것은 정상" in out and "--ledger-archive DESIGN.md" in out, out)
         check("list(백로그)도 '조사' 가 아니다", "목록이라 긴 것 자체는 정상" in out, out)
         check("지적이 DECISIONS 한 곳에만 뜬다", out.count("조사가 섞여 있다") == 1, out)
 
@@ -664,6 +669,44 @@ def test_ledger_budget_and_archive():
                   run("--ledger-archive", "X.md"))[1])())
 
 
+def test_design_head_is_pinned():
+    """DESIGN 의 머리말은 접히지도 아카이브되지도 않는가.
+
+    DESIGN.md 는 명세인 줄 알았는데 실물은 단계순 로그였다(24개 절 중 19개가 `단계N`).
+    그래서 ledger 로 다룬다. 다만 토큰 체계처럼 **모든 화면에 적용되는 규칙**이 섞여 있다 —
+    그게 단계 절에 있으면 그 단계가 아카이브될 때 같이 내려가 다음 designer 가 못 본다.
+    그런 것은 머리말(첫 `##` 앞)에 둔다. 머리말은 언제나 통째로 간다.
+    """
+    print("\n[DESIGN 머리말 고정]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        doc = ["# 화면 설계", "", "## 디자인 토큰(고정)", "AppFontSize 체계를 쓴다", ""]
+        doc = doc[:2] + ["디자인 토큰: AppFontSize 체계를 쓴다(고정 규칙)", ""]
+        for st in range(1, 60):
+            doc += [f"## 단계{st}: 화면 {st}"] + [f"명세 {st}"] * 8 + [""]
+        Path("dev-agent-team/DESIGN.md").write_text("\n".join(doc), encoding="utf-8")
+
+        def run(*a):
+            return subprocess.run([sys.executable, str(SELFCHECK), *a],
+                                  capture_output=True, text=True).stdout
+
+        out = run("--ledger", "DESIGN.md")
+        check("머리말은 언제나 들어간다", "AppFontSize 체계를 쓴다" in out, out[:300])
+        check("예산을 지킨다", len(out.splitlines()) <= 400, len(out.splitlines()))
+        check("옛 단계 명세는 접힌다", "접음=" in out, out[-200:])
+
+        run("--ledger-archive", "DESIGN.md", "--keep", "5")
+        now = Path("dev-agent-team/DESIGN.md").read_text(encoding="utf-8")
+        arc = Path("dev-agent-team/DESIGN_ARCHIVE.md").read_text(encoding="utf-8")
+        check("아카이브해도 머리말은 원본에 남는다", "AppFontSize 체계를 쓴다" in now, now[:300])
+        check("머리말이 아카이브로 내려가지 않는다", "AppFontSize" not in arc, arc[:300])
+        check("옛 단계 명세는 아카이브로 내려간다", "명세 1" in arc and "## 단계1:" in arc)
+        check("최근 단계 명세는 원본에 남는다", "## 단계59:" in now)
+        check("아카이브 뒤에도 머리말은 주입된다",
+              "AppFontSize 체계를 쓴다" in run("--ledger", "DESIGN.md"))
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -684,6 +727,7 @@ def main():
     test_direction_head()
     test_ledger()
     test_ledger_budget_and_archive()
+    test_design_head_is_pinned()
     test_ledger_stats_by_kind()
     test_backlog_states()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")

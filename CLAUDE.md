@@ -65,7 +65,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 122항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 131항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 111항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -293,6 +293,17 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   팀이 틀리게 가는가?"** 승격 없이 내리면 유효한 제약이 사라진다(원칙 1).
   **접히는 것은 지나간 로그뿐이어야 한다.**
   실측: 5424줄 → 아카이브(keep 10) 뒤 파일 2534줄, 주입 122줄.
+- **`DESIGN.md` 도 같은 규칙이다.** 명세인 줄 알았는데 실물은 **단계순 로그**였다 —
+  24개 절 중 19개가 `단계10 … 단계199 … stage-202` 에 묶여 있다. 그래서 ledger 로 다룬다.
+  다만 **고정으로 남길 곳이 다르다**: 디자인 규칙(토큰 체계·용어·컴포넌트 규약)은
+  `PROJECT_RULES.md`(모든 역할에 감)가 아니라 **`DESIGN.md` 머리말**(첫 `##` 앞)에 둔다.
+  머리말은 접히지도 아카이브되지도 않고 designer 호출에 언제나 통째로 간다.
+- **머리말은 모든 ledger 에서 고정이다.** 그래서 머리말이 예산의 40%를 넘으면 알린다.
+- **단계 번호가 없는 절은 아카이브되지 않는다**(추측하지 않는다). 실측에서 DECISIONS 43개·
+  DESIGN 7개가 그랬다 — 영영 쌓인다. `--ledger-stats` 가 센다.
+- **ledger 라고 다 절이 짧아야 하는 건 아니다**(`SECTION_TERSE`). 결정·개정·방향은 한 절이
+  한 건이라 길면 조사가 섞인 것이지만, DESIGN 의 한 절은 화면 하나라 500줄이 정상이다.
+  전부에 같은 잣대를 대면 또 늘 울린다.
 - 크기는 `--ledger-stats` 로 본다. 실측(단계 202 시점): DECISIONS 5424 · DESIGN 4880 ·
   PROCESS 1671 · BACKLOG 891 · DIRECTION 481줄.
 - **완료된 백로그는 `BACKLOG_DONE.md` 로 옮긴다**(12b-1). 지우는 게 아니라 옮기는 것이다.

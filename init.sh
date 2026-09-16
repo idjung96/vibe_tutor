@@ -431,6 +431,7 @@ cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/dev-agent-team/guides/DEBUG
 migrate_test_log "$TARGET/dev-agent-team/TEST_LOG.md"
 [ -f "$TARGET/dev-agent-team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/dev-agent-team/libs/INDEX.md"
 [ -f "$TARGET/dev-agent-team/BACKLOG.md" ] || cp "$SRC/templates/project/BACKLOG.md" "$TARGET/dev-agent-team/BACKLOG.md"
+[ -f "$TARGET/dev-agent-team/BACKLOG_DONE.md" ] || cp "$SRC/templates/project/BACKLOG_DONE.md" "$TARGET/dev-agent-team/BACKLOG_DONE.md"
 if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/dev-agent-team/DIRECTION.md" ]; then
   cp "$SRC/templates/project/DIRECTION.md" "$TARGET/dev-agent-team/DIRECTION.md"
 fi

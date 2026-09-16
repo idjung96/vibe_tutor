@@ -51,6 +51,8 @@ python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 
 python3 dev-agent-team/selfcheck.py --process-active coder
 python3 dev-agent-team/selfcheck.py --process-stats      # 얼마나 쌓였나 · 통합이 필요한가
 python3 dev-agent-team/selfcheck.py --direction-head     # DIRECTION 은 마지막 절만
+python3 dev-agent-team/selfcheck.py --ledger DECISIONS.md  # 제목 인덱스 + 최근 단계 본문
+python3 dev-agent-team/selfcheck.py --ledger-stats         # 누적 문서가 얼마나 자랐나
 
 # 회고가 필요한 단계인지 기계로 판정 (12c 가 매번 이걸 먼저 돌린다)
 python3 dev-agent-team/selfcheck.py --retro-check
@@ -62,7 +64,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 86항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 97항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 111항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -273,7 +275,20 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - 17b 최종 회고는 조건 없이 돈다(1회라 싸다). 거기서 **채택된 P-번호가 실제로 그 신호를
   줄였는지**도 본다 — 효과 없으면 폐기 제안. 개선을 쌓기만 하지 않는다.
 
-### 누적 문서를 역할에 줄 때 (`--process-active` · `--direction-head`)
+### 누적 문서를 역할에 줄 때 (`--ledger` · `--process-active` · `--direction-head`)
+- **분할 축은 "활성 / 아카이브" 하나다.** 브랜치별로 나누지 않는다 — 단계 브랜치는 main 에
+  합쳐져 사라지고, "상태가 전부 파일에 있다"는 전제(무손실 모델 전환)가 깨진다.
+  모듈·파일 단위도 축이 못 된다 — 결정은 대개 교차 관심사다.
+- **긴 이력은 `--ledger <문서>`** 로 준다: **전체 제목 인덱스 + 최근 N단계 본문**(ADR 방식).
+  최근 것만 잘라 주면 안 된다 — stage-2 의 "sqlite 를 쓴다" 같은 기초 결정이 창 밖으로
+  나가면 critic 이 모순을 못 보고 통과시킨다(원칙 1). 제목은 전부 주므로 **옛 결정이 있다는
+  사실은 언제나 보인다.** 단계 번호를 못 읽는 절은 자르지 않는다.
+  실측: `DECISIONS.md` 5424줄 → `--keep 3` 에서 634줄, 제목 208건은 그대로 보인다.
+- 크기는 `--ledger-stats` 로 본다. 실측(단계 202 시점): DECISIONS 5424 · DESIGN 4880 ·
+  PROCESS 1671 · BACKLOG 891 · DIRECTION 481줄.
+- **완료된 백로그는 `BACKLOG_DONE.md` 로 옮긴다**(12b-1). 지우는 게 아니라 옮기는 것이다.
+  BACKLOG 는 planner·coder·designer·lead 가 매 단계 읽는다. 이 관례는 실제 프로젝트 팀이
+  **하네스에 없는데도 스스로 만들어 쓰고 있었다** — 필요가 실재한다는 증거라 정식화했다.
 - **보관과 주입은 다른 문제다.** `PROCESS.md`·`DIRECTION.md` 는 이력이라 append-only 이고
   **절대 자르지 않는다.** 대신 역할 호출에는 전문이 아니라 파생본만 준다.
 - 안 그러면 프롬프트가 계속 무거워진다. 실측: P-규칙 76개 1558줄, 그중 `대상: 전체` 가

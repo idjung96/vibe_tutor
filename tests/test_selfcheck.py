@@ -492,6 +492,51 @@ def test_direction_head():
         check("없으면 그렇다고 말한다", "없다" in out, out)
 
 
+def test_ledger():
+    """긴 이력 문서를 자르지 않으면서 주입만 줄이는가.
+
+    DECISIONS.md 는 실측 5424줄(338KB)까지 자랐고 critic 호출마다 통째로 들어갔다.
+    그렇다고 최근 N단계만 잘라 주면 안 된다 — stage-2 의 "sqlite 를 쓴다" 같은 기초
+    결정이 창 밖으로 나가면 critic 이 모순을 못 보고 통과시킨다(원칙 1).
+    그래서 ADR 방식으로 **전체 제목 인덱스 + 최근 본문**을 준다.
+    """
+    print("\n[긴 이력 주입]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        doc = ["# 결정 기록", "", "형식 설명 줄", ""]
+        for st in (2, 3, 10, 11, 12):
+            doc += [f"## [2026-01-01] stage-{st}: 결정 {st}", f"본문 {st}", ""]
+        doc += ["## 날짜도 단계도 없는 절", "본문 X", ""]
+        Path("dev-agent-team/DECISIONS.md").write_text("\n".join(doc), encoding="utf-8")
+
+        def run(*a):
+            return subprocess.run([sys.executable, str(SELFCHECK), *a],
+                                  capture_output=True, text=True).stdout
+
+        out = run("--ledger", "DECISIONS.md", "--keep", "2")
+        check("최근 단계 본문은 준다", "본문 12" in out and "본문 11" in out, out)
+        check("옛 단계 본문은 빼고", "본문 2" not in out and "본문 3" not in out, out)
+        check("**제목은 전부 준다**(옛 결정이 있다는 사실을 숨기지 않는다)",
+              out.count("결정 2") and out.count("결정 3") and out.count("결정 10"), out)
+        check("제목만 준 것은 표시한다", "(제목만)" in out, out)
+        check("단계를 못 읽는 절은 본문째 준다(판정 불가 -> 빼지 않는다)",
+              "본문 X" in out, out)
+        check("머리말은 유지한다", "형식 설명 줄" in out, out)
+        check("몇 건을 줄였는지 알린다", "제목만 줬다" in out, out)
+
+        check("원본은 그대로다(이력 보존)",
+              "본문 2" in Path("dev-agent-team/DECISIONS.md").read_text(encoding="utf-8"))
+
+        wide = run("--ledger", "DECISIONS.md", "--keep", "100")
+        check("창이 넓으면 전부 본문", "본문 2" in wide and "제목만" not in wide, wide)
+
+        check("없는 문서는 그렇다고 말한다", "가 없다" in run("--ledger", "NOPE.md"))
+
+        st = run("--ledger-stats")
+        check("통계가 줄수·절수를 센다", "DECISIONS.md" in st and "절 6개" in st, st)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -510,6 +555,7 @@ def main():
     test_retro_check()
     test_process_injection()
     test_direction_head()
+    test_ledger()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

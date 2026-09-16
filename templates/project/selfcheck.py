@@ -1052,6 +1052,93 @@ def process_stats():
     return 0
 
 
+# ── 긴 이력 문서를 역할에 줄 때 (ledger) ──────────────────────────────────
+# DECISIONS.md 는 실측 프로젝트에서 5424줄(575KB)까지 자랐고, 그대로 critic 호출마다
+# 들어갔다. 절은 `## [날짜] stageN: 제목` 형식이라 **구조로** 나눌 수 있다.
+#
+# 그런데 최근 N단계만 자르면 안 된다. stage-2 의 "sqlite 를 쓴다" 같은 기초 결정이 창
+# 밖으로 나가면 critic 이 모순을 못 보고 통과시킨다 — 못 본 것을 "충돌 없음" 으로 바꾸는
+# 것이라 원칙 1 위반이다. 그래서 ADR 방식으로 간다: **전체 제목 인덱스 + 최근 본문.**
+# 옛 결정이 있다는 사실은 언제나 보이고, 필요하면 원문을 직접 읽으라고 알려 준다.
+#
+# 단계 번호를 못 읽는 절은 **자르지 않고 그대로 준다**(43개가 그랬다). 판정할 수 없으면
+# 빼지 않는 쪽으로 기운다.
+LEDGER_KEEP = 5          # 본문을 통째로 주는 최근 단계 수
+
+
+def _ledger_sections(path):
+    """`## ` 헤더로 절을 나눈다 -> [(헤더, 본문줄들, 단계번호|None)]. 머리말은 따로."""
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    head, secs, cur = [], [], None
+    for ln in lines:
+        if re.match(r"^##\s+\S", ln):
+            if cur:
+                secs.append(cur)
+            cur = [ln, []]
+        elif cur:
+            cur[1].append(ln)
+        else:
+            head.append(ln)
+    if cur:
+        secs.append(cur)
+    out = []
+    for h, body in secs:
+        m = re.search(r"stage-?(\d+)|단계\s*(\d+)", h)
+        out.append((h, body, int(m.group(1) or m.group(2)) if m else None))
+    return head, out
+
+
+def ledger(name, keep=None):
+    """긴 이력 문서의 **주입본**을 낸다: 전체 제목 인덱스 + 최근 단계 본문."""
+    keep = LEDGER_KEEP if keep is None else keep
+    path = Path(name if "/" in name else f"dev-agent-team/{name}")
+    if not path.is_file():
+        print(f"[ledger] {path} 가 없다.")
+        return 0
+    head, secs = _ledger_sections(path)
+    if not secs:
+        print("\n".join(head).rstrip())
+        return 0
+    known = [s for _, _, s in secs if s is not None]
+    cut = (max(known) - keep) if known else None
+
+    def full(stage):
+        return stage is None or cut is None or stage > cut
+
+    print("\n".join(head).rstrip())
+    print(f"\n## 전체 목록 ({len(secs)}건) — 본문은 최근 {keep}단계만 아래에 있다")
+    for h, _, st in secs:
+        mark = "" if full(st) else "  (제목만)"
+        print(f"- {h.lstrip('# ').strip()}{mark}")
+    kept = [(h, b) for h, b, st in secs if full(st)]
+    print(f"\n## 본문")
+    for h, b in kept:
+        print(h)
+        print("\n".join(b).rstrip())
+        print()
+    older = len(secs) - len(kept)
+    if older:
+        print(f"<!-- [ledger] 옛 절 {older}건은 제목만 줬다. 본문이 필요하면 {path} 를 "
+              "직접 읽어라. 제목에 단계 번호가 없는 절은 자르지 않고 전부 줬다. -->")
+    return 0
+
+
+def ledger_stats():
+    """누적 문서가 얼마나 자랐는지 한눈에. 아무것도 막지 않는다."""
+    names = ["DECISIONS.md", "PROCESS.md", "DIRECTION.md", "BACKLOG.md",
+             "DESIGN.md", "TEST_LOG.md", "REQUIREMENTS.md"]
+    print("[ledger] 누적 문서 크기 (이력이라 지우지 않는다. 주는 양만 줄인다)")
+    for n in names:
+        p = Path("dev-agent-team") / n
+        if not p.is_file():
+            continue
+        txt = p.read_text(encoding="utf-8", errors="replace")
+        nl = len(txt.splitlines())
+        _, secs = _ledger_sections(p) if nl else ([], [])
+        print(f"  {n:<16} {nl:>6}줄 {len(txt)//1024:>5}KB  절 {len(secs)}개")
+    return 0
+
+
 DIRECTION_PATH = Path("dev-agent-team/DIRECTION.md")
 
 
@@ -1377,6 +1464,19 @@ def main():
         return process_stats()
     if "--direction-head" in sys.argv[1:]:
         return direction_head()
+    if "--ledger-stats" in sys.argv[1:]:
+        return ledger_stats()
+    if "--ledger" in sys.argv[1:]:
+        i = sys.argv.index("--ledger")
+        if i + 1 >= len(sys.argv):
+            print("--ledger 뒤에 문서 이름이 필요하다(예: DECISIONS.md)", file=sys.stderr)
+            return 2
+        keep = None
+        if "--keep" in sys.argv[1:]:
+            j = sys.argv.index("--keep")
+            if j + 1 < len(sys.argv) and sys.argv[j + 1].isdigit():
+                keep = int(sys.argv[j + 1])
+        return ledger(sys.argv[i + 1], keep)
     if "--process-active" in sys.argv[1:]:
         i = sys.argv.index("--process-active")
         if i + 1 >= len(sys.argv):

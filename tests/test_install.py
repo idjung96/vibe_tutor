@@ -319,6 +319,8 @@ def test_profile_downgrade_prunes_roles():
         check("large 전용 역할이 사라진다",
               not any(r in roles for r in ("lead", "reviewer", "critic", "security", "evaluator")),
               roles)
+        check("BACKLOG_DONE.md 가 깔린다(완료 아카이브)",
+              (tgt / "dev-agent-team/BACKLOG_DONE.md").is_file())
         check("공통 6역할은 남는다",
               all(r in roles for r in ("planner", "tester", "coder", "checker",
                                        "documenter", "designer")), roles)

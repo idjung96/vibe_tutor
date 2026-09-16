@@ -47,6 +47,9 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
 python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 비교
 
+# 회고가 필요한 단계인지 기계로 판정 (12c 가 매번 이걸 먼저 돌린다)
+python3 dev-agent-team/selfcheck.py --retro-check
+
 # 회고용 TEST_LOG 요약 (17b 가 전체 대신 이걸 쓴다)
 python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 
@@ -54,7 +57,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 56항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 68항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 102항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -244,6 +247,26 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   (PR 시점, `--score` 앞. README 는 .md 라 `.last-full-test` 를 무효화하지 않는다).
 - trace 와 doc 은 같은 창(현재 단계 포함)으로 채점한다.
 - 추세는 `SCORE.json` 의 history 에 누적한다(TEST_LOG 는 7열 그대로).
+
+### 회고를 언제 도는가 (`selfcheck.py --retro-check`, large 전용)
+- **단계마다 도는 것은 기계 판정이고, LLM 회고는 걸렸을 때만 돈다.** 매 단계 lead 를 부르면
+  대부분 "없음" 이 나온다 — 역할 문서 자신이 신호 없으면 제안하지 말라고 적어 두었다.
+- **판정을 lead 에게 맡기지 않는다.** 신호의 원인 중 하나가 lead 자신의 결정(방향·단계
+  초점)이라 그 경우 lead 가 가장 못 본다. 판정까지 맡기면 **사각지대가 트리거를 먹는다.**
+  회고가 돌면 `critic` 이 "원인이 방향·초점 선정인가"(CAUSE)를 따로 판정한다 — 자기 결정은
+  자기가 판정하지 않는다.
+- 문턱: **재시도 ≥ 3** 또는 **리뷰지적 2단계 연속 증가**. 상수는 `selfcheck.py` 상단
+  (`RETRO_RETRY`·`RETRO_RISES`).
+- **절대값으로 걸지 마라.** "리뷰지적 3건 이상" 으로 걸었더니 실제 프로젝트 8단계 중
+  8단계에서 걸렸다 — 그 프로젝트는 단계당 리뷰지적 9~41건이 정상이다. 회고가 찾는 것은
+  "숫자가 크다" 가 아니라 **얼마나 헤맸나** 다.
+- **파일 수는 문턱이 아니다.** 실측에서 가장 나빴던 단계(재시도 5회·리뷰지적 41건·절차개선
+  10건)가 제품코드 **3개**로 가장 작았다. 넓은 변경이 순조로울 수 있고 좁은 변경이 가장 많이
+  헤맬 수 있다. 파일 수는 회고가 돌 때 **맥락으로만** 준다.
+- 재시도·리뷰지적 칸이 비어 추세를 못 재면 **YES** 다. 기록이 없는 것을 "문제 없음" 으로
+  바꾸지 않는다(원칙 1). 실제 프로젝트 110행 중 102행이 `-` 였다 — 7열 도입 전 단계들이다.
+- 17b 최종 회고는 조건 없이 돈다(1회라 싸다). 거기서 **채택된 P-번호가 실제로 그 신호를
+  줄였는지**도 본다 — 효과 없으면 폐기 제안. 개선을 쌓기만 하지 않는다.
 
 ### 권한과 그 밖의 원칙
 - deny/ask 목록 — `git push` 전체와 `gh pr` 은 **ask**(Owner 승인 후 에이전트가 실행).

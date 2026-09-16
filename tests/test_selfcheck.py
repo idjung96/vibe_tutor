@@ -347,6 +347,75 @@ def test_owner_lines_split():
           mod._owner_only_lines(cur_text, new_text) == sure)
 
 
+RETRO_HDR = ["# 테스트 현황", "",
+             "| 단계 | 신규 | 누적 | 전체 결과 | 재시도 | 리뷰지적 | 커밋 |",
+             "|---|---|---|---|---|---|---|"]
+
+
+def _retro(tmp, rows, drop_log=False):
+    """TEST_LOG 를 깔고 --retro-check 를 돌려 출력을 준다."""
+    os.chdir(tmp)
+    Path("dev-agent-team").mkdir(exist_ok=True)
+    log = Path("dev-agent-team/TEST_LOG.md")
+    if drop_log:
+        log.unlink(missing_ok=True)
+    else:
+        body = [f"| {n} (s) | 5 | 100 | PASS (flutter test 100/100 | x2회) | {r} | {v} | abc |"
+                for n, r, v in rows]
+        log.write_text("\n".join(RETRO_HDR + body) + "\n", encoding="utf-8")
+    r = subprocess.run([sys.executable, str(SELFCHECK), "--retro-check"],
+                       capture_output=True, text=True)
+    return r.stdout.strip()
+
+
+def test_retro_check():
+    """회고를 언제 돌릴지 **기계가** 정하는가.
+
+    예전에는 lead 가 매 단계 회고하며 재발 신호가 있는지 스스로 봤다. 신호의 원인 중
+    하나가 lead 자신의 결정(방향·단계 초점)이라, 그 경우 lead 는 신호를 못 본다.
+    판정까지 맡기면 사각지대가 트리거를 먹는다.
+
+    문턱은 실측으로 골랐다. 절대값("리뷰지적 3건 이상")으로 걸었더니 실제 프로젝트
+    8단계 중 8단계에서 걸렸다 — 그 프로젝트는 단계당 리뷰지적 9~41건이 정상이었다.
+    파일 수도 쓰지 않는다. 가장 나빴던 단계가 제품코드 3개로 가장 작았다.
+    """
+    print("\n[회고 트리거]")
+    with tempfile.TemporaryDirectory() as tmp:
+        yes = lambda out: out.startswith("[retro] YES")
+
+        # 실제 프로젝트(195~202)를 그대로 재생한다. 198·201 에서만 걸려야 한다.
+        real = [(195, 0, 21), (196, 1, 14), (197, 2, 17), (198, 3, 31),
+                (199, 2, 9), (200, 1, 12), (201, 5, 41), (202, 1, 15)]
+        fired = [real[i][0] for i in range(len(real))
+                 if yes(_retro(tmp, real[:i + 1]))]
+        check("실측 8단계 중 198·201 에서만 걸린다", fired == [198, 201], fired)
+
+        check("재시도가 문턱(3)에 닿으면 걸린다", yes(_retro(tmp, [(1, 0, 5), (2, 3, 5)])))
+        check("재시도 2회는 안 걸린다", not yes(_retro(tmp, [(1, 0, 5), (2, 0, 5), (3, 2, 5)])))
+        check("리뷰지적 2단계 연속 증가면 걸린다",
+              yes(_retro(tmp, [(1, 0, 5), (2, 0, 8), (3, 0, 12)])))
+        check("한 번 올랐다 내리면 안 걸린다",
+              not yes(_retro(tmp, [(1, 0, 5), (2, 0, 8), (3, 0, 6)])))
+        check("리뷰지적이 커도 늘지 않으면 안 걸린다",
+              not yes(_retro(tmp, [(1, 0, 40), (2, 0, 39), (3, 0, 38)])))
+
+        # 기록이 없으면 '문제 없음' 이 아니라 회고한다(원칙 1).
+        check("TEST_LOG 가 없으면 걸린다", yes(_retro(tmp, [], drop_log=True)))
+        check("단계 행이 없으면 걸린다", yes(_retro(tmp, [])))
+        check("마지막 단계 재시도 칸이 '-' 면 걸린다",
+              yes(_retro(tmp, [(1, 0, 5), (2, "-", 5)])))
+        check("리뷰지적 칸이 비어 추세를 못 재면 걸린다",
+              yes(_retro(tmp, [(1, 0, "-"), (2, 0, "-"), (3, 0, "-")])))
+
+        # 전체 결과 칸에 '|' 가 들어가도 칸 위치를 잃지 않는다(원칙 3).
+        out = _retro(tmp, [(1, 0, 5), (2, 0, 8), (3, 0, 12)])
+        check("본문에 | 가 있어도 재시도·리뷰지적 칸을 옳게 읽는다",
+              "5 → 8 → 12" in out, out)
+
+        check("단계가 적으면 추세는 안 보고 재시도만 본다",
+              "추세는 아직 못 본다" in _retro(tmp, [(1, 0, 5)]), _retro(tmp, [(1, 0, 5)]))
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -362,6 +431,7 @@ def main():
     test_unreadable()
     test_log_summary()
     test_owner_lines_split()
+    test_retro_check()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

@@ -906,6 +906,18 @@ def constitution_diff():
     return 0
 
 
+# ── 회고 문턱 ──────────────────────────────────────────────────────────────
+# 회고를 매 단계 돌리면 대부분 "없음" 이 나온다(역할 문서 자신이 신호 없으면 제안하지
+# 말라고 적어 두었다). 그렇다고 "리뷰지적이 많으면" 같은 절대값으로 걸면 안 된다 —
+# 실제 프로젝트에서 리뷰지적은 단계당 9~41건이 정상이라 그런 문턱은 8/8 전 단계에서
+# 걸렸다(= 지금과 같음). 회고가 찾는 것은 "숫자가 크다" 가 아니라 **얼마나 헤맸나** 다.
+#
+# 파일 수는 문턱으로 쓰지 않는다. 실측에서 가장 나빴던 단계(재시도 5회·리뷰지적 41건·
+# 절차개선 10건)가 제품코드 **3개**짜리로 가장 작았다. 넓은 변경이 순조로울 수 있고
+# 좁은 변경이 가장 많이 헤맬 수 있다. 파일 수는 회고가 돌 때 맥락으로만 준다.
+RETRO_RETRY = 3          # 이 단계 재시도가 이 수 이상이면 회고한다
+RETRO_RISES = 2          # 리뷰지적이 이만큼 연속으로 늘면 회고한다
+
 TEST_LOG_PATH = Path("dev-agent-team/TEST_LOG.md")
 LOG_TAIL = 10            # --log-summary 가 원문으로 보여 주는 최근 단계 수
 
@@ -945,6 +957,58 @@ def _num_stats(values):
             blank += 1
     avg = round(sum(nums) / len(nums), 1) if nums else None
     return len(nums), sum(nums), avg, blank
+
+
+def _one_num(cell):
+    """표 한 칸에서 앞머리 숫자를 읽는다. '-' 나 빈칸이면 None(= 기록되지 않음)."""
+    if cell.strip() in ("", "-"):
+        return None
+    m = re.match(r"-?\d+", cell.strip())
+    return int(m.group()) if m else None
+
+
+def retro_check():
+    """이번 단계에 회고가 필요한지 **기계로** 판정한다.
+
+    왜 기계인가: 예전에는 lead 가 매 단계 회고하면서 재발 신호가 있는지 스스로 봤다.
+    그런데 신호의 원인 중 하나가 lead 자신의 결정(방향·단계 초점)이라, 그 경우에는
+    lead 가 신호를 못 본다. 판정을 lead 에게 맡기면 사각지대가 트리거까지 먹는다.
+    여기서 세는 값은 메인 세션이 이미 TEST_LOG 에 적고 있는 것들이다.
+
+    기록이 없으면 '문제 없음' 이 아니라 **회고한다.** 못 읽은 것을 깨끗하다고
+    보고하지 않는다(이 저장소 원칙 1).
+    """
+    rows = _log_rows()
+    if not rows:
+        where = "가 없다" if rows is None else " 에 단계 행이 없다"
+        print(f"[retro] YES — dev-agent-team/TEST_LOG.md{where}. 판정할 근거가 없으면 회고한다.")
+        return 0
+
+    stage, _, retry_cell, _ = rows[-1]
+    retry = _one_num(retry_cell)
+    if retry is None:
+        print(f"[retro] YES — 마지막 단계({stage})의 재시도 칸이 비어 있다"
+              f"('{retry_cell}'). 기록이 없는 것을 '문제 없음' 으로 바꾸지 않는다.")
+        return 0
+    if retry >= RETRO_RETRY:
+        print(f"[retro] YES — 재시도 {retry}회(문턱 {RETRO_RETRY}). 이 단계에서 되돌아간 횟수가 많다.")
+        return 0
+
+    window = rows[-(RETRO_RISES + 1):]
+    if len(window) < RETRO_RISES + 1:
+        print(f"[retro] NO — 재시도 {retry}회. 단계가 {len(rows)}개뿐이라 추세는 아직 못 본다.")
+        return 0
+    revs = [_one_num(v) for _, _, _, v in window]
+    if any(v is None for v in revs):
+        print(f"[retro] YES — 최근 {len(window)}단계의 리뷰지적 칸이 비어 있어 추세를 잴 수 없다.")
+        return 0
+    if all(revs[i] > revs[i - 1] for i in range(1, len(revs))):
+        print(f"[retro] YES — 리뷰지적이 {RETRO_RISES}단계 연속 증가"
+              f"({' → '.join(str(v) for v in revs)}).")
+        return 0
+    print(f"[retro] NO — 재시도 {retry}회(문턱 {RETRO_RETRY}), "
+          f"리뷰지적 {' → '.join(str(v) for v in revs)} — 연속 증가 아님. 순조로운 단계다.")
+    return 0
 
 
 def log_summary():
@@ -1188,6 +1252,8 @@ def main():
         return constitution_diff()
     if "--log-summary" in sys.argv[1:]:
         return log_summary()
+    if "--retro-check" in sys.argv[1:]:
+        return retro_check()
 
     # 헌법 동결은 제품 언어와 무관하다. 언어 미감지로 조기 반환하기 전에 먼저 본다 —
     # --record-full-test 만 돌릴 때는 조용해야 하므로 그때는 건너뛴다.

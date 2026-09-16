@@ -55,6 +55,7 @@ python3 dev-agent-team/selfcheck.py --ledger DECISIONS.md  # 예산 안에서 �
 python3 dev-agent-team/selfcheck.py --ledger-archive DECISIONS.md --keep 10  # 파일을 줄인다
 python3 dev-agent-team/selfcheck.py --ledger-stats         # 누적 문서 크기 · 큰 절 · 묵은 백로그
 python3 dev-agent-team/selfcheck.py --migrate-check         # 기존 내용이 새 규약과 어긋나는 곳
+python3 dev-agent-team/selfcheck.py --process-check         # PROCESS 를 어떻게 줄일지
 
 # 회고가 필요한 단계인지 기계로 판정 (12c 가 매번 이걸 먼저 돌린다)
 python3 dev-agent-team/selfcheck.py --retro-check
@@ -66,7 +67,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 150항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 160항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 116항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -377,6 +378,18 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   915줄이다. PROCESS 에 예산을 걸 수 없는 이유: 로그는 접혀도 이력이 안 보일 뿐이지만
   **규칙을 조용히 빼면 그 규칙이 안 지켜진다**(원칙 1). 원천에서 통합해야 한다.
   BACKLOG 도 7-0b 폐기가 돌아야 준다. 둘 다 운영이지 도구가 아니다.
+
+### PROCESS 를 줄이는 법 (`selfcheck.py --process-check`)
+- **주입 예산을 걸 수 없다.** 로그는 접혀도 이력이 안 보일 뿐이지만 **운영 규칙을 조용히
+  빼면 그 규칙이 안 지켜진다**(원칙 1). 원천에서 줄이는 수밖에 없다.
+- 그런데 실측 프로젝트에서 규칙이 76개까지 자라는 동안 통합·폐기는 **2번**뿐이었다.
+  이유: 통합이 "또 하나의 IMPROVE" 라서 새 규칙 추가와 경쟁했고, 트리거도 목표도 없었다.
+- 그래서 셋을 둔다. ① 기계 트리거(가장 무거운 역할의 주입량) ② **순증 금지** — 권고를 넘은
+  상태에서 새 P-번호를 넣으려면 **최소 하나를 대체**해야 한다(7-0c). 규칙을 못 만들게 막는
+  것이 아니라 값을 치르게 하는 것이다(WIP 제한과 같은 원리) ③ **좁히기 후보를 짚는다** —
+  `대상: 전체` 인데 본문에 역할이 하나만 나오는 블록. 전체는 아홉 역할에 전부 붙으므로
+  하나만 좁혀도 크게 준다. 역할이 여럿 나오면 후보로 올리지 않는다(추측하지 않는다).
+- 실측: 살아 있는 규칙 78개 · coder 1305줄 · **좁힐 수 있는 것 10개 270줄**.
 
 ### 권한과 그 밖의 원칙
 - deny/ask 목록 — `git push` 전체와 `gh pr` 은 **ask**(Owner 승인 후 에이전트가 실행).

@@ -1297,6 +1297,75 @@ def ledger_archive(name, keep=None):
     return 0
 
 
+ROLE_NAMES = ("planner", "tester", "coder", "checker", "documenter",
+              "designer", "lead", "reviewer", "critic", "security")
+
+
+def process_check():
+    """PROCESS 가 왜 안 줄어드는지 보고, 줄일 수 있는 것을 **구체적으로** 짚는다.
+
+    PROCESS 에는 주입 예산을 걸 수 없다. 로그는 접혀도 이력이 안 보일 뿐이지만 **운영 규칙을
+    조용히 빼면 그 규칙이 안 지켜진다**(원칙 1). 그러니 원천에서 줄여야 하는데, 실측
+    프로젝트에서 P-규칙 76개 중 통합·폐기가 **2번**뿐이었다. 왜인가 —
+
+    통합이 "또 하나의 IMPROVE" 라서 새 규칙 추가와 경쟁했고, 트리거도 목표도 없었다.
+    그래서 셋을 둔다:
+      1. 기계 트리거: 가장 무거운 역할의 주입량.
+      2. **순증 금지**: 예산을 넘은 상태에서 새 P-번호를 넣으려면 최소 하나를 대체해야 한다.
+         WIP 제한과 같은 원리다. 규칙을 못 만들게 막는 것이 아니라 값을 치르게 한다.
+      3. 좁힐 수 있는 것을 짚는다: `대상: 전체` 인데 본문에 역할이 하나만 나오는 블록.
+         전체는 모든 호출에 붙으므로 하나만 좁혀도 아홉 역할에서 빠진다.
+    """
+    blocks = _process_blocks()
+    if not blocks:
+        print("[process] PROCESS.md 가 없거나 P-번호 항목이 없다. 줄일 것이 없다.")
+        return 0
+    dead = _superseded(blocks)
+    alive = [b for b in blocks if b[0] not in dead]
+    per = {r: sum(len(b[2]) for b in alive if "전체" in b[1] or r in b[1]) for r in ROLE_NAMES}
+    worst_role = max(per, key=per.get)
+    worst = per[worst_role]
+    print(f"[process] 살아 있는 규칙 {len(alive)}개 · 가장 무거운 역할 {worst_role} "
+          f"{worst}줄 (권고 {PROCESS_WARN_LINES})")
+
+    if worst <= PROCESS_WARN_LINES:
+        print("[process] 권고 안이다. 순증 금지는 적용되지 않는다.")
+        return 0
+
+    # 2) 순증 금지 — 가장 최근 규칙이 무엇도 대체하지 않았으면 그것부터 지적한다.
+    last = alive[-1] if alive else None
+    if last:
+        body = "\n".join(last[2])
+        if not re.search(r"P-\d+[^\n]{0,40}?(폐기|대체|무효|철회)", body):
+            print(f"[process] **순증 금지 위반**: 마지막 규칙 {last[0]} 이(가) 아무것도 "
+                  "대체하지 않았다.")
+            print("[process] 예산을 넘은 상태에서 새 규칙을 넣으려면 최소 하나를 대체해야 한다.")
+            print("[process] 규칙을 못 만들게 막는 것이 아니라 값을 치르게 하는 것이다.")
+
+    # 3) 좁힐 수 있는 것 — 전체인데 본문에 역할이 하나만 나오는 블록.
+    narrow = []
+    for num, tgt, lines in alive:
+        if "전체" not in tgt:
+            continue
+        body = "\n".join(lines[1:])
+        hit = {r for r in ROLE_NAMES if r in body}
+        if len(hit) == 1:
+            narrow.append((num, hit.pop(), len(lines), lines[0]))
+    if narrow:
+        tot = sum(n for _, _, n, _ in narrow)
+        print(f"\n[process] 좁힐 수 있는 것 {len(narrow)}개 · {tot}줄 — "
+              "`대상: 전체` 인데 본문에 역할이 하나만 나온다.")
+        print("[process] 전체는 모든 호출에 붙는다. 하나만 좁혀도 아홉 역할에서 빠진다.")
+        for num, r, n, h in sorted(narrow, key=lambda x: -x[2])[:8]:
+            print(f"  {n:>4}줄  전체 → {r:<10} {h.lstrip('# ').strip()[:52]}")
+        print(f"[process] 이것만 좁혀도 다른 역할의 주입이 최대 {tot}줄 준다.")
+    else:
+        print("\n[process] `대상: 전체` 중 한 역할로 좁힐 만한 것은 없다. 통합만 남았다.")
+    print("\n[process] 줄이는 방법은 삭제가 아니라 통합·좁히기다. 새 P-번호가 옛 것들을")
+    print("[process] '대체한다'고 적으면 원문은 파일에 남고 주입에서만 빠진다.")
+    return 0
+
+
 def migrate_check():
     """하네스를 올린 뒤, **기존 내용이 새 규약을 따르는지** 본다.
 
@@ -1774,6 +1843,8 @@ def main():
         return ledger_stats()
     if "--migrate-check" in sys.argv[1:]:
         return migrate_check()
+    if "--process-check" in sys.argv[1:]:
+        return process_check()
     if "--ledger-archive" in sys.argv[1:]:
         i = sys.argv.index("--ledger-archive")
         if i + 1 >= len(sys.argv):

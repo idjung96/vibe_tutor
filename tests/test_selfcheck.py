@@ -807,6 +807,64 @@ def test_migrate_check():
               "[PROCESS.md] 단계 번호" not in out, out)
 
 
+def test_process_check():
+    """PROCESS 가 왜 안 줄어드는지 짚고, 순증에 값을 붙이는가.
+
+    PROCESS 에는 주입 예산을 걸 수 없다 — 로그는 접혀도 이력이 안 보일 뿐이지만 운영 규칙을
+    조용히 빼면 그 규칙이 안 지켜진다(원칙 1). 원천에서 줄여야 하는데, 실측 프로젝트에서
+    규칙이 76개까지 자라는 동안 통합·폐기는 **2번**뿐이었다. 통합이 "또 하나의 IMPROVE" 라
+    새 규칙 추가와 경쟁했기 때문이다. 그래서 값을 붙인다 — 예산을 넘으면 순증 금지.
+    """
+    print("\n[PROCESS 줄이기]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+
+        def run():
+            return subprocess.run([sys.executable, str(SELFCHECK), "--process-check"],
+                                  capture_output=True, text=True).stdout
+
+        # 권고 안 — 아무 요구도 하지 않는다.
+        Path("dev-agent-team/PROCESS.md").write_text(
+            "# 절차\n\n## P-1: 개정\n대상: coder\n본문\n", encoding="utf-8")
+        out = run()
+        check("권고 안이면 순증 금지를 적용하지 않는다", "권고 안이다" in out, out)
+
+        # 권고 초과 + 마지막 규칙이 아무것도 대체하지 않음 -> 순증 금지 위반
+        big = "# 절차\n\n" + "".join(
+            f"## P-{i}: 개정\n대상: 전체\n" + "본문\n" * 20 + "\n" for i in range(1, 20))
+        Path("dev-agent-team/PROCESS.md").write_text(big, encoding="utf-8")
+        out = run()
+        check("가장 무거운 역할과 줄수를 말한다", "가장 무거운 역할" in out, out)
+        check("순증 금지 위반을 짚는다", "순증 금지 위반" in out and "P-19" in out, out)
+        check("막는 게 아니라 값을 치르게 한다고 말한다", "값을 치르게" in out, out)
+
+        # 마지막 규칙이 대체를 하면 위반이 아니다.
+        Path("dev-agent-team/PROCESS.md").write_text(
+            big + "## P-20: 통합\n대상: 전체\nP-3 을 대체한다.\n본문\n", encoding="utf-8")
+        out = run()
+        check("대체하면 순증 금지 위반이 아니다", "순증 금지 위반" not in out, out)
+
+        # 좁힐 수 있는 것: 전체인데 본문에 역할이 하나만 나온다.
+        Path("dev-agent-team/PROCESS.md").write_text(
+            big + "## P-21: 좁힐 것\n대상: 전체\nP-3 을 대체한다.\n"
+            "coder 가 로그를 쓸 때만 해당한다\n" * 5, encoding="utf-8")
+        out = run()
+        check("좁힐 수 있는 블록을 짚는다", "좁힐 수 있는 것" in out and "→ coder" in out, out)
+        check("좁히면 얼마나 주는지 말한다", "최대" in out and "줄 준다" in out, out)
+        check("삭제가 아니라 통합·좁히기라고 말한다", "삭제가 아니라 통합" in out, out)
+
+        # 여러 역할이 나오면 좁히기 후보가 아니다(추측하지 않는다).
+        Path("dev-agent-team/PROCESS.md").write_text(
+            big + "## P-22: 여럿\n대상: 전체\nP-3 을 대체한다.\n"
+            "coder 와 tester 와 checker 에 해당한다\n", encoding="utf-8")
+        out = run()
+        check("역할이 여럿이면 좁히기 후보로 올리지 않는다", "P-22" not in out, out)
+
+        Path("dev-agent-team/PROCESS.md").unlink()
+        check("PROCESS 가 없으면 줄일 것이 없다고 한다", "줄일 것이 없다" in run())
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -824,6 +882,7 @@ def main():
     test_owner_lines_split()
     test_retro_check()
     test_process_injection()
+    test_process_check()
     test_direction_head()
     test_ledger()
     test_ledger_budget_and_archive()

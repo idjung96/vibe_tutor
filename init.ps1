@@ -412,7 +412,7 @@ if ($AcceptConstitution) {
 }
 
 Render-Managed (Join-Path $Src 'templates\AGENTS.md.tmpl') (Join-Path $Target 'AGENTS.md') 'AGENTS.md'
-foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks', 'dev-agent-team\evidence') {
+foreach ($d in 'common', 'tests', 'logs', 'dev-agent-team\libs', 'dev-agent-team\guides', 'dev-agent-team\answered', 'dev-agent-team\hooks', 'dev-agent-team\evidence', 'dev-agent-team\guards') {
     New-Item -ItemType Directory -Force -Path (Join-Path $Target $d) | Out-Null
 }
 # init.sh 와 같다 — common/ 은 제품 디렉터리라 이미 있으면 덮지 않는다.
@@ -425,8 +425,39 @@ if (Test-Path -LiteralPath $lg) {
 else {
     Copy-Item (Join-Path $Src 'templates\common\logger.py') $lg -Force
 }
-Copy-Item (Join-Path $Src 'templates\project\selfcheck.py') (Join-Path $Target 'dev-agent-team\selfcheck.py') -Force
-Copy-Item (Join-Path $Src 'templates\hooks\*.sh')       (Join-Path $Target 'dev-agent-team\hooks\') -Force
+# 강제 장치(훅·selfcheck)는 무조건 최신으로 덮되, 프로젝트가 고쳤으면 .orig 로 남기고
+# 크게 알린다(init.sh 의 copy_enforced 와 동작이 같아야 한다). 앞으로의 커스터마이즈는
+# dev-agent-team/guards/ 로 간다 — 거기는 하니스가 덮지 않는다.
+$Script:EnforcedChanged = @()
+function Copy-Enforced($SrcFile, $DstFile, $Rel) {
+    $newH = Sha256Of $SrcFile
+    if (Test-Path -LiteralPath $DstFile) {
+        $curH = Sha256Of $DstFile
+        if ($curH -ne $newH) {
+            $recH = Manifest-Get $Rel
+            if ($null -ne $recH -and $curH -and $curH -ne $recH) {
+                Copy-Item -LiteralPath $DstFile "$DstFile.orig" -Force
+                $Script:EnforcedChanged += $Rel
+            }
+        }
+    }
+    Copy-Item -LiteralPath $SrcFile $DstFile -Force
+    $Script:ManifestNew.Add($newH + '  ' + $Rel)
+}
+Copy-Enforced (Join-Path $Src 'templates\project\selfcheck.py') `
+              (Join-Path $Target 'dev-agent-team\selfcheck.py') 'dev-agent-team/selfcheck.py'
+foreach ($h in 'protect_tests.sh', 'block_on_owner_question.sh') {
+    Copy-Enforced (Join-Path $Src "templates\hooks\$h") `
+                  (Join-Path $Target "dev-agent-team\hooks\$h") "dev-agent-team/hooks/$h"
+}
+if ($Script:EnforcedChanged.Count -gt 0) {
+    Write-Host ''
+    Write-Host "*** 알림: 프로젝트가 고쳐 둔 강제 장치를 새 버전으로 덮었습니다 — $($Script:EnforcedChanged -join ' ')"
+    Write-Host '    고쳐 둔 내용은 각 파일 옆에 .orig 로 남겼습니다.'
+    Write-Host '    **이 파일들에 직접 넣은 규칙은 업그레이드마다 사라집니다.**'
+    Write-Host '    앞으로는 dev-agent-team/guards/ 에 두세요(하니스가 덮지 않습니다).'
+    Write-Host ''
+}
 # 가드 훅의 줄끝을 대상 프로젝트의 git 에서도 고정한다(init.sh 와 동작이 같아야 한다).
 # 없으면 Owner 가 커밋한 뒤 Windows 에서 클론할 때 .sh 가 CRLF 가 되어 정지 메커니즘이 깨진다.
 $ga = Join-Path $Target '.gitattributes'
@@ -450,7 +481,9 @@ foreach ($pair in @(
         @('templates\project\TEST_LOG.md', 'dev-agent-team\TEST_LOG.md'),
         @('templates\project\docs-libs-INDEX.md', 'dev-agent-team\libs\INDEX.md'),
         @('templates\project\BACKLOG.md', 'dev-agent-team\BACKLOG.md'),
-        @('templates\project\BACKLOG_DONE.md', 'dev-agent-team\BACKLOG_DONE.md'))) {
+        @('templates\project\BACKLOG_DONE.md', 'dev-agent-team\BACKLOG_DONE.md'),
+        @('templates\project\TEST_UNFREEZE.md', 'dev-agent-team\TEST_UNFREEZE.md'),
+        @('templates\project\guards\README.md', 'dev-agent-team\guards\README.md'))) {
     $dst = Join-Path $Target $pair[1]
     if (-not (Test-Path $dst)) { Copy-Item (Join-Path $Src $pair[0]) $dst }
 }

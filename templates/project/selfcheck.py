@@ -45,6 +45,7 @@ size 축은 근사치라 점수만 내고 재시도를 강제하지 않는다(--
 """
 import ast
 import hashlib
+import importlib.util
 import json
 import re
 import subprocess
@@ -260,23 +261,50 @@ def _file_code_lines(name, path, text):
             yield name, path, num, line, stripped
 
 
-def iter_code_lines(langs):
-    """(언어, 경로, 줄번호, 원문, 공백제거) 를 내놓는다. 주석 줄은 건너뛴다."""
+SCANNED = {}     # 축이 **실제로 읽은** 파일 수. "0건" 이 "안 봤다" 인지 갈라 준다.
+
+
+def iter_code_lines(langs, axis=None):
+    """(언어, 경로, 줄번호, 원문, 공백제거) 를 내놓는다. 주석 줄은 건너뛴다.
+
+    몇 개를 실제로 읽었는지 SCANNED 에 남긴다. 이게 없으면 "[print] 0건" 이
+    "다 보고 깨끗했다" 인지 "한 개도 못 봤다" 인지 구분할 수 없다 — 실제로
+    인자를 첫 개만 쓰던 시절 그 둘이 같은 글자로 나왔다.
+    """
+    seen = 0
     for name in langs:
         for path in iter_sources(LANGS[name]["ext"]):
             text = read_text(path)
             if text is not None:
+                seen += 1
                 yield from _file_code_lines(name, path, text)
+    if axis:
+        SCANNED[axis] = seen
 
 
-def collect_tests(langs, target):
-    """python이면 pytest --collect-only 로 수집 가능 여부를 확인한다."""
+def _scan_note(axis):
+    """축 출력에 붙일 '몇 개를 봤나' 꼬리. 못 읽은 것이 있으면 함께 말한다."""
+    seen = SCANNED.get(axis)
+    if seen is None:
+        return ""
+    note = f" ({seen}파일 검사)"
+    if UNREADABLE:
+        note = f" ({seen}파일 검사 · 못 읽은 파일 {len(UNREADABLE)}개는 제외 — [read] 참조)"
+    return note
+
+
+def collect_tests(langs, targets):
+    """python이면 pytest --collect-only 로 수집 가능 여부를 확인한다.
+
+    targets 는 **리스트**다. 예전에 첫 인자만 넘겨서, 여러 파일을 준 호출이 조용히 한 파일만
+    수집하고 OK 를 냈다. collect 는 merge 를 막는 결정적 축이라 그 침묵이 제일 위험하다.
+    """
     if "python" not in langs:
         print("[collect] SKIP (python 아님 — 테스트 수집·실행은 checker가 제품 언어 러너로 한다)")
         return True
     cmd = [sys.executable, "-m", "pytest", "--collect-only", "-q"]
-    if target:
-        cmd.append(target)
+    if targets:
+        cmd.extend(targets)
     proc = subprocess.run(cmd, capture_output=True, text=True)
     # pytest 5 = no tests collected. 아직 테스트를 안 만든 초기 상태이지 수집 오류가 아니다.
     if proc.returncode == 5:
@@ -293,7 +321,7 @@ def collect_tests(langs, target):
 def scan_print(langs):
     """제품 코드에서 print 계열 사용처를 찾는다. common/ tests/ 등은 제외한다."""
     hits = []
-    for name, path, num, line, stripped in iter_code_lines(langs):
+    for name, path, num, line, stripped in iter_code_lines(langs, axis="print"):
         if ALLOW_PRINT in line:
             continue
         for pat in LANGS[name]["printers"]:
@@ -302,11 +330,11 @@ def scan_print(langs):
                 break
     COUNTS["print"] = len(hits)
     if hits:
-        print(f"[print] {len(hits)}건 발견 (logger 사용 권장):")
+        print(f"[print] {len(hits)}건 발견{_scan_note('print')} (logger 사용 권장):")
         for hit in hits:
             print("  " + hit)
     else:
-        print("[print] 0건")
+        print(f"[print] 0건{_scan_note('print')}")
     return not hits
 
 
@@ -1778,11 +1806,30 @@ def write_score(scores):
     return out
 
 
+# 플래그의 **값**으로 오는 위치 인자는 대상 파일이 아니다. 안 걸러 내면
+# `--ledger DECISIONS.md` 의 DECISIONS.md 가 검사 대상으로 섞인다.
+_FLAGS_WITH_VALUE = ("--owner-lines", "--owner-lines-skipped", "--process-active",
+                     "--ledger", "--ledger-archive", "--keep")
+
+
 def _parse_args(args):
-    """(gate, record, score, target) 로 가른다."""
-    rest = [a for a in args if not a.startswith("--")]
-    return ("--gate" in args, "--record-full-test" in args, "--score" in args,
-            rest[0] if rest else None)
+    """(gate, record, score, **targets 리스트**) 로 가른다.
+
+    예전에는 `rest[0]` 만 돌려줘서 `selfcheck.py A.py B.py` 가 A.py 만 봤다. 그런데 출력은
+    "[testsmell] 0건" 이었다 — **"검사했는데 깨끗하다" 가 아니라 "안 봤다"** 인데 구분이
+    안 됐다. `[collect]` 축도 pytest 에 첫 파일만 넘겼고, 그건 merge 를 막는 결정적 축이다.
+    두 번 고쳤다가 두 번 되돌아온 버그라 여기에 적어 둔다 — 인자는 **전부** 받는다.
+    """
+    rest, skip = [], False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if a.startswith("--"):
+            skip = a in _FLAGS_WITH_VALUE
+            continue
+        rest.append(a)
+    return ("--gate" in args, "--record-full-test" in args, "--score" in args, rest)
 
 
 def _run_without_langs(langs, gate, record, score):
@@ -1799,6 +1846,49 @@ def _run_without_langs(langs, gate, record, score):
     return 0
 
 
+PROJECT_CHECKS = Path("dev-agent-team/guards/project_checks.py")
+
+
+def run_project_checks():
+    """프로젝트가 덧댄 검사 축을 불러 돌린다. 하니스는 이 파일을 만들지도 덮지도 않는다.
+
+    **왜 확장점이 필요한가**: 업그레이드는 selfcheck.py 와 훅을 통째로 갈아엎는다. 그래서
+    프로젝트가 이 파일들에 직접 축을 넣으면 다음 업그레이드에 사라진다 — 실제로 한 사용처에서
+    두 번 사라졌고, 두 번째에는 **그것을 감시하려고 넣은 검사까지 같이 지워졌다.** 탐지기가
+    탐지 대상과 함께 사라지면 게이트는 조용히 `[guards] OK` 를 찍는다.
+    확장점이 없으면 합리적인 반응이 "업그레이드를 안 하는 것" 이 되고, 그러면 새 기능이 영영
+    전달되지 않는다. /etc/profile ↔ ~/.bashrc, nginx conf.d/, git core.hooksPath 와 같은 자리다.
+
+    계약: 모듈이 `run(ctx) -> [{"name","ok","message","blocking"}]` 를 내놓는다.
+      ctx = {"langs": [...], "targets": [...], "counts": COUNTS, "scanned": SCANNED}
+    파일이 없으면 조용히 건너뛴다. 있는데 **터지면 막는다** — 안전장치의 확장이므로
+    fail-closed 다(원칙 1). 못 돌린 확장을 "통과" 로 바꾸지 않는다.
+    """
+    if not PROJECT_CHECKS.is_file():
+        return {}
+    ctx = {"langs": [], "targets": [], "counts": COUNTS, "scanned": SCANNED}
+    try:
+        spec = importlib.util.spec_from_file_location("harness_project_checks",
+                                                      PROJECT_CHECKS)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        raw = mod.run(ctx) if hasattr(mod, "run") else []
+        out = {}
+        for item in raw:
+            name = str(item["name"])
+            ok = bool(item.get("ok"))
+            print(f"[{name}] {'OK' if ok else 'FAIL'} — {item.get('message', '')}".rstrip(" —"))
+            if item.get("blocking", True):
+                out[name] = ok
+        return out
+    except Exception as exc:
+        print(f"[project-checks] FAIL — {PROJECT_CHECKS} 를 돌리지 못했다: "
+              f"{type(exc).__name__}: {exc}")
+        print("[project-checks] 확장이 판정하지 못했으므로 막는다. 못 돌린 것을 "
+              "'통과' 로 바꾸지 않는다.")
+        return {"project-checks": False}
+
+
 def _run_gate(results, langs):
     """게이트: 결정적 6종만 차단한다. security(후보)·size(근사)는 잘못 막을 수 있다.
 
@@ -1809,8 +1899,10 @@ def _run_gate(results, langs):
     results["constitution"] = not COUNTS.get("constitution_behind")
     results["guards"] = check_guards()
     results["read"] = check_readable()
-    blocking = [n for n in ("collect", "print", "trace", "full-test",
-                            "constitution", "guards", "read")
+    extra = run_project_checks()          # 프로젝트 확장 축 (있으면)
+    results.update(extra)
+    blocking = [n for n in list(("collect", "print", "trace", "full-test",
+                                 "constitution", "guards", "read")) + list(extra)
                 if not results[n]]
     if blocking:
         print(f"[gate] FAIL — 차단: {', '.join(blocking)} (security·size는 차단하지 않는다)")
@@ -1820,7 +1912,7 @@ def _run_gate(results, langs):
 
 
 def main():
-    gate, record, score, target = _parse_args(sys.argv[1:])
+    gate, record, score, targets = _parse_args(sys.argv[1:])
     for flag, which in (("--owner-lines", "sure"), ("--owner-lines-skipped", "skipped")):
         if flag in sys.argv[1:]:
             i = sys.argv.index(flag)
@@ -1892,7 +1984,7 @@ def main():
     # gate 와 score 는 둘 다 "방금 끝난 단계" 시점에 돈다. doc 축(_doc_gap)이 현재 단계를
     # 포함하므로 trace 도 같은 창을 써야 한다 — 안 그러면 두 축이 다른 기준으로 채점된다.
     results = {
-        "collect": collect_tests(langs, target),
+        "collect": collect_tests(langs, targets),
         "print": scan_print(langs),
         "security": scan_security(langs),
         "size": scan_size(langs),

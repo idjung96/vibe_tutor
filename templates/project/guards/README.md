@@ -1,0 +1,40 @@
+# 프로젝트 확장 (하니스가 절대 덮지 않는 곳)
+
+하니스 업그레이드는 `dev-agent-team/hooks/*.sh` 와 `dev-agent-team/selfcheck.py` 를
+**통째로 갈아엎는다**. 그래서 그 파일들에 프로젝트 규칙을 직접 넣으면 다음 업그레이드에
+사라진다 — 실제로 한 사용처에서 두 번 사라졌고, 두 번째에는 그것을 감시하려고 넣은
+검사까지 같이 지워졌다. 탐지기가 탐지 대상과 함께 사라지면 게이트는 조용히 OK 를 찍는다.
+
+**프로젝트 규칙은 여기에 둔다.** 이 폴더는 설치기가 만들기만 하고 내용을 건드리지 않는다.
+
+## `project.sh` — 가드 훅 확장
+
+`protect_tests.sh` 가 자기 판정을 끝낸 뒤 이 파일이 있으면 불러온다.
+
+- `$HARNESS_CANDIDATES` 에 판정 대상 경로가 개행으로 들어온다.
+- 차단하려면 `exit 2`. 통과시키려면 그냥 반환한다.
+- **오류가 나면 막는다**(fail-closed). 안전장치의 확장이기 때문이다.
+
+```sh
+# 예: 계약 헬퍼는 해제 목록에 있어도 손대지 못하게 한다
+printf '%s\n' "$HARNESS_CANDIDATES" | grep -q '_contract\.py$' && {
+  echo "계약 헬퍼는 Owner 승인 없이 수정 금지다." >&2
+  exit 2
+}
+```
+
+## `project_checks.py` — selfcheck 검사 축 확장
+
+`selfcheck.py --gate` 가 자기 축을 다 돌린 뒤 이 파일이 있으면 불러온다.
+
+```python
+def run(ctx):
+    """ctx = {"langs", "targets", "counts", "scanned"}
+    반환: [{"name": 축이름, "ok": bool, "message": str, "blocking": bool}]
+    blocking 이 참이면 그 축이 FAIL 일 때 merge 게이트가 막는다(기본 참).
+    """
+    return [{"name": "testsmell", "ok": True, "message": "조용한 skip 0건"}]
+```
+
+파일이 없으면 조용히 건너뛴다. **있는데 터지면 막는다** — 못 돌린 확장을 "통과" 로
+바꾸지 않는다(원칙 1).

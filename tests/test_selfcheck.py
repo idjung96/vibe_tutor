@@ -865,6 +865,75 @@ def test_process_check():
         check("PROCESS 가 없으면 줄일 것이 없다고 한다", "줄일 것이 없다" in run())
 
 
+def test_multi_target_args():
+    """인자를 여럿 받는가 — 「0건」이 「안 봤다」를 뜻하지 않는가.
+
+    `_parse_args` 가 `rest[0]` 만 돌려줘서 `selfcheck.py A.py B.py` 가 A.py 만 봤다.
+    출력은 "0건" 이었다 — **검사했는데 깨끗한 것과 아예 안 본 것이 같은 글자로 나왔다.**
+    `[collect]` 축도 pytest 에 첫 파일만 넘겼고 그건 merge 를 막는 결정적 축이다.
+    사용처가 두 번 고쳤고 두 번 되돌아왔다. 그래서 테스트로 못 박는다.
+    """
+    print("\n[인자 여럿]")
+    mod = load_module()
+    gate, record, score, targets = mod._parse_args(["A.py", "B.py", "C.py"])
+    check("위치 인자를 전부 돌려준다", targets == ["A.py", "B.py", "C.py"], targets)
+    check("플래그는 대상에 섞이지 않는다",
+          mod._parse_args(["--gate", "A.py"])[3] == ["A.py"])
+    check("플래그의 **값**도 대상에 섞이지 않는다",
+          mod._parse_args(["--ledger", "DECISIONS.md"])[3] == [],
+          mod._parse_args(["--ledger", "DECISIONS.md"])[3])
+    check("--keep 값도 마찬가지",
+          mod._parse_args(["--ledger-archive", "X.md", "--keep", "10"])[3] == [])
+    check("인자가 없으면 빈 리스트", mod._parse_args(["--gate"])[3] == [])
+
+    # collect 가 pytest 에 전부 넘기는가 — 인자를 가로채 확인한다.
+    seen = {}
+    real = mod.subprocess.run
+
+    class R:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake(cmd, *a, **k):
+        seen["cmd"] = cmd
+        return R()
+
+    mod.subprocess.run = fake
+    try:
+        mod.collect_tests(["python"], ["A.py", "B.py"])
+    finally:
+        mod.subprocess.run = real
+    check("collect 가 pytest 에 모든 대상을 넘긴다",
+          seen["cmd"][-2:] == ["A.py", "B.py"], seen.get("cmd"))
+
+
+def test_scanned_count_is_reported():
+    """축이 **실제로 본 파일 수**를 말하는가."""
+    print("\n[본 파일 수]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("requirements.txt").write_text("", encoding="utf-8")
+        Path("src").mkdir()
+        Path("src/a.py").write_text("x = 1\n", encoding="utf-8")
+        Path("src/b.py").write_text("y = 2\n", encoding="utf-8")
+        out = subprocess.run([sys.executable, str(SELFCHECK)],
+                             capture_output=True, text=True).stdout
+        check("0건에 몇 파일을 봤는지 붙는다", "[print] 0건 (2파일 검사)" in out, out)
+
+        # 못 읽는 파일이 있으면 「0건」에 섞지 않고 따로 말한다.
+        Path("src/bad.py").write_bytes("x = '한글'\n".encode("cp949"))
+        out = subprocess.run([sys.executable, str(SELFCHECK)],
+                             capture_output=True, text=True).stdout
+        # [read] 축은 게이트에서만 돈다(차단 판정이므로). 기본 모드에서는 꼬리로만 알린다.
+        gout = subprocess.run([sys.executable, str(SELFCHECK), "--gate"],
+                              capture_output=True, text=True).stdout
+        check("못 읽은 파일은 게이트가 따로 막는다",
+              "[read] FAIL" in gout and "read" in gout.split("차단:")[-1], gout[-400:])
+        check("0건 줄이 못 읽은 파일을 숨기지 않는다",
+              "못 읽은 파일 1개는 제외" in out, out)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -878,6 +947,8 @@ def main():
     test_constitution_diff()
     test_guards()
     test_unreadable()
+    test_multi_target_args()
+    test_scanned_count_is_reported()
     test_log_summary()
     test_owner_lines_split()
     test_retro_check()

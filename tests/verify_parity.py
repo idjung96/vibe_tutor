@@ -188,6 +188,16 @@ def check_installer_logic(sh, ps):
           "답(1/2/3)" in sh and "답(1/2/3)" in ps
           and "HARNESS_FORCE_PROMPT" in sh and "HARNESS_FORCE_PROMPT" in ps)
 
+    # 강제 장치를 매니페스트에 넣고 .orig 로 백업하는가 (업그레이드가 커스터마이즈를 지운 사고)
+    check("강제 장치를 매니페스트로 관리한다(양쪽)",
+          "copy_enforced" in sh and "Copy-Enforced" in ps
+          and '"$2.orig"' in sh and '"$DstFile.orig"' in ps)
+
+    # 확장점 폴더를 만들되 내용은 덮지 않는가
+    check("확장 폴더를 만들고 README 만 install-if-missing (양쪽)",
+          "dev-agent-team/guards" in sh and "dev-agent-team\\guards" in ps
+          and "guards/README.md" in sh and "guards\\README.md" in ps)
+
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))
     b = sorted(set(re.findall(r'"\$File\.([\w-]+)"', ps)))

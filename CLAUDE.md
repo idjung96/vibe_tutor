@@ -41,7 +41,7 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 
 # 설치 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
 ./tests/verify_install.sh /tmp/t1     # 구성·파일·설정·헌법 동결 + 가드 훅 실동작까지
-./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 26항목(23은 .sh, 3은 guard.js — node 없으면 SKIP)
+./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 29항목(샌드박스를 git 저장소로 만들어 돈다)
 
 # init.sh ↔ init.ps1 파리티 검증 (pwsh 없이 코드리뷰를 자동화한 것)
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
@@ -67,7 +67,7 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 160항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 169항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
 python3 tests/test_install.py             # 116항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
@@ -425,8 +425,50 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 넣은 검사는 **결함을 주입해 실제로 잡히는지 확인**한다. 안 잡히는 검사는 장식이고,
 장식은 있는 것보다 나쁘다 — 검사가 돈다고 믿게 만든다.
 
+## 확장점 — 프로젝트 규칙은 하니스 파일에 넣지 않는다
+
+업그레이드는 `dev-agent-team/hooks/*.sh` 와 `dev-agent-team/selfcheck.py` 를 **무조건
+덮는다**(옛 강제 장치에는 구멍이 있을 수 있으므로 그게 맞다). 그래서 프로젝트가 거기에
+직접 규칙을 넣으면 업그레이드마다 사라진다 — 한 사용처에서 1.51→1.58, 1.58→1.66 두 번
+사라졌고, **두 번째에는 그것을 감시하려고 넣은 검사까지 같이** 지워졌다. 탐지기가 탐지
+대상과 함께 사라지면 게이트는 조용히 `[guards] OK` 를 찍는다.
+
+확장점이 없으면 사용처의 합리적 반응이 **"업그레이드를 안 하는 것"** 이 되고, 그러면 새
+기능이 영영 전달되지 않는다. `/etc/profile ↔ ~/.bashrc`·`nginx conf.d/`·`git core.hooksPath`
+와 같은 자리다.
+
+- `dev-agent-team/guards/project.sh` — `protect_tests.sh` 가 자기 판정을 끝낸 뒤 source 한다.
+  `$HARNESS_CANDIDATES`(개행 구분 경로)를 받고 `exit 2` 로 막는다.
+- `dev-agent-team/guards/project_checks.py` — `--gate` 가 자기 축을 다 돈 뒤 `run(ctx)` 를
+  부른다. `[{"name","ok","message","blocking"}]` 를 돌려주면 게이트 축으로 합쳐진다.
+- **둘 다 없으면 조용히 건너뛰고, 있는데 터지면 막는다**(fail-closed). 못 돌린 확장을
+  "통과" 로 바꾸지 않는다(원칙 1).
+- 설치기는 이 폴더를 **만들기만 하고 덮지 않는다**. README 만 install-if-missing 이다.
+
+### 강제 장치도 매니페스트로 관리한다
+- 예전엔 매니페스트에 `AGENTS.md`·`CLAUDE.md` 두 줄뿐이라, 정작 갈아엎히는 `hooks/*.sh` 와
+  `selfcheck.py` 가 **관리 목록 밖**이었다. 사용처는 무엇을 잃었는지 도구로 알 수 없어
+  사람이 `git status` 를 눈으로 봐야 했다(`--migrate-check` 는 문서 규약을 보는 것이라
+  이 사고를 못 잡는다).
+- 이제 셋 다 해시를 기록한다. 프로젝트가 고친 흔적이 있으면 **덮되 `.orig` 로 남기고
+  크게 알린다** — 무엇을 잃었는지 `diff` 로 볼 수 있고, guards/ 로 옮기라고 말해 준다.
+
 ## 생성된 프로젝트의 안전장치 (= templates/ 에서 무엇을 깨면 안 되는가)
 
+- **「기존 테스트」의 판정축은 git 추적 여부다**(파일 존재가 아니다). 존재로 판정하던 때는
+  에이전트가 **방금 만들어 아직 커밋도 안 한** 자기 테스트를 스스로 못 고쳤다 — 한 프로젝트에서
+  여덟 번 재발했고, 그때마다 자기 산출물의 결함을 발견하고도 못 고친 채 넘어갔다(한 번은 실제
+  구멍이 그대로 통과했다). 헌법 2번의 「기존」도 커밋된 것을 뜻한다 — 문언과 동작을 맞췄다.
+  추적 안 됨→통과 / 추적됨→차단(단 `TEST_UNFREEZE.md` 에 「근거:」와 함께 적힌 경로는 통과)
+  / **git 없음·판정 실패→차단**(fail-closed). 해제 목록을 못 읽어도 전면 동결이다.
+  보호 범위는 `tests?/` 아래 **모든 .py** — `conftest.py`(데이터 게이트)와
+  `_contract.py`·`_synthetic.py`(계약·합성 헬퍼)가 조용히 바뀌면 "독립 검증"·"조용한 skip
+  차단" 보장이 집행되지 않는다. 훅은 프로젝트 루트를 **자기 위치**로 안다(cwd 가 아니다).
+- **인자는 전부 받는다.** `_parse_args` 가 `rest[0]` 만 돌려주던 때 `selfcheck.py A.py B.py`
+  가 A.py 만 보고 "0건" 을 찍었다 — **검사했는데 깨끗한 것과 안 본 것이 같은 글자**였다.
+  `[collect]` 는 merge 를 막는 결정적 축이라 더 무겁다. 두 번 고쳤다 두 번 되돌아온
+  버그라 테스트로 못 박았다. 축 출력에 **실제로 본 파일 수**를 붙이고, 못 읽은 파일은
+  「0건」에 섞지 않고 따로 말한다.
 - **공유 가드 스크립트 2개**(`dev-agent-team/hooks/`): `block_on_owner_question.sh`
   (OWNER_QUESTION.md 의 **마지막** `답:` 줄에 숫자가 없으면 exit 2 차단 — 아무 `답:` 줄이나
   보면 질문 본문에 예시로 적힌 `답: 2` 한 줄이 정지를 풀어 버린다), `protect_tests.sh`

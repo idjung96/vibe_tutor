@@ -423,10 +423,49 @@ if [ -f "$TARGET/common/logger.py" ]; then
 else
   cp "$SRC/templates/common/logger.py"        "$TARGET/common/logger.py"
 fi
-cp "$SRC/templates/project/selfcheck.py"     "$TARGET/dev-agent-team/selfcheck.py"
-cp "$SRC/templates/hooks/block_on_owner_question.sh" "$TARGET/dev-agent-team/hooks/"
-cp "$SRC/templates/hooks/protect_tests.sh"           "$TARGET/dev-agent-team/hooks/"
+# 강제 장치(훅·selfcheck)는 **무조건 최신으로** 덮는다 — 옛 것에는 구멍이 있을 수 있다.
+# 그런데 예전엔 매니페스트에 AGENTS.md·CLAUDE.md 두 줄뿐이라, 정작 갈아엎히는 이 파일들이
+# 관리 목록 밖이었다. 그래서 프로젝트가 무엇을 잃었는지 도구로 알 방법이 없었고 사람이
+# git status 를 눈으로 봐야 했다. 이제 해시를 기록하고, 프로젝트가 고쳤으면 .orig 로
+# 남긴 뒤 **크게 알린다.** (앞으로의 커스터마이즈는 dev-agent-team/guards/ 로 간다.)
+copy_enforced() { # $1=원본 $2=대상 $3=매니페스트 키
+  NEWH=$(sha256_of "$1")
+  if [ -f "$2" ]; then
+    CURH=$(sha256_of "$2")
+    if [ "$CURH" != "$NEWH" ]; then
+      if RECH=$(manifest_get "$3") && [ -n "$CURH" ] && [ "$CURH" != "$RECH" ]; then
+        cp "$2" "$2.orig"
+        ENFORCED_CHANGED="$ENFORCED_CHANGED $3"
+      fi
+    fi
+  fi
+  cp "$1" "$2"
+  printf '%s  %s\n' "$NEWH" "$3" >> "$MANIFEST.tmp"
+}
+ENFORCED_CHANGED=""
+copy_enforced "$SRC/templates/project/selfcheck.py" "$TARGET/dev-agent-team/selfcheck.py" \
+              "dev-agent-team/selfcheck.py"
+copy_enforced "$SRC/templates/hooks/block_on_owner_question.sh" \
+              "$TARGET/dev-agent-team/hooks/block_on_owner_question.sh" \
+              "dev-agent-team/hooks/block_on_owner_question.sh"
+copy_enforced "$SRC/templates/hooks/protect_tests.sh" \
+              "$TARGET/dev-agent-team/hooks/protect_tests.sh" \
+              "dev-agent-team/hooks/protect_tests.sh"
 chmod +x "$TARGET/dev-agent-team/hooks/"*.sh
+if [ -n "$ENFORCED_CHANGED" ]; then
+  echo ""
+  echo "*** 알림: 프로젝트가 고쳐 둔 강제 장치를 새 버전으로 덮었습니다 —$ENFORCED_CHANGED"
+  echo "    고쳐 둔 내용은 각 파일 옆에 .orig 로 남겼습니다. 무엇이 사라졌는지 비교하세요:"
+  for f in $ENFORCED_CHANGED; do
+    echo "      diff \"$TARGET/$f.orig\" \"$TARGET/$f\""
+  done
+  echo "    **이 파일들에 직접 넣은 규칙은 업그레이드마다 사라집니다.**"
+  echo "    앞으로는 dev-agent-team/guards/ 에 두세요(하니스가 덮지 않습니다):"
+  echo "      guards/project.sh          — 가드 훅 확장"
+  echo "      guards/project_checks.py   — selfcheck 검사 축 확장"
+  echo "    설명: $TARGET/dev-agent-team/guards/README.md"
+  echo ""
+fi
 cp "$SRC/templates/docs/OWNER_GUIDE.md"     "$TARGET/dev-agent-team/guides/OWNER_GUIDE.md"
 cp "$SRC/templates/docs/DEBUG_GUIDE.md"     "$TARGET/dev-agent-team/guides/DEBUG_GUIDE.md"
 [ -f "$TARGET/dev-agent-team/DECISIONS.md" ] || cp "$SRC/templates/project/DECISIONS.md" "$TARGET/dev-agent-team/DECISIONS.md"
@@ -436,6 +475,10 @@ migrate_test_log "$TARGET/dev-agent-team/TEST_LOG.md"
 [ -f "$TARGET/dev-agent-team/libs/INDEX.md" ] || cp "$SRC/templates/project/docs-libs-INDEX.md" "$TARGET/dev-agent-team/libs/INDEX.md"
 [ -f "$TARGET/dev-agent-team/BACKLOG.md" ] || cp "$SRC/templates/project/BACKLOG.md" "$TARGET/dev-agent-team/BACKLOG.md"
 [ -f "$TARGET/dev-agent-team/BACKLOG_DONE.md" ] || cp "$SRC/templates/project/BACKLOG_DONE.md" "$TARGET/dev-agent-team/BACKLOG_DONE.md"
+[ -f "$TARGET/dev-agent-team/TEST_UNFREEZE.md" ] || cp "$SRC/templates/project/TEST_UNFREEZE.md" "$TARGET/dev-agent-team/TEST_UNFREEZE.md"
+# 확장 폴더: README 만 깔고 내용은 **절대 덮지 않는다**. 여기가 업그레이드를 견디는 자리다.
+mkdir -p "$TARGET/dev-agent-team/guards"
+[ -f "$TARGET/dev-agent-team/guards/README.md" ] || cp "$SRC/templates/project/guards/README.md" "$TARGET/dev-agent-team/guards/README.md"
 if [ "$PROFILE" = "large" ] && [ ! -f "$TARGET/dev-agent-team/DIRECTION.md" ]; then
   cp "$SRC/templates/project/DIRECTION.md" "$TARGET/dev-agent-team/DIRECTION.md"
 fi

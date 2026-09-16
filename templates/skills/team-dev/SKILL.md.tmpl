@@ -375,6 +375,22 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
     - coder가 "기존 테스트가 틀렸다"고 주장한다: C등급이다.
     - 이 단계에서 checker 호출이 {{MAX_CHECKER_CALLS}}회를 넘었다: C등급이다.
 {{#IF_LARGE}}
+## 프로젝트 규칙을 덧댈 때 (하니스를 고치지 마라)
+
+업그레이드는 `dev-agent-team/hooks/*.sh` 와 `dev-agent-team/selfcheck.py` 를 **통째로
+갈아엎는다.** 거기에 직접 넣은 규칙은 다음 업그레이드에 사라진다 — 한 사용처에서 두 번
+사라졌고, 두 번째에는 **그것을 감시하려고 넣은 검사까지 같이** 지워졌다. 탐지기가 탐지
+대상과 함께 사라지면 게이트는 조용히 `[guards] OK` 를 찍는다.
+
+프로젝트 규칙은 `dev-agent-team/guards/` 에 둔다. 하니스가 만들기만 하고 덮지 않는다.
+  - `guards/project.sh`        — 가드 훅 확장. `$HARNESS_CANDIDATES` 를 받고 `exit 2` 로 막는다.
+  - `guards/project_checks.py` — 검사 축 확장. `run(ctx)` 가 축 목록을 돌려준다.
+둘 다 **터지면 막는다**(fail-closed). 못 돌린 확장을 "통과" 로 바꾸지 않는다.
+설명은 `dev-agent-team/guards/README.md` 에 있다.
+
+설치기가 강제 장치를 덮을 때 프로젝트가 고친 흔적이 있으면 `.orig` 로 남기고 알린다.
+그 알림이 뜨면 **무엇을 잃었는지 diff 로 보고 guards/ 로 옮겨라.**
+
 ## 하네스를 올린 직후 한 번 (마이그레이션)
 
 새 규약은 앞으로 쓸 것에만 적용된다 — 이미 쓴 것은 그대로다. 규약이 안 맞으면 도구가

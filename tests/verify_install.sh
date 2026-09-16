@@ -53,11 +53,12 @@ for f in dev-agent-team/hooks/protect_tests.sh dev-agent-team/hooks/block_on_own
          dev-agent-team/selfcheck.py dev-agent-team/guides/OWNER_GUIDE.md \
          dev-agent-team/PROJECT_RULES.md dev-agent-team/DECISIONS.md \
          dev-agent-team/TEST_LOG.md dev-agent-team/BACKLOG.md dev-agent-team/BACKLOG_DONE.md \
+         dev-agent-team/TEST_UNFREEZE.md dev-agent-team/guards/README.md \
          dev-agent-team/libs/INDEX.md \
          common/logger.py .gitattributes tests logs; do
   have "$f" || bad "공통 파일 없음: $f"
 done
-[ "$FAIL" -eq 0 ] && ok "공통 파일 14종"
+[ "$FAIL" -eq 0 ] && ok "공통 파일 16종"
 
 # ── 4. 역할·스킬이 프로파일과 맞는가 ───────────────────────────────────────
 COMMON_ROLES="planner tester coder checker documenter designer"

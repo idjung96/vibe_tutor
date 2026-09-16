@@ -1,8 +1,22 @@
 #!/usr/bin/env bash
-# 기존 테스트 파일의 수정/덮어쓰기를 차단한다. 새 테스트 파일 생성은 허용한다.
+# **커밋된** 테스트 파일의 수정/덮어쓰기를 차단한다.
+#
+# 「기존」의 판정축은 **git 추적 여부**다. 파일 존재 여부가 아니다 —
+# 예전엔 존재로 판정해서, 에이전트가 **방금 만들어 아직 커밋도 안 한** 자기 테스트를
+# 스스로 못 고쳤다. 한 프로젝트에서 여덟 번 재발했고, 그때마다 자기 산출물의 결함을
+# 발견하고도 못 고친 채 넘어갔다(한 번은 실제 구멍이 그대로 통과했다).
+# 헌법 2번의 「기존 테스트」도 커밋된 것을 뜻한다 — 문언과 동작을 맞춘다.
+#
+#   추적 안 됨(미커밋)  -> 통과. 자기가 방금 쓴 것이다.
+#   추적됨(커밋됨)      -> 차단. 단 dev-agent-team/TEST_UNFREEZE.md 에 「근거:」와 함께
+#                          적힌 경로는 통과(해제 목록).
+#   git 없음·판정 실패  -> **차단**(fail-closed). 못 가린 것을 통과로 바꾸지 않는다.
+#
 # 언어 무관: tests/ 와 test/ **하위 폴더까지** 테스트 파일을 보호한다.
 # (dart 는 test/ 가 관례이고 test/utils/ 처럼 중첩한다. 예전엔 [^/]* 라 중첩이 다 샜다.)
-#  - python: *_test.py / test_*.py
+#  - python: tests?/ 아래 **모든 .py** (conftest.py·_contract.py·_synthetic.py 포함).
+#            데이터 게이트와 계약·합성 헬퍼가 조용히 바뀌면 "독립 검증"·"조용한 skip 차단"
+#            보장이 집행되지 않는다. 그래서 test_*.py 만 보던 것을 넓혔다.
 #  - go    : *_test.go
 #  - rust  : *_test.rs / test_*.rs
 #  - node·ts: *.test.{js,jsx,ts,tsx,mjs,cjs} / *.spec.{...}
@@ -17,6 +31,10 @@
 # 출력은 "테스트 파일로 판정된 경로"만 — 판정 정규식·쓰기 대상 규칙은 guard.js 와 동기화한다.
 INPUT=$(cat)
 
+# 프로젝트 루트는 **자기 위치**로 안다(dev-agent-team/hooks/ 의 두 단계 위). cwd 로 잡으면
+# 에이전트가 하위 폴더에서 도구를 부를 때 git 판정과 해제 목록 경로가 어긋난다.
+ROOT=$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd) || ROOT=$(pwd)
+
 # 파이썬 실행기를 고른다. Windows(python.org 설치본)에는 python3 가 없고 python 만 있다.
 # 둘 다 없으면 추출기를 못 돌리므로 보호가 불가능하다 -> 통과시키지 않고 막는다(fail-closed).
 # guard.js 는 Node 내장 로직이라 이 분기가 필요 없다 — 동작이 갈리는 부분이 아니다.
@@ -26,8 +44,8 @@ if [ -z "$PY" ]; then
   exit 2
 fi
 
-FILES=$(printf '%s' "$INPUT" | "$PY" -c '
-import sys, json, re, os, shlex
+FILES=$(printf '%s' "$INPUT" | HARNESS_ROOT="$ROOT" "$PY" -c '
+import sys, json, re, os, shlex, subprocess
 raw = sys.stdin.read()
 out = []
 def add(p):
@@ -96,11 +114,54 @@ if cmd:
             add(t)
 # 4) 테스트 파일만 남긴다 (guard.js 의 isTestFile 과 동일 규칙)
 TEST_RE = re.compile(
-    r"(^|/)tests?/(.*/)?([^/]*(_test\.(py|go|rs|dart)|\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs))|test_[^/]*\.(py|rs))$"
+    r"(^|/)tests?/(.*/)?([^/]*\.py"
+    r"|[^/]*(_test\.(go|rs|dart)|\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs))"
+    r"|test_[^/]*\.rs)$"
 )
-for p in out:
-    if TEST_RE.search(p.replace("\\", "/")):
-        print(p)
+cands = [p for p in out if TEST_RE.search(p.replace("\\", "/"))]
+if not cands:
+    sys.exit(0)
+
+# 5) 해제 목록 — 커밋된 테스트라도 여기 「근거:」와 함께 적혀 있으면 통과시킨다.
+#    파싱에 실패하면 전면 동결한다(빈 목록으로 보지 않는다 — fail-closed).
+ROOT = os.environ.get("HARNESS_ROOT") or "."
+UNFREEZE = os.path.join(ROOT, "dev-agent-team", "TEST_UNFREEZE.md")
+unfrozen = set()
+if os.path.isfile(UNFREEZE):
+    try:
+        for ln in open(UNFREEZE, encoding="utf-8").read().splitlines():
+            if not ln.lstrip().startswith("-") or "근거:" not in ln:
+                continue
+            body = ln.lstrip("- ").split("근거:")[0]
+            for tok in re.findall(r"[\w./\\-]+", body):
+                if "/" in tok or tok.endswith((".py", ".go", ".rs", ".dart",
+                                               ".js", ".ts", ".jsx", ".tsx")):
+                    unfrozen.add(tok.replace("\\", "/").lstrip("./"))
+    except Exception as exc:
+        print("UNFREEZE_UNREADABLE", file=sys.stderr)
+        sys.exit(3)
+
+# 6) git 추적 여부로 「기존」을 가른다. 판정 못 하면 막는다.
+def tracked(path):
+    try:
+        r = subprocess.run(["git", "-C", ROOT, "ls-files", "--error-unmatch", "--", path],
+                           capture_output=True)
+    except Exception:
+        return None                      # git 자체가 없다 -> 판정 불가
+    if r.returncode == 0:
+        return True
+    err = (r.stderr or b"").decode("utf-8", "replace")
+    if "did not match" in err or "no such path" in err.lower():
+        return False                     # 저장소 안이지만 추적 안 됨 = 미커밋
+    return None                          # 저장소가 아니거나 알 수 없는 실패
+
+for p in cands:
+    norm = p.replace("\\", "/").lstrip("./")
+    t = tracked(p)
+    if t is None:
+        print(f"UNDECIDABLE\t{p}")
+    elif t and norm not in unfrozen:
+        print(f"TRACKED\t{p}")
 ' 2>/dev/null)
 EXTRACT_RC=$?
 
@@ -111,14 +172,45 @@ if [ "$EXTRACT_RC" -ne 0 ]; then
   exit 2
 fi
 
-[ -n "$FILES" ] || exit 0
-while IFS= read -r FILE; do
-  [ -n "$FILE" ] || continue
-  if [ -f "$FILE" ]; then
-    echo "기존 테스트 파일은 수정 금지다. 테스트가 틀렸다고 판단되면 C등급으로 올려 Owner에게 물어라." >&2
-    exit 2
-  fi
+if [ "$EXTRACT_RC" -eq 3 ]; then
+  echo "protect_tests: dev-agent-team/TEST_UNFREEZE.md 를 읽지 못했다. 해제 목록을 확인할 수 없으므로 전면 동결한다." >&2
+  exit 2
+fi
+
+while IFS= read -r LINE; do
+  [ -n "$LINE" ] || continue
+  WHY=${LINE%%	*}
+  FILE=${LINE#*	}
+  case "$WHY" in
+    TRACKED)
+      echo "커밋된 테스트 파일은 수정 금지다: $FILE" >&2
+      echo "  고쳐야 할 근거가 있으면 dev-agent-team/TEST_UNFREEZE.md 에 경로와 「근거:」를 함께 적어라." >&2
+      echo "  근거 없이 적은 줄은 무효다. 판단이 서지 않으면 C등급으로 올려 Owner에게 물어라." >&2
+      exit 2 ;;
+    UNDECIDABLE)
+      echo "protect_tests: git 으로 추적 여부를 가릴 수 없어 보호를 확인하지 못했다: $FILE" >&2
+      echo "  git 저장소가 아니거나 git 이 없다. 못 가린 것을 통과로 바꾸지 않는다." >&2
+      exit 2 ;;
+  esac
 done <<EOF
 $FILES
 EOF
+
+# ── 프로젝트 확장 ────────────────────────────────────────────────────────────
+# 하니스 파일을 고치지 않고도 프로젝트가 규칙을 덧댈 수 있어야 한다. 업그레이드는 이 파일을
+# 통째로 갈아엎으므로, 여기에 직접 손대면 다음 업그레이드에 사라진다(실제로 두 번 사라졌다).
+# 확장은 아래 경로에 둔다 — 하니스는 이 파일을 만들지도 덮지도 않는다.
+#   인자: 판정 대상 경로들이 $HARNESS_CANDIDATES (개행 구분) 로 들어온다.
+#   차단하려면 exit 2. 통과시키려면 그냥 반환한다.
+#   **오류가 나면 막는다** — 안전장치의 확장이므로 fail-closed 다.
+EXT="$ROOT/dev-agent-team/guards/project.sh"
+if [ -f "$EXT" ]; then
+  HARNESS_CANDIDATES="$FILES"
+  export HARNESS_CANDIDATES
+  # shellcheck source=/dev/null
+  . "$EXT" || {
+    echo "protect_tests: 프로젝트 확장($EXT)이 실패했다. 확장이 판정하지 못했으므로 막는다." >&2
+    exit 2
+  }
+fi
 exit 0

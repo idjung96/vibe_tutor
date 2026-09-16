@@ -15,6 +15,16 @@ cp "$REAL_H"/*.sh "$SANDBOX/dev-agent-team/hooks/" 2>/dev/null || {
   echo "  FAIL: 가드 훅을 찾지 못했습니다 ($REAL_H)"; exit 1; }
 chmod +x "$SANDBOX/dev-agent-team/hooks/"*.sh 2>/dev/null || true
 
+# 「기존 테스트」의 판정축이 **git 추적 여부**다(파일 존재가 아니다). 그래서 샌드박스도
+# 진짜 git 저장소여야 한다 — 아니면 모든 케이스가 fail-closed 로 막혀 테스트가 헛돈다.
+# 「기존」으로 쓸 파일은 **커밋**하고, 「새 파일」은 커밋하지 않는다.
+( cd "$SANDBOX" && git init -q . && git config user.email t@t && git config user.name t ) || {
+  echo "  FAIL: 샌드박스를 git 저장소로 만들지 못했습니다"; exit 1; }
+commit_fixture() { # 「기존」파일로 만든다(= 커밋한다)
+  mkdir -p "$(dirname "$1")"; : > "$1"
+  ( cd "$SANDBOX" && git add -f "$1" >/dev/null 2>&1 && git commit -qm fixture >/dev/null 2>&1 )
+}
+
 export CLAUDE_PROJECT_DIR="$SANDBOX"
 H="$SANDBOX/dev-agent-team/hooks"
 PASS=0; FAIL=0
@@ -48,7 +58,7 @@ check "질문 파일이 없으면 허용" 0 $?
 # 4. 기존 테스트 파일 수정 → 차단(2)
 mkdir -p "$SANDBOX/tests"
 T="$SANDBOX/tests/stage_0_verify_test.py"
-touch "$T"
+commit_fixture "$T"
 printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
 check "기존 테스트 수정 차단" 2 $?
 rm -f "$T"
@@ -65,7 +75,7 @@ check "일반 파일 허용" 0 $?
 
 # 7. (codex) apply_patch 로 기존 테스트 수정 → 차단(2)
 T="$SANDBOX/tests/stage_0_verify_test.py"
-touch "$T"
+commit_fixture "$T"
 printf '{"tool_input":{"command":"apply_patch","input":"*** Begin Patch\\n*** Update File: %s\\n@@\\n-a\\n+b\\n*** End Patch\\n"}}' "$T" \
   | "$H/protect_tests.sh" >/dev/null 2>&1
 check "codex apply_patch 기존 테스트 수정 차단" 2 $?
@@ -78,7 +88,7 @@ check "codex apply_patch 새 테스트 생성 허용" 0 $?
 
 # 9. (go) 기존 *_test.go 수정 → 차단(2)
 T="$SANDBOX/tests/calc_test.go"
-touch "$T"
+commit_fixture "$T"
 printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
 check "go 기존 테스트 수정 차단" 2 $?
 rm -f "$T"
@@ -90,14 +100,14 @@ check "go 새 테스트 생성 허용" 0 $?
 
 # 11. (rust) 기존 *_test.rs 수정 → 차단(2)
 T="$SANDBOX/tests/calc_test.rs"
-touch "$T"
+commit_fixture "$T"
 printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
 check "rust 기존 테스트 수정 차단" 2 $?
 rm -f "$T"
 
 # 12. (node) 기존 *.test.js 수정 → 차단(2)
 T="$SANDBOX/tests/calc.test.js"
-touch "$T"
+commit_fixture "$T"
 printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
 check "node 기존 테스트 수정 차단" 2 $?
 rm -f "$T"
@@ -107,16 +117,26 @@ printf '{"tool_input":{"file_path":"%s/tests/calc.spec.ts"}}' "$SANDBOX" \
   | "$H/protect_tests.sh" >/dev/null 2>&1
 check "ts 새 테스트 생성 허용" 0 $?
 
-# 14. (회귀) tests/conftest.py 같은 비-테스트 파일 → 허용(0)
-T="$SANDBOX/tests/conftest.py"
-touch "$T"
+# 14. tests/ 아래 **모든 .py** 가 보호 대상이다 — conftest.py(데이터 게이트)와
+#     _contract.py·_synthetic.py(계약·합성 헬퍼)가 조용히 바뀌면 "독립 검증"·"조용한 skip
+#     차단" 보장이 집행되지 않는다. 예전엔 test_*.py 만 봐서 이것들이 무방비였다.
+for NAME in conftest.py _contract.py _synthetic.py; do
+  T="$SANDBOX/tests/$NAME"
+  commit_fixture "$T"
+  printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
+  check "커밋된 tests/$NAME 보호" 2 $?
+  rm -f "$T"
+done
+# .py 가 아닌 파일은 여전히 통과한다(데이터·픽스처 자산).
+T="$SANDBOX/tests/fixture.json"
+commit_fixture "$T"
 printf '{"tool_input":{"file_path":"%s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
-check "tests/ 안 비-테스트 파일 허용" 0 $?
+check "tests/ 안 비-파이썬 자산은 허용" 0 $?
 rm -f "$T"
 
 # 15. (bash) 리다이렉션으로 기존 테스트 덮어쓰기 → 차단(2)
 T="$SANDBOX/tests/stage_0_verify_test.py"
-touch "$T"
+commit_fixture "$T"
 printf '{"tool_input":{"command":"echo x > %s"}}' "$T" | "$H/protect_tests.sh" >/dev/null 2>&1
 check "bash 리다이렉션 기존 테스트 덮어쓰기 차단" 2 $?
 
@@ -185,8 +205,8 @@ rm -f "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
 #      정규식이 [^/]* 라 tests/sub/... 가 통째로 샜다(모든 언어). dart 는 test/utils/ 처럼
 #      중첩이 관례라 이걸 놓치면 Dart 프로젝트의 테스트가 거의 다 무방비다.
 mkdir -p "$SANDBOX/tests/sub" "$SANDBOX/test/utils"
-printf 'x\n' > "$SANDBOX/tests/sub/deep_test.go"
-printf 'x\n' > "$SANDBOX/test/utils/score_test.dart"
+commit_fixture "$SANDBOX/tests/sub/deep_test.go"
+commit_fixture "$SANDBOX/test/utils/score_test.dart"
 printf 'x\n' > "$SANDBOX/tests/helper.txt"
 NEST_BAD=0
 guard_rc() { # $1=경로 -> exit code
@@ -197,6 +217,10 @@ guard_rc() { # $1=경로 -> exit code
 [ "$(guard_rc tests/sub/deep_test.go)" = "2" ]    || { echo "    중첩 go 테스트가 안 막힌다"; NEST_BAD=1; }
 [ "$(guard_rc test/utils/score_test.dart)" = "2" ] || { echo "    중첩 dart 테스트가 안 막힌다"; NEST_BAD=1; }
 [ "$(guard_rc tests/helper.txt)" = "0" ]           || { echo "    테스트가 아닌 파일을 막는다"; NEST_BAD=1; }
+# 커밋 안 된 테스트는 통과해야 한다 — 에이전트가 방금 만든 자기 산출물이다(헌법 2번의 「기존」).
+printf 'x\n' > "$SANDBOX/tests/sub/fresh_test.go"
+[ "$(guard_rc tests/sub/fresh_test.go)" = "0" ]   || { echo "    미커밋 테스트를 막는다(자기 산출물을 못 고친다)"; NEST_BAD=1; }
+rm -f "$SANDBOX/tests/sub/fresh_test.go"
 check "중첩 테스트와 dart(test/·tests/ 하위)도 보호" 0 $NEST_BAD
 rm -rf "$SANDBOX/tests/sub" "$SANDBOX/test" "$SANDBOX/tests/helper.txt"
 
@@ -222,11 +246,11 @@ else
   # .js 는 CommonJS 로 읽히므로 .mjs 로 복사해 ESM 으로 import 한다.
   cp "$GUARD" "$SANDBOX/guard.mjs"
   mkdir -p "$SANDBOX/tests" "$SANDBOX/src"
-  printf 'def test_r1_x():\n    assert True\n' > "$SANDBOX/tests/stage_1_test.py"
+  commit_fixture "$SANDBOX/tests/stage_1_test.py"
   printf 'print(1)\n' > "$SANDBOX/src/app.py"
   mkdir -p "$SANDBOX/test/utils" "$SANDBOX/tests/sub"
-  printf 'x\n' > "$SANDBOX/test/utils/score_test.dart"
-  printf 'x\n' > "$SANDBOX/tests/sub/deep_test.go"
+  commit_fixture "$SANDBOX/test/utils/score_test.dart"
+  commit_fixture "$SANDBOX/tests/sub/deep_test.go"
   rm -f "$SANDBOX/dev-agent-team/OWNER_QUESTION.md"
 
   # 케이스: 경로|기대(2=차단,0=허용). .sh 와 guard.js 양쪽에 같은 입력을 준다.

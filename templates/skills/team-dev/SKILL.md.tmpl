@@ -16,7 +16,7 @@ coder/tester/designer는 "lib-research 필요: {이름}"만 보고하고 멈춘�
 역할을 호출할 때, dev-agent-team/PROJECT_RULES.md 에 그 역할 대상(또는 "전체") 규칙이 있으면
 함께 전달한다. 서브에이전트는 그 파일을 자동으로 읽지 않으므로 메인 세션이 넘겨야 한다.
 {{#IF_LARGE}}
-large 프로파일에는 lead(팀장)·reviewer·critic·security·evaluator 역할도 있다.
+large 프로파일에는 lead(팀장)·reviewer·critic·security 역할도 있다.
 lead는 방향·우선순위를 정하고 백로그를 그루밍한다 — 계획 전(4-0)과 단계 시작 시(7-0)에 호출한다.
 lead는 회고도 한다 — 전체가 끝난 뒤(17b)에는 무조건, 단계 merge 뒤(12c)에는
 `selfcheck --retro-check` 가 YES를 낼 때만 부른다(재시도·리뷰지적 추세로 기계가 정한다).
@@ -24,9 +24,15 @@ lead는 회고도 한다 — 전체가 끝난 뒤(17b)에는 무조건, 단계 m
 lead는 팀의 일하는 방식에 반복 문제가 보이면 개선안(IMPROVE)도 낸다 — Owner 승인 후 PROCESS.md에 누적한다.
 critic은 planner 결정에 반론을 펴 합의를 만든다(7b). 명확하면 자율 진행, 모호·고위험은 Owner 합의로 올린다.
 reviewer·security는 단계가 PASS한 뒤 merge 전에 호출한다(아래 12번). 보안 위험은 고위험으로 다룬다.
-evaluator는 같은 자리에서 산출물이 요구한 것을 했는지 점수와 격차(GAP)를 낸다 — 품질 지적이
-아니라 재시도 입력이다. reviewer(품질)·critic(결정)과 보는 것이 겹치지 않는다.
-역할을 호출할 때, PROCESS.md에 그 역할 대상(또는 "전체") 개정이 있으면 함께 전달한다.
+요구사항 충족도는 역할이 아니라 `selfcheck --score` 가 축으로 잰다(trace·doc).
+재시도 판정은 [score] 줄 하나가 몬다 — 같은 것을 보는 역할을 따로 두지 않는다.
+역할을 호출할 때 PROCESS.md 개정을 함께 주되, **전문을 주지 않는다.**
+  python3 dev-agent-team/selfcheck.py --process-active <역할>
+이 출력만 준다(폐기된 항목 제외, 그 역할 대상만). 전문은 이력이라 계속 자라므로,
+그대로 주면 호출마다 프롬프트가 수백 줄씩 불어난다 — 실측으로 coder 한 번에 1200줄이 넘었다.
+DIRECTION.md 도 같다. 전문이 아니라 마지막 절만 준다:
+  python3 dev-agent-team/selfcheck.py --direction-head
+**두 파일 모두 자르지 않는다.** 이력은 그대로 두고 주는 양만 줄인다.
 역할은 그 개정을 따르고, 유효 파라미터(RETRY_LIMIT 등)는 헌법 기본값보다 PROCESS.md를 우선한다.
 {{/IF_LARGE}}
 
@@ -42,7 +48,7 @@ evaluator는 같은 자리에서 산출물이 요구한 것을 했는지 점수�
 | **PR 시** | `main`에 합치기 직전, 단계당 1회 | checker FULL → `--record-full-test` → `--gate`(4종) → documenter(이번 단계 R번호) → `--score`(재시도 판정) → 재시도 수렴 후 **`--gate` 한 번 더**(최종 코드 기준) |
 
 {{#IF_LARGE}}
-PR 시점에는 reviewer·security·evaluator도 이때 호출한다(12번). 단계당 1회다.
+PR 시점에는 reviewer·security도 이때 호출한다(12번). 단계당 1회다.
 {{/IF_LARGE}}
 `main`에 합치는 지점은 하나다 — remote가 있으면 PR을 열고, 없으면 로컬 merge 한다.
 **두 경우의 게이트 내용은 같다.** 네트워크가 없어도 절차가 그대로 돈다.
@@ -161,6 +167,10 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
 {{#IF_LARGE}}
 7-0. lead를 "방향" 모드로 호출한다. 백로그를 그루밍하고 이번 단계 초점을 정한다.
      변경을 dev-agent-team/DIRECTION.md와 dev-agent-team/BACKLOG.md에 반영한다.
+     DIRECTION은 **append**한다(`## 단계 N` 절을 새로 붙인다). 앞 절은 고치지 않는다 —
+     이력이다. 새 절은 방향 한 줄과 우선순위만 담는다. 구현 세부는 BACKLOG·DECISIONS로.
+     주기적으로 `--process-stats` 를 보고, 권고를 넘었으면 lead에게 P-번호 **통합**을
+     시킨다. 통합은 삭제가 아니라 새 P-번호가 옛 것들을 "대체한다"고 적는 것이다.
      BACKLOG "할 일"에 [절차개선] 항목이 쌓여 있으면 lead가 그중 하나만 골라 IMPROVE로 낸다.
      IMPROVE가 있으면 팀 운영규칙 개선 제안이다. 절차 변경은 고위험이므로 C등급으로 올린다(14번).
      Owner가 승인하면 그 개정을 dev-agent-team/PROCESS.md에 P-번호 항목(대상·변경·근거·승인 참조)으로
@@ -238,8 +248,6 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
       점수는 아무것도 막지 않는다 — 막는 것은 위의 [gate]다. 점수가 정하는 것은 하나다:
       다시 시킬 것인가, 아니면 Owner에게 올릴 것인가.
 {{#IF_LARGE}}
-      evaluator도 호출한다. 요구사항 충족도(match·contract·doc)와 GAP을 받는다.
-      evaluator는 품질을 보지 않는다(그건 reviewer). 요구한 것을 했는지만 본다.
 {{/IF_LARGE}}
       [score] 줄의 판정대로 한다:
       - PASS: 그대로 진행한다.
@@ -328,7 +336,7 @@ subagent 출력에 "BACKLOG: 설명"이 있으면 메인 세션이 dev-agent-tea
      파일 수는 **맥락일 뿐 문턱이 아니다.** 실측에서 가장 나빴던 단계가 제품코드 3개로
      가장 작았다 — 좁은 변경이 가장 많이 헤맬 수 있다.
 
-12c-2. critic을 "회고 심의" 모드로 호출한다. 12c-1과 같은 증거에 DIRECTION.md와
+12c-2. critic을 "회고 심의" 모드로 호출한다. 12c-1과 같은 증거에 --direction-head 출력과
      lead의 IMPROVE(있으면)를 더해 준다. critic이 판정할 것은 두 가지다 —
      이 신호의 원인이 **방향·초점 선정(lead)**인지, 그리고 lead의 IMPROVE가 타당한지.
      앞엣것을 lead에게 묻지 않는 이유는 12c와 같다. 자기 결정은 자기가 판정하지 않는다.

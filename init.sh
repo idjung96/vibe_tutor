@@ -252,12 +252,11 @@ role_desc() { case "$1" in
   lead)       echo "개발 방향·우선순위를 정하고 백로그를 그루밍하며, 단계·최종 회고로 절차 개선안을 낸다." ;;
   critic)     echo "결정과 계획에 반론을 펴고 고위험·모호성을 가린다." ;;
   security)   echo "코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다." ;;
-  evaluator)  echo "산출물이 요구한 것을 했는지 축별로 점수와 격차를 낸다." ;;
 esac; }
 role_model() { case "$1" in
   coder|tester|designer)      echo "opus" ;;
   checker|documenter)         echo "sonnet" ;;
-  planner|lead|reviewer|critic|security|evaluator) echo "opus" ;;
+  planner|lead|reviewer|critic|security) echo "opus" ;;
 esac; }
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 role_effort() { echo "high"; }
@@ -268,7 +267,7 @@ claude_tools() { case "$1" in
   checker)        echo "Bash, Read" ;;
   documenter)     echo "Read, Write, Edit, Bash" ;;
   designer)       echo "Read, Write" ;;
-  reviewer|lead|critic|security|evaluator) echo "Read, Grep" ;;
+  reviewer|lead|critic|security) echo "Read, Grep" ;;
 esac; }
 opencode_tools() { case "$1" in
   planner|tester) printf '  write: true\n  edit: false\n  bash: false' ;;
@@ -276,7 +275,7 @@ opencode_tools() { case "$1" in
   checker)        printf '  write: false\n  edit: false\n  bash: true' ;;
   documenter)     printf '  write: true\n  edit: true\n  bash: true' ;;
   designer)       printf '  write: true\n  edit: false\n  bash: false' ;;
-  reviewer|lead|critic|security|evaluator) printf '  write: false\n  edit: false\n  bash: false' ;;
+  reviewer|lead|critic|security) printf '  write: false\n  edit: false\n  bash: false' ;;
 esac; }
 
 # TEST_LOG.md 5열 -> 7열 마이그레이션 (v1.22.0에서 재시도·리뷰지적 열이 생겼다).
@@ -325,12 +324,13 @@ migrate_test_log() {
 # 역할 목록: designer는 양 프로파일 공통(UI 단계에서만 호출).
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 ROLES="planner tester coder checker documenter designer"
-[ "$PROFILE" = large ] && ROLES="$ROLES lead reviewer critic security evaluator"
+[ "$PROFILE" = large ] && ROLES="$ROLES lead reviewer critic security"
 # 프로파일을 낮춰 재설치하면(large -> small) 먼저 깔린 large 전용 역할이 그대로 남았다.
 # 역할 파일은 "무조건 덮어쓰는" 강제 장치인데 덮어쓰기만 있고 **치우기가 없었다** — 남으면
-# small 팀이 쓸 수 없는 역할(reviewer·critic·security·evaluator)을 계속 부른다. 게다가
+# small 팀이 쓸 수 없는 역할(reviewer·critic·security)을 계속 부른다. 게다가
 # 재설치 프로파일 추론이 lead.md 의 존재를 보므로, 한 번 남으면 영영 large 로 되돌아온다.
 # **알려진 역할 이름만** 지운다 — Owner 가 직접 넣은 에이전트는 건드리지 않는다.
+# evaluator 는 v1.59.0 에서 폐지했지만 이 목록에는 남겨 둔다 — 남겨야 옛 설치본에서 치운다.
 ROLES_ALL="planner tester coder checker documenter designer lead reviewer critic security evaluator"
 PRUNED=""
 prune_role() { # $1=지울 파일/폴더 경로, $2=역할명
@@ -468,7 +468,6 @@ if has_agent claude; then
       printf '%s\n' "$body"
     } > "$TARGET/.claude/agents/$r.md"
   done
-  for r in $(stale_roles); do prune_role "$TARGET/.claude/agents/$r.md" "$r"; done
 fi
 
 # ── 6. Codex 오버레이 ─────────────────────────────────────────
@@ -483,7 +482,6 @@ if has_agent codex; then
     { printf -- "---\nname: %s\ndescription: %s\n---\n" "$r" "$(role_desc "$r")"
       printf '%s\n' "$body"; } > "$TARGET/.agents/skills/$r/SKILL.md"
   done
-  for r in $(stale_roles); do prune_role "$TARGET/.agents/skills/$r" "$r"; done
 fi
 
 # ── 7. opencode 오버레이 ──────────────────────────────────────
@@ -498,8 +496,16 @@ if has_agent opencode; then
     { printf -- "---\ndescription: %s\nmode: subagent\ntools:\n%s\n---\n" "$(role_desc "$r")" "$(opencode_tools "$r")"
       printf '%s\n' "$body"; } > "$TARGET/.opencode/agents/$r.md"
   done
-  for r in $(stale_roles); do prune_role "$TARGET/.opencode/agents/$r.md" "$r"; done
 fi
+
+# 옛 역할 치우기는 **에이전트 블록 밖**에서 한다. 블록 안에 두면 지금 설치하는 오버레이만
+# 치워서, 예전에 codex 로 깔았다가 빼면 .agents/skills/<role> 이 영영 남는다. 역할 파일은
+# 하네스가 소유하는 강제 장치라 오버레이 설치 여부와 무관하게 정리한다.
+for r in $(stale_roles); do
+  prune_role "$TARGET/.claude/agents/$r.md"   "$r"
+  prune_role "$TARGET/.agents/skills/$r"      "$r"
+  prune_role "$TARGET/.opencode/agents/$r.md" "$r"
+done
 if [ -n "$PRUNED" ]; then
   echo "알림: 이 프로파일($PROFILE)에 없는 역할을 치웠습니다 —$PRUNED"
 fi

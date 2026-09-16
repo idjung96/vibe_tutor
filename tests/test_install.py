@@ -482,6 +482,42 @@ def test_freeze_prompt():
               "직접 수정한 것으로 보여" not in install(tgt)[1], install(tgt)[1][:400])
 
 
+def test_evaluator_retired():
+    """폐지한 역할(evaluator)이 새로 깔리지 않고, 옛 설치본에서는 치워지는가.
+
+    evaluator 는 v1.59.0 에서 폐지했다 — 출력을 쓰는 곳이 없었다. 재시도는 전부
+    `[score]` 스크립트가 몰았고 evaluator 의 GAP 은 기록도 되지 않았다.
+    폐지에서 중요한 건 "새로 안 깐다" 가 아니라 **이미 깔린 것을 치운다** 이다.
+    치우려면 init 의 ROLES_ALL 에 이름이 남아 있어야 한다(빼면 영영 남는다).
+    """
+    print("\n[폐지한 역할]")
+    with tempfile.TemporaryDirectory() as d:
+        tgt = Path(d) / "proj"
+        install(tgt, "--profile", "large", "--agent", "claude,opencode")
+        roles = sorted(p.stem for p in (tgt / ".claude/agents").glob("*.md"))
+        check("large 에 evaluator 가 깔리지 않는다", "evaluator" not in roles, roles)
+        check("남은 large 전용 역할 4종은 그대로", 
+              all(r in roles for r in ("lead", "reviewer", "critic", "security")), roles)
+        check("large 역할이 10개다", len(roles) == 10, roles)
+
+        # 옛 설치본을 흉내 낸다 — evaluator 가 세 에이전트 경로에 깔려 있는 상태.
+        (tgt / ".claude/agents/evaluator.md").write_text("# 옛 역할\n", encoding="utf-8")
+        (tgt / ".opencode/agents/evaluator.md").write_text("# 옛 역할\n", encoding="utf-8")
+        (tgt / ".agents/skills/evaluator").mkdir(parents=True, exist_ok=True)
+        (tgt / ".agents/skills/evaluator/SKILL.md").write_text("# 옛 역할\n", encoding="utf-8")
+        rc, out = install(tgt)
+        check("재설치가 옛 evaluator 를 치운다",
+              not (tgt / ".claude/agents/evaluator.md").exists(), out[:600])
+        check("opencode 쪽도 치운다", not (tgt / ".opencode/agents/evaluator.md").exists())
+        check("codex 스킬 폴더도 치운다", not (tgt / ".agents/skills/evaluator").exists())
+        check("무엇을 치웠는지 알린다", "evaluator" in out and "치웠습니다" in out, out[:600])
+
+        check("절차에 evaluator 호출이 남지 않았다",
+              "evaluator" not in (tgt / ".claude/skills/team-dev/SKILL.md").read_text(encoding="utf-8"))
+        check("헌법에도 남지 않았다",
+              "evaluator" not in (tgt / "AGENTS.md").read_text(encoding="utf-8"))
+
+
 def main():
     if shutil.which("bash") is None:
         print("SKIP: bash 없음")
@@ -499,6 +535,7 @@ def main():
     test_freeze_prompt()
     test_verify_failure_is_named()
     test_profile_downgrade_prunes_roles()
+    test_evaluator_retired()
     test_freeze_survives_repeated_installs()
     print(f"\n[설치기 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0

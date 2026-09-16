@@ -261,7 +261,6 @@ function Role-Desc($r) { switch ($r) {
     'lead' { '개발 방향·우선순위를 정하고 백로그를 그루밍하며, 단계·최종 회고로 절차 개선안을 낸다.' }
     'critic' { '결정과 계획에 반론을 펴고 고위험·모호성을 가린다.' }
     'security' { '코드의 보안 위험(비밀·인젝션·위험 호출)을 점검한다.' }
-    'evaluator' { '산출물이 요구한 것을 했는지 축별로 점수와 격차를 낸다.' }
 } }
 function Role-Model($r) { switch ($r) {
     'coder' { 'opus' }
@@ -274,7 +273,6 @@ function Role-Model($r) { switch ($r) {
     'reviewer' { 'opus' }
     'security' { 'opus' }
     'critic' { 'opus' }
-    'evaluator' { 'opus' }
 } }
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 function Role-Effort($r) { 'high' }
@@ -287,7 +285,6 @@ function Claude-Tools($r) { switch ($r) {
     'lead' { 'Read, Grep' }
     'critic' { 'Read, Grep' }
     'security' { 'Read, Grep' }
-    'evaluator' { 'Read, Grep' }
 } }
 function Opencode-Tools($r) { switch ($r) {
     'planner' { "  write: true`n  edit: false`n  bash: false" }
@@ -300,7 +297,6 @@ function Opencode-Tools($r) { switch ($r) {
     'lead' { "  write: false`n  edit: false`n  bash: false" }
     'critic' { "  write: false`n  edit: false`n  bash: false" }
     'security' { "  write: false`n  edit: false`n  bash: false" }
-    'evaluator' { "  write: false`n  edit: false`n  bash: false" }
 } }
 
 # TEST_LOG.md 5열 -> 7열 마이그레이션 (v1.22.0에서 재시도·리뷰지적 열이 생겼다).
@@ -342,10 +338,11 @@ function Migrate-TestLog($f) {
 # 역할 목록: designer는 양 프로파일 공통(UI 단계에서만 호출).
 # lead·reviewer·critic·security는 large 프로파일에서만 깐다.
 $Roles = @('planner', 'tester', 'coder', 'checker', 'documenter', 'designer')
-if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security', 'evaluator') }
+if ($Profile -eq 'large') { $Roles += @('lead', 'reviewer', 'critic', 'security') }
 # 프로파일을 낮춰 재설치하면(large -> small) 먼저 깔린 large 전용 역할이 그대로 남았다.
 # 역할 파일은 "무조건 덮어쓰는" 강제 장치인데 덮어쓰기만 있고 치우기가 없었다. 알려진 역할
 # 이름만 지운다 — Owner 가 직접 넣은 에이전트는 건드리지 않는다(init.sh 와 동일).
+# evaluator 는 v1.59.0 에서 폐지했지만 $RolesAll 에는 남겨 둔다 — 남겨야 옛 설치본에서 치운다.
 $RolesAll = @('planner', 'tester', 'coder', 'checker', 'documenter', 'designer',
               'lead', 'reviewer', 'critic', 'security', 'evaluator')
 $StaleRoles = $RolesAll | Where-Object { $Roles -notcontains $_ }
@@ -479,7 +476,6 @@ if (Has-Agent 'claude') {
         $fm += "tools: $(Claude-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".claude\agents\$r.md") ($fm + $body)
     }
-    foreach ($r in $StaleRoles) { Prune-Role (Join-Path $Target ".claude\agents\$r.md") $r }
 }
 
 # ── 6. Codex 오버레이 ─────────────────────────────────────────
@@ -492,7 +488,6 @@ if (Has-Agent 'codex') {
         $fm = "---`nname: $r`ndescription: $(Role-Desc $r)`n---`n"
         Write-Text (Join-Path $Target ".agents\skills\$r\SKILL.md") ($fm + $body)
     }
-    foreach ($r in $StaleRoles) { Prune-Role (Join-Path $Target ".agents\skills\$r") $r }
 }
 
 # ── 7. opencode 오버레이 ──────────────────────────────────────
@@ -507,7 +502,14 @@ if (Has-Agent 'opencode') {
         $fm = "---`ndescription: $(Role-Desc $r)`nmode: subagent`ntools:`n$(Opencode-Tools $r)`n---`n"
         Write-Text (Join-Path $Target ".opencode\agents\$r.md") ($fm + $body)
     }
-    foreach ($r in $StaleRoles) { Prune-Role (Join-Path $Target ".opencode\agents\$r.md") $r }
+}
+
+# 옛 역할 치우기는 에이전트 블록 밖에서 한다(init.sh 와 동일) — 안 깔린 오버레이의 옛
+# 역할도 치워야 한다. 역할 파일은 하네스가 소유하는 강제 장치다.
+foreach ($r in $StaleRoles) {
+    Prune-Role (Join-Path $Target ".claude\agents\$r.md")   $r
+    Prune-Role (Join-Path $Target ".agents\skills\$r")      $r
+    Prune-Role (Join-Path $Target ".opencode\agents\$r.md") $r
 }
 if ($Pruned.Count -gt 0) {
     Write-Host "알림: 이 프로파일($Profile)에 없는 역할을 치웠습니다 — $($Pruned -join ' ')"

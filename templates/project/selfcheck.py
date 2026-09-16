@@ -959,6 +959,125 @@ def _num_stats(values):
     return len(nums), sum(nums), avg, blank
 
 
+# ── PROCESS.md 주입 ────────────────────────────────────────────────────────
+# PROCESS.md 는 **이력**이라 append-only 이고 절대 자르지 않는다. 그런데 역할을 부를 때
+# 전문을 주고 있었다 — 실측한 프로젝트에서 P-규칙이 76개 1558줄까지 자랐고, 그중
+# "대상: 전체" 가 1062줄이라 **coder 를 한 번 부를 때마다 1524줄**이 프롬프트에 붙었다.
+# 보관과 주입을 나눈다: 파일은 그대로 두고, 주입본은 여기서 파생한다.
+#
+# 줄이는 방법은 삭제가 아니라 **통합**이다. 통합도 새 항목으로 적으면(P-77 이 P-5·P-12 를
+# 대체한다) 원본은 파일에 남고 주입에서만 빠진다 — 이력은 100% 보존된다.
+PROCESS_PATH = Path("dev-agent-team/PROCESS.md")
+PROCESS_WARN_LINES = 300   # 한 역할에 붙는 주입본이 이 줄수를 넘으면 통합을 권한다
+
+
+def _process_blocks():
+    """PROCESS.md 를 P-번호 블록으로 쪼갠다 -> [(번호, 대상문자열, 줄들)]."""
+    if not PROCESS_PATH.is_file():
+        return []
+    text = PROCESS_PATH.read_text(encoding="utf-8")
+    out, cur = [], None
+    for line in text.splitlines():
+        m = re.match(r"^#+\s*(P-\d+)", line)
+        if m:
+            if cur:
+                out.append(cur)
+            cur = [m.group(1), "", [line]]
+        elif cur:
+            cur[2].append(line)
+    if cur:
+        out.append(cur)
+    for blk in out:
+        head = "\n".join(blk[2][:4])
+        t = re.search(r"대상:\s*([^\n·]*)", head)
+        blk[1] = (t.group(1) if t else "").strip()
+    return out
+
+
+def _superseded(blocks):
+    """다른 항목이 폐기·대체했다고 지목한 P-번호. 삭제가 아니라 **표현**으로 죽인다."""
+    dead = set()
+    for num, _, lines in blocks:
+        body = "\n".join(lines)
+        for m in re.finditer(r"(P-\d+)[^\n]{0,40}?(폐기|대체|무효|철회)", body):
+            if m.group(1) != num:
+                dead.add(m.group(1))
+    return dead
+
+
+def process_active(role):
+    """그 역할 호출에 실제로 붙일 개정만 낸다(폐기 제외 + 대상 필터)."""
+    blocks = _process_blocks()
+    if not blocks:
+        return 0
+    dead = _superseded(blocks)
+    picked = [b for b in blocks
+              if b[0] not in dead and ("전체" in b[1] or role in b[1])]
+    for _, _, lines in picked:
+        print("\n".join(lines).rstrip())
+    n = sum(len(b[2]) for b in picked)
+    if n > PROCESS_WARN_LINES:
+        print(f"\n<!-- [process] 이 호출에 {n}줄이 붙었다(권고 {PROCESS_WARN_LINES}). "
+              "lead 에게 통합을 시켜라. 삭제가 아니라 '대체' 항목으로 적으면 이력은 남는다. -->")
+    return 0
+
+
+def process_stats():
+    """무엇이 얼마나 쌓였는지 센다. 아무것도 막지 않는다 — 보이게 하는 것이 일이다."""
+    blocks = _process_blocks()
+    if not blocks:
+        print("[process] PROCESS.md 가 없거나 P-번호 항목이 없다.")
+        return 0
+    dead = _superseded(blocks)
+    alive = [b for b in blocks if b[0] not in dead]
+    allrole = [b for b in alive if "전체" in b[1]]
+    total = sum(len(b[2]) for b in blocks)
+    a_lines = sum(len(b[2]) for b in allrole)
+    print(f"[process] P-번호 {len(blocks)}개 · {total}줄 (이력, 절대 지우지 않는다)")
+    print(f"[process] 살아 있는 것 {len(alive)}개 / 폐기·대체된 것 {len(dead)}개")
+    print(f"[process] '대상: 전체' {len(allrole)}개 · {a_lines}줄 — **모든 역할 호출에 붙는다**")
+    worst = 0
+    for role in ("planner", "tester", "coder", "checker", "documenter",
+                 "designer", "lead", "reviewer", "critic", "security"):
+        n = sum(len(b[2]) for b in alive if "전체" in b[1] or role in b[1])
+        worst = max(worst, n)
+        if n > PROCESS_WARN_LINES:
+            print(f"[process]   {role}: {n}줄 (권고 {PROCESS_WARN_LINES} 초과)")
+    if worst > PROCESS_WARN_LINES:
+        print(f"[process] 통합이 필요하다. 가장 무거운 역할이 {worst}줄을 받는다.")
+        print("[process] 줄이는 법은 삭제가 아니라 통합이다 — 새 P-번호가 옛 것들을")
+        print("[process] '대체한다'고 적으면 원문은 남고 주입에서만 빠진다.")
+    else:
+        print(f"[process] 가장 무거운 역할이 {worst}줄을 받는다. 권고({PROCESS_WARN_LINES}) 안이다.")
+    return 0
+
+
+DIRECTION_PATH = Path("dev-agent-team/DIRECTION.md")
+
+
+def direction_head():
+    """DIRECTION.md 의 **마지막 절**만 낸다.
+
+    DIRECTION 도 이력이라 단계마다 절이 붙는다(실측 481줄·53절). 전문을 주면 lead 와
+    critic 호출이 그만큼 무거워진다. 지금 유효한 방향은 마지막 절이다 — 구조(마지막
+    헤더)로 고른다. 파일은 그대로 둔다.
+    """
+    if not DIRECTION_PATH.is_file():
+        print("[direction] dev-agent-team/DIRECTION.md 가 없다.")
+        return 0
+    lines = DIRECTION_PATH.read_text(encoding="utf-8").splitlines()
+    last = 0
+    for i, ln in enumerate(lines):
+        if re.match(r"^#{1,3}\s+\S", ln):
+            last = i
+    print("\n".join(lines[last:]).rstrip())
+    dropped = last
+    if dropped:
+        print(f"\n<!-- [direction] 앞의 {dropped}줄은 이력이라 주지 않았다. "
+              "필요하면 dev-agent-team/DIRECTION.md 를 직접 읽어라. -->")
+    return 0
+
+
 def _one_num(cell):
     """표 한 칸에서 앞머리 숫자를 읽는다. '-' 나 빈칸이면 None(= 기록되지 않음)."""
     if cell.strip() in ("", "-"):
@@ -1254,6 +1373,16 @@ def main():
         return log_summary()
     if "--retro-check" in sys.argv[1:]:
         return retro_check()
+    if "--process-stats" in sys.argv[1:]:
+        return process_stats()
+    if "--direction-head" in sys.argv[1:]:
+        return direction_head()
+    if "--process-active" in sys.argv[1:]:
+        i = sys.argv.index("--process-active")
+        if i + 1 >= len(sys.argv):
+            print("--process-active 뒤에 역할 이름이 필요하다", file=sys.stderr)
+            return 2
+        return process_active(sys.argv[i + 1])
 
     # 헌법 동결은 제품 언어와 무관하다. 언어 미감지로 조기 반환하기 전에 먼저 본다 —
     # --record-full-test 만 돌릴 때는 조용해야 하므로 그때는 건너뛴다.

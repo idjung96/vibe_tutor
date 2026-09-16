@@ -287,7 +287,6 @@ Owner 합의(C등급 정지)를 유지한다.
 | 팀장 방향·백로그 그루밍 (lead 역할) | 없음 | 있음 (계획 전·단계 시작) |
 | 결정 심의·합의 (critic 역할) | 없음 | 있음 (planner 결정 직후, 모호·고위험만 Owner) |
 | 보안 점검 (security 역할) | 없음 | 있음 (PASS 후 merge 전, 심각하면 Owner) |
-| 요구사항 충족도 평가 (evaluator 역할) | 없음 | 있음 (PR 시점, match·contract·doc 점수와 GAP) |
 | 요구사항 충돌·누락 점검 (planner) | 없음 | 있음 (단계 나누기 전) |
 | 절차 자기개선 (lead 회고 → Owner 승인 → PROCESS.md) | 없음 | 있음 (단계 회고 12c·최종 회고 17b, 재발 신호 있을 때) |
 
@@ -321,7 +320,7 @@ Owner 합의(C등급 정지)를 유지한다.
 3. **검사 시점 3분할** (team-dev "언제 무엇을 하나"가 정본): *commit 전*(테스트 커밋 전
    `[collect]`, 구현 커밋 전 `--gate` 조기 필터·checker SCOPED) / *push 시*(remote 있을 때만,
    작업 브랜치 확인) / *PR 시*(main 합치기 직전 단계당 1회: checker FULL·`--record-full-test`·
-   `--gate` 4종·documenter(그 단계 R번호)·`--score`, large면 reviewer·security·evaluator).
+   `--gate` 4종·documenter(그 단계 R번호)·`--score`, large면 reviewer·security).
    구현 직후도 FULL이다. main 합류 지점은 하나 — remote가 있으면 PR, 없으면 로컬 merge이고
    게이트 내용은 같다. `.last-full-test` 신선도 강제도 계약이다.
 4. **C등급 목록**(요구사항 변경, 삭제, 비용, 외부 배포, 보안, GPL, 외부 데이터 약관·저작권)과
@@ -349,7 +348,7 @@ Owner 합의(C등급 정지)를 유지한다.
    truncate/dd of=/patch)도 차단 대상이다. 읽기·실행은 통과시킨다.
 8. **로그 형식** `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value` — `logs/app.log` 에 append하고
    표준출력에도 같은 줄을 낸다. 언어와 무관하게 동일하며 `logging-rule` 스킬이 정본이다.
-9. **역할 구조와 역할 경계**(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security·evaluator)
+9. **역할 구조와 역할 경계**(공통 5 + designer(UI 단계) + large 전용 lead·reviewer·critic·security)
    및 designer 산출물 dev-agent-team/DESIGN.md 형식. lead는 방향·백로그 외에 회고·절차 개선제안(IMPROVE)도 낸다(large 전용).
    lead 호출 모드 3종(방향·단계 회고·최종 회고)과 호출 시점(4-0/7-0/12c/17b), BACKLOG "메모·주의"의
    출처 표기 형식(`- 설명 · 출처:stageN/역할`)도 계약에 포함된다.
@@ -407,8 +406,8 @@ Owner 합의(C등급 정지)를 유지한다.
   `doc` 축은 완료 단계의 R번호가 README에 있는지를 보므로 **documenter가 단계마다 돈다**
   (PR 시점에 그 단계 R번호만; 최종 정리는 끝에 한 번 더). 문서가 개발을 따라오게 하는 장치다.
   `test` 축은 FULL 실행 기록이 없으면 **상한 75**라, 테스트를 실제로 돌리지 않으면 기준에
-  닿을 수 없다. large 에는 요구사항 충족도를 보는 `evaluator` 역할이 더해진다(품질은
-  reviewer, 결정은 critic — 보는 것이 겹치지 않는다).
+  닿을 수 없다. 요구사항 충족도는 역할이 아니라 이 축(trace·doc)이 잰다 — 재시도 판정은
+  `[score]` 줄 하나가 몬다.
 - **헌법이 옛 버전에 묶이면(동결) 그 사실이 보인다.** 재설치는 Owner가 고친 `AGENTS.md`를
   덮지 않고 `.new`를 남기는데, 그러면 그 파일만 옛 버전이고 절차·역할·권한은 새 버전이라
   규칙이 어긋난다. 설치 시 두 버전을 숫자로 알리고, `selfcheck`가 `[constitution]` 줄로
@@ -518,7 +517,7 @@ AGENTS.md 규칙 병행과 컨테이너 격리를 권장한다(아래 "설계에
   끌어오거나 심볼릭으로 연결한다.
 - **스킬은 `.agents/skills/` + `.claude/skills/` 두 곳**에 두면 셋 다 커버된다
   (`.agents/`=Codex 네이티브+opencode 호환, `.claude/`=Claude Code+opencode 호환).
-- **5-에이전트(planner/tester/coder/checker/documenter) + UI 단계 designer + large 전용 lead·reviewer·critic·security·evaluator**: Claude·opencode는
+- **5-에이전트(planner/tester/coder/checker/documenter) + UI 단계 designer + large 전용 lead·reviewer·critic·security**: Claude·opencode는
   서브에이전트로 둘 수 있으나, **Codex는 별도 서브에이전트 프로세스가 없다** → team-dev 스킬이
   "단일 에이전트가 역할을 순차 수행"하도록 기술해야 한다.
 - **가드레일(C등급 정지·테스트 보호)**: Claude=shell hook, Codex=동일 `exit 2` `hook.json`

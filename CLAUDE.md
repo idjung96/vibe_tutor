@@ -47,6 +47,11 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
 python3 tests/verify_parity.py /tmp/t1    # + 역할 렌더 결과를 바이트 비교
 
+# 역할 호출에 붙일 PROCESS 개정만 뽑는다 (전문을 주지 않는다)
+python3 dev-agent-team/selfcheck.py --process-active coder
+python3 dev-agent-team/selfcheck.py --process-stats      # 얼마나 쌓였나 · 통합이 필요한가
+python3 dev-agent-team/selfcheck.py --direction-head     # DIRECTION 은 마지막 절만
+
 # 회고가 필요한 단계인지 기계로 판정 (12c 가 매번 이걸 먼저 돌린다)
 python3 dev-agent-team/selfcheck.py --retro-check
 
@@ -57,10 +62,10 @@ python3 dev-agent-team/selfcheck.py --log-summary   # 추세 + 최근 10단계
 ./init.sh --accept-constitution /tmp/t1
 
 # selfcheck 판정 로직 테스트 (권고 축·조기 탈출·진동 방지·plan_broken)
-python3 tests/test_selfcheck.py           # 68항목. selfcheck.py 를 고치면 반드시 돌린다
+python3 tests/test_selfcheck.py           # 86항목. selfcheck.py 를 고치면 반드시 돌린다
 
 # 설치기 동작 테스트 (재설치가 구성·상태를 안 바꾸는지, --accept-constitution)
-python3 tests/test_install.py             # 102항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
+python3 tests/test_install.py             # 111항목(기존 프로젝트·마이그레이션·헌법 동결 안내·프로파일 강등). init.sh 를 고치면 반드시 돌린다
 
 # Windows 동등물 (init.sh와 동일 렌더링 — pwsh 없으면 코드리뷰로 파리티 확인)
 .\init.ps1 -Profile large -Agent all -Target C:\projects\my-app
@@ -83,7 +88,7 @@ large·small·codex 단독 설치와 설치 검증, 단일 에이전트 격리, 
 `templates/docs/*`·`templates/project/*`·`templates/codex/hooks.json`·
 `templates/opencode/plugins/guard.js` 는 그대로 복사된다(`init.sh` §4–7 참조).
 
-3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 11개(planner/tester/coder/checker/documenter/designer, +lead/reviewer/critic/security/evaluator)가 단일 소스다. designer는 양 프로파일 공통(UI 단계에서만 호출)이고, lead·reviewer·critic·security·evaluator는 large 프로파일에서만 emit된다(`init.sh`/`init.ps1`의 `$ROLES`/`$Roles`). init이
+3. **역할 본문 단일 소스**: `templates/roles/<role>.md.tmpl` 10개(planner/tester/coder/checker/documenter/designer, +lead/reviewer/critic/security)가 단일 소스다. designer는 양 프로파일 공통(UI 단계에서만 호출)이고, lead·reviewer·critic·security는 large 프로파일에서만 emit된다(`init.sh`/`init.ps1`의 `$ROLES`/`$Roles`). init이
    에이전트별 frontmatter를 붙여 렌더한다 — Claude=`.claude/agents/<role>.md`(name/description/
    tools), Codex=`.agents/skills/<role>/SKILL.md`(name/description), opencode=
    `.opencode/agents/<role>.md`(description/mode/tools). frontmatter 매핑(설명·tools)은
@@ -103,15 +108,14 @@ large·small·codex 단독 설치와 설치 검증, 단일 에이전트 격리, 
 스킬 6종(team-dev/logging-rule/lib-research/code-convention/test-design/ui-design)은 claude면 `.claude/skills/`,
 codex/opencode면 `.agents/skills/` 로 렌더된다(`emit_skills`).
 
-## 프로파일은 이 14가지만 다르다
+## 프로파일은 이 13가지만 다르다
 
 `profiles/*.conf`(RETRY_LIMIT, MAX_CHECKER_CALLS)와 `.tmpl` 안의 `{{#IF_*}}` 블록으로만
 차이를 만든다. 새 차이를 도입할 때도 이 두 경로만 쓴다 — 별도 분기 파일을 만들지 말 것.
-차이 14종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
+차이 13종: RETRY_LIMIT, MAX_CHECKER_CALLS, tester 추가 탐색, coder 단계 밖 발견→BACKLOG 보고(large만),
 coder 디버깅 절차, 영향 표 산정 방식, 단계 시작 병렬성, reviewer 역할(large 전용 코드·테스트 리뷰),
 lead 역할(large 전용 팀장 방향·백로그 그루밍, DIRECTION.md; 회고 모드 2종(단계 12c·최종 17b)과 절차 자기개선 제안 IMPROVE),
 critic 역할(large 전용 결정 심의·합의; 명확하면 자율, 모호·고위험은 Owner),
-evaluator 역할(large 전용 요구사항 충족도 match·contract·doc 점수와 GAP — 품질은 reviewer, 결정은 critic 과 겹치지 않게),
 security 역할(large 전용 보안 점검), planner 요구사항 충돌·누락 점검(large만),
 절차 자기개선(large 전용 lead 회고→[절차개선] BACKLOG 누적→7-0/17b에서 Owner 승인→PROCESS.md 오버레이). (BACKLOG.md 파일 자체는 양 프로파일 공통.)
 
@@ -188,10 +192,11 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   (버전별 메타데이터를 손으로 들고 있지 않는다. 그런 표는 반드시 낡는다). 해소는 Owner 규칙을 `PROJECT_RULES.md` 로 옮기고 `.new` 를 본파일로
   옮긴 뒤 **설치를 한 번 더** 돌리는 것이다(그래야 manifest 가 맞는다).
 - **프로파일을 낮추면 옛 역할을 치운다.** 역할·스킬·훅은 무조건 덮어쓰는 강제 장치인데
-  덮어쓰기만 있고 치우기가 없어, large→small 재설치 후에도 lead·reviewer·critic·security·
-  evaluator 가 남았다. 남은 `lead.md` 는 **재설치 프로파일 추론과 설치 검증이 둘 다 보는
+  덮어쓰기만 있고 치우기가 없어, large→small 재설치 후에도 lead·reviewer·critic·security
+  가 남았다. 남은 `lead.md` 는 **재설치 프로파일 추론과 설치 검증이 둘 다 보는
   흔적**이라, 한 번 남으면 영영 large 로 되돌아오고 검증도 못 잡는다(흔적으로 판정한 대가).
-  지우는 대상은 **알려진 역할 이름 11개뿐** — Owner 가 직접 넣은 에이전트는 건드리지 않는다.
+  지우는 대상은 **알려진 역할 이름 11개뿐**(폐지한 evaluator 포함 — 남겨야 옛 설치본에서
+  치운다) — Owner 가 직접 넣은 에이전트는 건드리지 않는다.
 - **헌법 동결은 설치 실패가 아니다.** 설치기가 Owner 편집을 지키려고 일부러 남긴 상태이므로
   `verify_install.sh` 에서 WARN 이다. 막는 일은 merge 게이트(`constitution`)가 fail-closed 로
   한다. 설치 검증이 실패하면 init 은 **걸린 항목을 그대로 옮긴다** — 예전엔 무엇이 걸렸든
@@ -205,7 +210,7 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - **commit 전** — 테스트 커밋 전 `[collect]`, 구현 커밋 전 `--gate` 조기 필터·checker SCOPED.
 - **push 시** — remote 있을 때만, 작업 브랜치 확인.
 - **PR 시** — main 합치기 직전 단계당 1회: checker FULL·`--record-full-test`·`--gate` 4종·
-  documenter(그 단계 R번호)·`--score`, large면 reviewer·security·evaluator.
+  documenter(그 단계 R번호)·`--score`, large면 reviewer·security.
 - 구현 직후 11번도 FULL 이다. main 합류 지점은 하나 — remote 있으면 PR, 없으면 로컬 merge이고
   게이트 내용은 같다.
 
@@ -268,6 +273,21 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - 17b 최종 회고는 조건 없이 돈다(1회라 싸다). 거기서 **채택된 P-번호가 실제로 그 신호를
   줄였는지**도 본다 — 효과 없으면 폐기 제안. 개선을 쌓기만 하지 않는다.
 
+### 누적 문서를 역할에 줄 때 (`--process-active` · `--direction-head`)
+- **보관과 주입은 다른 문제다.** `PROCESS.md`·`DIRECTION.md` 는 이력이라 append-only 이고
+  **절대 자르지 않는다.** 대신 역할 호출에는 전문이 아니라 파생본만 준다.
+- 안 그러면 프롬프트가 계속 무거워진다. 실측: P-규칙 76개 1558줄, 그중 `대상: 전체` 가
+  1062줄이라 **coder 를 한 번 부를 때마다 1200줄 넘게** 붙었다. DIRECTION 은 481줄이었다.
+- **줄이는 방법은 삭제가 아니라 통합이다.** 새 P-번호가 옛 것들을 "대체한다"고 적으면
+  원문은 파일에 남고 주입에서만 빠진다 — 이력 100% 보존. 실측 프로젝트에서 폐기·대체가
+  76개 중 **2개**뿐이었다. 메커니즘은 있었는데 안 쓰인 것이 원인이다.
+- `--process-stats` 가 개수·줄수·`전체` 비중·역할별 주입량을 센다. 권고(300줄)를 넘으면
+  **통합을 요구**한다 — 막지는 않는다(점수와 같은 원칙).
+- `IMPROVE` 의 `대상: 전체` 는 되도록 쓰지 않는다. 모든 호출에 붙는다.
+- **폐지한 역할은 `ROLES_ALL` 에 남겨 둔다.** 빼면 옛 설치본에서 영영 안 치워진다.
+  치우기는 에이전트 블록 **밖**에서 세 경로를 모두 본다 — 안 그러면 지금 설치하는
+  오버레이만 치워서, 예전에 codex 로 깔았다 뺀 `.agents/skills/<role>` 이 남는다.
+
 ### 권한과 그 밖의 원칙
 - deny/ask 목록 — `git push` 전체와 `gh pr` 은 **ask**(Owner 승인 후 에이전트가 실행).
   브랜치 생성은 도구 allow 로 두고 Gate 1 계획 승인이 일괄 승인을 겸한다(절차 필수라 도구
@@ -275,7 +295,7 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - append-only 테스트 원칙.
 - 로그 형식 — `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력,
   언어 무관(logging-rule이 정본).
-- 역할 경계 — 5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security·evaluator.
+- 역할 경계 — 5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security.
 - 단일 작성자 원칙.
 
 ## 검사를 쓸 때의 원칙 (이 저장소에서 반복된 사고)
@@ -328,7 +348,7 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 공유 상태 파일(dev-agent-team/PLAN.json, dev-agent-team/DECISIONS.md, dev-agent-team/TEST_LOG.md, dev-agent-team/OWNER_QUESTION.md, dev-agent-team/BACKLOG.md, dev-agent-team/SCORE.json, dev-agent-team/DIRECTION.md, dev-agent-team/PROCESS.md)은 **메인 세션만**
 쓴다. subagent는 자기 산출물만 쓴다(planner=계획/질문, tester=tests/, coder=구현,
 checker=pytest 실행·판정, documenter=제품 README/문서(단계마다 그 단계 R번호 + 17번 최종 정리), designer=dev-agent-team/DESIGN.md(UI 단계),
-lead·reviewer·critic·security·evaluator(large)=제안만 출력. dev-agent-team/는 읽기만).
+lead·reviewer·critic·security(large)=제안만 출력. dev-agent-team/는 읽기만).
 절차 전체는 `templates/skills/team-dev/SKILL.md.tmpl` 가 정본이다.
 
 ## 알려진 제약

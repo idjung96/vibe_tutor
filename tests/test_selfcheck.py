@@ -416,6 +416,82 @@ def test_retro_check():
               "추세는 아직 못 본다" in _retro(tmp, [(1, 0, 5)]), _retro(tmp, [(1, 0, 5)]))
 
 
+def test_process_injection():
+    """PROCESS.md 를 자르지 않으면서 주입만 줄이는가.
+
+    PROCESS.md 는 이력이라 append-only 다. 그런데 역할 호출에 **전문**을 주고 있었다 —
+    실측 프로젝트에서 P-규칙이 76개 1558줄까지 자랐고 coder 한 번에 1200줄 넘게 붙었다.
+    보관과 주입을 나눈다. 줄이는 방법은 삭제가 아니라 통합이고, 통합도 새 항목으로
+    적으면(P-3 이 P-1 을 대체한다) 원문은 파일에 남는다.
+    """
+    print("\n[PROCESS 주입]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        Path("dev-agent-team/PROCESS.md").write_text(
+            "# 절차 개정\n\n"
+            "## P-1: 오래된 규칙\n대상: coder\n본문 A\n\n"
+            "## P-2: 전체 규칙\n대상: 전체\n본문 B\n\n"
+            "## P-3: 통합\n대상: coder\nP-1 을 대체한다.\n본문 C\n\n"
+            "## P-4: tester 규칙\n대상: tester\n본문 D\n", encoding="utf-8")
+
+        def run(*args):
+            return subprocess.run([sys.executable, str(SELFCHECK), *args],
+                                  capture_output=True, text=True).stdout
+
+        coder = run("--process-active", "coder")
+        check("대체된 P-1 은 주입되지 않는다", "본문 A" not in coder, coder)
+        check("대체한 P-3 은 주입된다", "본문 C" in coder, coder)
+        check("'전체' 대상은 모든 역할에 붙는다", "본문 B" in coder, coder)
+        check("다른 역할 대상은 안 붙는다", "본문 D" not in coder, coder)
+
+        tester = run("--process-active", "tester")
+        check("tester 에는 tester 것과 전체만", "본문 D" in tester and "본문 B" in tester
+              and "본문 C" not in tester, tester)
+
+        check("원본 파일은 그대로다(이력 보존)",
+              "본문 A" in Path("dev-agent-team/PROCESS.md").read_text(encoding="utf-8"))
+
+        st = run("--process-stats")
+        check("통계가 폐기된 것을 센다", "폐기·대체된 것 1개" in st, st)
+        check("통계가 '전체' 대상을 따로 센다", "'대상: 전체' 1개" in st, st)
+        check("권고 안이면 통합을 요구하지 않는다", "통합이 필요하다" not in st, st)
+
+        # 규칙을 잔뜩 쌓으면 통합을 요구해야 한다.
+        big = "# 절차 개정\n\n" + "".join(
+            f"## P-{i}: 규칙\n대상: 전체\n" + "본문\n" * 20 + "\n" for i in range(1, 30))
+        Path("dev-agent-team/PROCESS.md").write_text(big, encoding="utf-8")
+        st = run("--process-stats")
+        check("권고를 넘으면 통합을 요구한다", "통합이 필요하다" in st, st)
+        check("삭제가 아니라 통합이라고 말한다", "삭제가 아니라 통합" in st, st)
+        check("주입본에도 경고가 붙는다", "lead 에게 통합" in run("--process-active", "coder"))
+
+        Path("dev-agent-team/PROCESS.md").unlink()
+        check("PROCESS.md 가 없으면 조용하다", run("--process-active", "coder").strip() == "")
+
+
+def test_direction_head():
+    """DIRECTION.md 도 이력이다. 주입은 마지막 절만."""
+    print("\n[DIRECTION 주입]")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        Path("dev-agent-team").mkdir()
+        Path("dev-agent-team/DIRECTION.md").write_text(
+            "# 방향\n\n## 단계 1\n옛 방향\n\n## 단계 2\n지난 방향\n\n"
+            "## 단계 3\n지금 방향\n우선순위 A\n", encoding="utf-8")
+        out = subprocess.run([sys.executable, str(SELFCHECK), "--direction-head"],
+                             capture_output=True, text=True).stdout
+        check("마지막 절만 준다", "지금 방향" in out and "우선순위 A" in out, out)
+        check("앞 절은 안 준다", "옛 방향" not in out and "지난 방향" not in out, out)
+        check("몇 줄을 뺐는지 알린다", "이력이라 주지 않았다" in out, out)
+        check("원본은 그대로다(이력 보존)",
+              "옛 방향" in Path("dev-agent-team/DIRECTION.md").read_text(encoding="utf-8"))
+        Path("dev-agent-team/DIRECTION.md").unlink()
+        out = subprocess.run([sys.executable, str(SELFCHECK), "--direction-head"],
+                             capture_output=True, text=True).stdout
+        check("없으면 그렇다고 말한다", "없다" in out, out)
+
+
 def main():
     print("[selfcheck 테스트]")
     cwd = os.getcwd()
@@ -432,6 +508,8 @@ def main():
     test_log_summary()
     test_owner_lines_split()
     test_retro_check()
+    test_process_injection()
+    test_direction_head()
     print(f"\n[selfcheck 테스트] PASS {PASS} / FAIL {FAIL}")
     return 1 if FAIL else 0
 

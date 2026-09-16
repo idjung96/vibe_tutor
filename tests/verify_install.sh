@@ -60,7 +60,7 @@ done
 
 # ── 4. 역할·스킬이 프로파일과 맞는가 ───────────────────────────────────────
 COMMON_ROLES="planner tester coder checker documenter designer"
-LARGE_ROLES="lead reviewer critic security evaluator"
+LARGE_ROLES="lead reviewer critic security"
 role_path() { case "$1" in
   claude)   echo ".claude/agents/$2.md" ;;
   codex)    echo ".agents/skills/$2/SKILL.md" ;;

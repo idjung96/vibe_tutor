@@ -1098,7 +1098,7 @@ LEDGER_KEEP = 5          # 본문을 통째로 주는 최근 단계 수
 LEDGER_BUDGET = 400      # 한 문서를 주입할 때 쓰는 최대 줄 수
 # 한 절이 이 줄수를 넘으면 "결정이 아니라 조사가 들어갔다" 는 신호다. 실측 프로젝트에서
 # 41줄 넘는 26건(12%)이 파일의 63%를 차지했고, 최대 한 건이 1447줄이었다. 그 1447줄 중
-# 결정은 앞 30줄이고 나머지는 조사 기록이었다. 조사는 이슈나 evidence/ 로 뺀다.
+# 결정은 앞 30줄이고 나머지는 조사 기록이었다. 조사는 evidence/ 로 뺀다.
 LEDGER_SECTION_WARN = 40
 # 문서 종류가 다르면 큰 절의 뜻이 다르다. 전부에 같은 경고를 울리면 늘 울리고, 늘 울리는
 # 경보는 무시된다. 절 하나가 **한 건**인 문서에서만 크기를 따진다.
@@ -1429,7 +1429,7 @@ def migrate_check():
             big = [h for h, b, _ in secs if len(b) + 1 > LEDGER_SECTION_WARN]
             if big:
                 todo.append((name, f"{LEDGER_SECTION_WARN}줄 넘는 절", len(big),
-                             "조사는 이슈(#번호)나 dev-agent-team/evidence/ 로 빼라. 결정은 15줄 목표다.",
+                             "조사는 dev-agent-team/evidence/ 로 빼라. 결정은 15줄 목표다.",
                              [h.lstrip("# ").strip()[:60] for h in big[:3]]))
     pa = Path("dev-agent-team/PROCESS.md")
     if pa.is_file():
@@ -1507,7 +1507,7 @@ def ledger_stats():
               f"파일의 {share}% 를 차지한다. 절 하나가 한 건인 문서인데 **조사가 섞여 있다.**")
         for h, k in sorted(big, key=lambda x: -x[1])[:5]:
             print(f"  {k:>5}줄  {h.lstrip('# ').strip()[:70]}")
-        print("  조사는 이슈(#번호)나 dev-agent-team/evidence/ 로 빼고 번호만 남겨라.")
+        print("  조사는 dev-agent-team/evidence/ 로 빼고 파일 이름만 남겨라.")
         print("  이미 쓴 것을 소급해 고칠 필요는 없다 — --ledger 가 제목만 준다.")
     for name, nl, ns in spec:
         print(f"\n[ledger] {name}: {nl}줄 · 절 {ns}개. 명세라 긴 것 자체는 정상이다.")

@@ -62,6 +62,7 @@ step "init.sh ↔ init.ps1 파리티(large 렌더 대조)" \
   python3 "$SRC/tests/verify_parity.py" "$WORK/large"
 step "init.sh ↔ init.ps1 파리티(small 렌더 대조)" \
   python3 "$SRC/tests/verify_parity.py" "$WORK/small"
+step "절차 무결성(large 렌더)" python3 "$SRC/tests/test_procedure.py" "$WORK/large"
 step "selfcheck 판정 로직"  python3 "$SRC/tests/test_selfcheck.py"
 step "설치기 동작"          python3 "$SRC/tests/test_install.py"
 

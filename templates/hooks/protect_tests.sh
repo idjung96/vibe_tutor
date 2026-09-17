@@ -126,6 +126,23 @@ if not cands:
 #    파싱에 실패하면 전면 동결한다(빈 목록으로 보지 않는다 — fail-closed).
 ROOT = os.environ.get("HARNESS_ROOT") or "."
 UNFREEZE = os.path.join(ROOT, "dev-agent-team", "TEST_UNFREEZE.md")
+
+def relroot(p):
+    """경로를 **프로젝트 루트 기준 상대경로**로 맞춘다.
+
+    해제 목록은 사람이 쓰므로 `tests/x.py` 같은 상대경로다. 그런데 편집 도구는 보통
+    **절대경로**를 넘긴다(Claude Code 의 Edit 이 그렇다). 양쪽을 안 맞추면 목록에 있는
+    파일을 절대경로로 고칠 때 해제가 안 먹는다 — 실제로 그랬다. 같은 파일을 가리키는
+    표기가 셋(절대·상대·./상대)인데 문자열로 비교한 것이 원인이다.
+    """
+    q = str(p).replace("\\", "/")
+    base = os.path.abspath(ROOT)
+    ap = os.path.abspath(q if os.path.isabs(q) else os.path.join(base, q))
+    try:
+        r = os.path.relpath(ap, base)
+    except ValueError:
+        return q.lstrip("./")
+    return r.replace("\\", "/").lstrip("./")
 unfrozen = set()
 if os.path.isfile(UNFREEZE):
     try:
@@ -136,7 +153,7 @@ if os.path.isfile(UNFREEZE):
             for tok in re.findall(r"[\w./\\-]+", body):
                 if "/" in tok or tok.endswith((".py", ".go", ".rs", ".dart",
                                                ".js", ".ts", ".jsx", ".tsx")):
-                    unfrozen.add(tok.replace("\\", "/").lstrip("./"))
+                    unfrozen.add(relroot(tok))
     except Exception as exc:
         print("UNFREEZE_UNREADABLE", file=sys.stderr)
         sys.exit(3)
@@ -156,7 +173,7 @@ def tracked(path):
     return None                          # 저장소가 아니거나 알 수 없는 실패
 
 for p in cands:
-    norm = p.replace("\\", "/").lstrip("./")
+    norm = relroot(p)
     t = tracked(p)
     if t is None:
         print(f"UNDECIDABLE\t{p}")

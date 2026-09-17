@@ -79,6 +79,15 @@ export const TeamGuard = async ({ directory }) => {
       fp.replace(/\\/g, "/")
     );
 
+  // 경로를 프로젝트 루트 기준 상대경로로 맞춘다. 해제 목록은 사람이 쓰므로 상대경로인데
+  // 편집 도구는 보통 절대경로를 넘긴다 — 안 맞추면 목록에 있는 파일을 절대경로로 고칠 때
+  // 해제가 안 먹는다(protect_tests.sh 의 relroot 와 동일해야 한다).
+  const relroot = (p) => {
+    const q = String(p).replace(/\\/g, "/");
+    const ap = path.isAbsolute(q) ? path.resolve(q) : path.resolve(root, q);
+    return path.relative(path.resolve(root), ap).replace(/\\/g, "/").replace(/^\.\//, "");
+  };
+
   // 해제 목록: 경로와 같은 줄에 「근거:」가 있는 항목만 유효하다. 읽다 실패하면
   // 빈 목록으로 보지 않고 **전면 동결**한다(fail-closed). protect_tests.sh 와 동일.
   const readUnfreeze = () => {
@@ -98,7 +107,7 @@ export const TeamGuard = async ({ directory }) => {
       const body = ln.replace(/^\s*-\s*/, "").split("근거:")[0];
       for (const tok of body.match(/[\w./\\-]+/g) || []) {
         if (tok.includes("/") || /\.(py|go|rs|dart|js|ts|jsx|tsx)$/.test(tok)) {
-          out.add(tok.replace(/\\/g, "/").replace(/^\.\//, ""));
+          out.add(relroot(tok));
         }
       }
     }
@@ -122,7 +131,7 @@ export const TeamGuard = async ({ directory }) => {
 
   const denyIfExisting = (fp) => {
     if (!fp || !isTestFile(fp)) return;
-    const norm = fp.replace(/\\/g, "/").replace(/^\.\//, "");
+    const norm = relroot(fp);
     const t = isTracked(fp);
     if (t === null) {
       throw new Error(

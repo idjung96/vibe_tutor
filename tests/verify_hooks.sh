@@ -117,6 +117,31 @@ printf '{"tool_input":{"file_path":"%s/tests/calc.spec.ts"}}' "$SANDBOX" \
   | "$H/protect_tests.sh" >/dev/null 2>&1
 check "ts 새 테스트 생성 허용" 0 $?
 
+# 13c. 해제 목록은 **절대경로로 편집해도** 먹어야 한다.
+#      편집 도구는 보통 절대경로를 넘긴다(Claude Code 의 Edit 이 그렇다). 목록은 사람이
+#      쓰므로 상대경로다. 문자열로 비교하다가 같은 파일의 표기 셋(절대·상대·./상대)이
+#      갈렸다 — 목록에 있는 파일을 절대경로로 고칠 때 해제가 통째로 안 먹었다.
+T="$SANDBOX/tests/unfreeze_target_test.py"
+commit_fixture "$T"
+printf -- '- tests/unfreeze_target_test.py · 근거: 픽스처가 실제 버그를 동결했다(회귀 확인용)\n' \
+  > "$SANDBOX/dev-agent-team/TEST_UNFREEZE.md"
+UF_BAD=0
+for FORM in "$T" "tests/unfreeze_target_test.py" "./tests/unfreeze_target_test.py"; do
+  RC=$(printf '{"tool_input":{"file_path":"%s"}}' "$FORM" \
+       | ( cd "$SANDBOX" && bash "$H/protect_tests.sh" ) >/dev/null 2>&1; echo $?)
+  [ "$RC" = "0" ] || { echo "    해제된 파일이 막힌다($FORM): rc=$RC"; UF_BAD=1; }
+done
+# 목록에 없는 파일은 표기와 무관하게 막혀야 한다.
+T2="$SANDBOX/tests/not_unfrozen_test.py"
+commit_fixture "$T2"
+for FORM in "$T2" "tests/not_unfrozen_test.py"; do
+  RC=$(printf '{"tool_input":{"file_path":"%s"}}' "$FORM" \
+       | ( cd "$SANDBOX" && bash "$H/protect_tests.sh" ) >/dev/null 2>&1; echo $?)
+  [ "$RC" = "2" ] || { echo "    해제 안 된 파일이 통과한다($FORM): rc=$RC"; UF_BAD=1; }
+done
+check "해제 목록이 절대·상대 경로 모두에서 먹는다" 0 $UF_BAD
+rm -f "$T" "$T2" "$SANDBOX/dev-agent-team/TEST_UNFREEZE.md"
+
 # 14. tests/ 아래 **모든 .py** 가 보호 대상이다 — conftest.py(데이터 게이트)와
 #     _contract.py·_synthetic.py(계약·합성 헬퍼)가 조용히 바뀌면 "독립 검증"·"조용한 skip
 #     차단" 보장이 집행되지 않는다. 예전엔 test_*.py 만 봐서 이것들이 무방비였다.

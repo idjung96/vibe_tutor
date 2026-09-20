@@ -4,6 +4,44 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 버전은 `HARNESS_VERSION`(호환성 계약)과 일치한다.
 
+## [1.72.0] — 같은 방식으로 더 훑었다: 단언을 지키는 검사가 없던 자리
+
+v1.71.0(Grep 누락)과 **같은 방법**으로 나머지 표를 기계로 훑었다 — 표에서 설명할 수 없는
+예외를 찾는 것이다. 멀쩡한 것이 많았고, 두 개가 나왔다.
+
+**멀쩡했던 것** (억지로 결함을 만들지 않았다):
+- 권한 목록 — claude·opencode 의 deny 10종·ask 가 일치한다.
+- 스킬 ↔ 역할 — `code-convention`은 제품 코드(coder), `test-design`은 테스트 코드(tester)이고
+  reviewer 의 두 절이 정확히 그 짝을 쓴다. `checker`·`critic`·`lead`·`documenter` 가 스킬을
+  안 가리키는 것도 설명된다.
+- 헌법·PROJECT_RULES 전달 — 세 에이전트 모두 받는다(claude=@import, opencode=instructions,
+  codex=헌법 10번).
+- `role_desc`·`role_model` 에 빠진 역할 없음.
+
+### ① README 가 지키는 사람 없이 단언하고 있었다
+
+README: "opencode는 가드레일·역할 격리·deny 모두 Claude와 동등하다."
+**그 단언을 지키는 검사가 없었다.** 그래서 `tester` 가 Claude 에서만 Grep 을 잃은 채
+한참 굴러갔다 — 버그가 바로 그 자리에 살았다.
+
+`verify_parity.py` 에 **역할별 쓰기·편집·실행 권한이 두 에이전트에서 같은지**를 넣었다.
+`Write∈claude ⟺ write:true` 식으로 대조한다(27항목). opencode 에서 tester 쓰기를 꺼
+실제로 잡히는지 확인했다.
+
+### ② README 가 codex 를 과소 진술하고 있었다
+
+| | 지금(AS-IS) | 실제 |
+|---|---|---|
+| README | "역할 도구 격리·명령 deny가 **정밀하지 않다**" | 역할 도구 격리가 **아예 없다** |
+
+`.agents/skills/<role>/SKILL.md` 에는 name·description 만 적고 도구 제한 필드를 쓰지 않는다 —
+열 역할 전부 그렇다. 그래서 읽기만 해야 하는 `reviewer`·`lead`·`critic`·`security` 가 Codex
+에서는 **파일을 쓸 수 있고**, 막는 것은 역할 프롬프트의 "제안만 출력한다" 문장뿐이다.
+
+"정밀하지 않다"는 **"있는데 덜 정확하다"로 읽힌다.** 없는 것을 있는 것처럼 말하는 것이
+이 저장소가 계속 고쳐 온 실패다(원칙 1과 같은 자리). 문장을 사실대로 고치고, Codex 에서는
+컨테이너 격리가 권장이 아니라 **사실상 필수**라고 적었다.
+
 ## [1.71.0] — Grep 누락: 권한을 줄인 게 아니라 역할을 망가뜨린 것
 
 사용처 지적에서 출발했다. "tester 만 Grep 이 없다. 읽고 쓰기만 하는 역할이 넷 더 있는데 그

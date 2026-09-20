@@ -211,6 +211,29 @@ def check_installer_logic(sh, ps):
             bad.append(f"{m.group(1)}: {m.group(2)}")
     check("Read 를 가진 역할은 Grep 도 갖는다", not bad, bad)
 
+    # README 는 "opencode는 가드레일·역할 격리·deny 모두 Claude와 동등하다" 고 단언한다.
+    # 그런데 그 단언을 지키는 검사가 없어서, tester 가 Claude 에서만 Grep 을 잃은 채
+    # 한참 굴러갔다(v1.71.0). 쓰기·편집·실행 권한이 두 에이전트에서 같은지 기계로 본다.
+    oc_tools = re.search(r"opencode_tools\(\) \{ case.*?esac; \}", sh, re.S).group(0)
+    oc_map = {}
+    for m in re.finditer(r"^\s*([\w|]+)\)\s*printf '([^']+)'", oc_tools, re.M):
+        flags = dict(re.findall(r"(write|edit|bash): (true|false)", m.group(2)))
+        for r in m.group(1).split("|"):
+            oc_map[r] = flags
+    cl_map = {}
+    for m in re.finditer(r"^\s*([\w|]+)\)\s*echo \"([^\"]+)\"", sh_tools, re.M):
+        tools = {t.strip() for t in m.group(2).split(",")}
+        for r in m.group(1).split("|"):
+            cl_map[r] = tools
+    mismatch = []
+    for role in sorted(set(cl_map) & set(oc_map)):
+        for tool, key in (("Write", "write"), ("Edit", "edit"), ("Bash", "bash")):
+            if (tool in cl_map[role]) != (oc_map[role][key] == "true"):
+                mismatch.append(f"{role}: claude {tool}={tool in cl_map[role]} vs opencode {key}={oc_map[role][key]}")
+    check("역할 권한이 claude·opencode 에서 같다", not mismatch, mismatch)
+    check("두 매핑이 같은 역할 집합을 덮는다", set(cl_map) == set(oc_map),
+          f"claude만={sorted(set(cl_map)-set(oc_map))} opencode만={sorted(set(oc_map)-set(cl_map))}")
+
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))
     b = sorted(set(re.findall(r'"\$File\.([\w-]+)"', ps)))

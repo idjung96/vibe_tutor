@@ -507,9 +507,16 @@ Owner 합의(C등급 정지)를 유지한다.
 파일(py/go/rs/js·ts) 수정은 똑같이 차단된다. inline 임의코드(`python -c`·`node -e`)는 deny다.
 
 요약: **opencode는 가드레일·역할 격리·deny 모두 Claude와 동등**하다(런타임만 추가 요구).
-**Codex는 프로세스(5역할·헌법·정지 흐름)는 동일하나 자동 강제가 약해** — 테스트 보호가
-훅 미발화 시 빠지고, 역할 도구 격리·명령 deny가 정밀하지 않다. 따라서 Codex/opencode에서는
-AGENTS.md 규칙 병행과 컨테이너 격리를 권장한다(아래 "설계에 주는 함의" 참조).
+이 동등성은 `tests/verify_parity.py` 가 기계로 지킨다 — 역할별 쓰기·편집·실행 권한이 두
+에이전트에서 갈리면 실패한다. 예전엔 지키는 검사가 없어서 `tester` 가 Claude 에서만 검색
+도구를 잃은 채 한참 굴러갔다(v1.71.0에서 고쳤다).
+
+**Codex 는 역할 도구 격리가 아예 없다.** `.agents/skills/<role>/SKILL.md` 에 name·description
+만 적고 도구 제한 필드를 쓰지 않는다 — "정밀하지 않다"가 아니라 **없다**. 그래서 읽기만
+해야 하는 역할(reviewer·lead·critic·security)이 Codex 에서는 파일을 쓸 수 있고, 막는 것은
+역할 프롬프트의 "제안만 출력한다" 문장뿐이다. 명령 deny 도 `.codex/config.toml` 의 샌드박스
+수준이라 Claude 의 deny 목록만큼 정밀하지 않고, 테스트 보호는 훅 미발화 시 빠진다.
+따라서 Codex 에서는 AGENTS.md 규칙 병행과 **컨테이너 격리**가 권장이 아니라 사실상 필수다.
 
 ### 설계에 주는 함의
 

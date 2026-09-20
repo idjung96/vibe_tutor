@@ -545,6 +545,12 @@ lead·reviewer·critic·security(large)=제안만 출력. dev-agent-team/는 읽
 
 - 가드레일 강제력은 에이전트별로 다르다(Codex 파일편집 훅 불안정·Windows 미지원, opencode는
   bun/node 필요). 강제가 불완전할 수 있어 AGENTS.md 규칙을 병행하고 컨테이너 실행을 권장한다.
+- **Codex 는 역할 도구 격리가 아예 없다.** `.agents/skills/<role>/SKILL.md` 에 name·description
+  만 적는다 — 도구 제한 필드를 쓰지 않는다. 그래서 읽기만 해야 하는 역할(reviewer·lead·
+  critic·security)이 Codex 에서는 파일을 쓸 수 있고, 막는 것은 역할 프롬프트 문장뿐이다.
+  README 가 오래 "정밀하지 않다" 고 적어 두었는데 그건 "있는데 덜 정확하다" 로 읽힌다 —
+  **없는 것을 있는 것처럼 말하지 않는다**(원칙 1과 같은 자리). claude↔opencode 동등성은
+  `verify_parity.py` 가 기계로 지키지만, codex 는 지킬 대상 자체가 없다.
 - `AGENTS.md` 는 이제 **심볼릭 링크가 아니라 렌더된 실파일**(공통 헌법)이다. Claude는
   `CLAUDE.md` 가 `@AGENTS.md` 로 import 한다.
 - Codex `.codex` 설정은 trusted 프로젝트에서만 적용된다(설치 후 안내 참조).

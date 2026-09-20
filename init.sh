@@ -260,13 +260,21 @@ role_model() { case "$1" in
 esac; }
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 role_effort() { echo "high"; }
+# **Read 를 가진 역할은 Grep 도 갖는다.** Grep 은 Read 이상의 권한을 주지 않는다 —
+# 읽을 수 있는 것을 찾을 수 있게 할 뿐이다. 빼 봐야 권한이 줄지 않고 둘 중 하나가 된다:
+#   · 역할이 제 일을 못 한다 — tester 는 "기존 테스트를 수정하지 않는다"(규칙 7)를 지켜야
+#     하는데 무엇이 기존인지 찾을 수단이 없었다. designer 도 마찬가지였다.
+#   · 더 큰 권한으로 우회한다 — coder·checker·documenter 는 Grep 없이 Bash 를 가져서
+#     `bash grep` 을 쓴다. 작은 도구를 막고 큰 도구를 열어 둔 셈이다.
+# 게다가 이 제한은 Claude 에만 걸렸다. opencode 템플릿은 write/edit/bash 만 적어 read·grep 을
+# 제한하지 않고, codex 역할에는 도구 제한이 없다 — 같은 역할이 에이전트마다 다르게 동작했다.
 claude_tools() { case "$1" in
   planner)        echo "Read, Write, Grep" ;;
-  tester)         echo "Read, Write" ;;
-  coder)          echo "Read, Write, Edit, Bash" ;;
-  checker)        echo "Bash, Read" ;;
-  documenter)     echo "Read, Write, Edit, Bash" ;;
-  designer)       echo "Read, Write" ;;
+  tester)         echo "Read, Write, Grep" ;;
+  coder)          echo "Read, Write, Edit, Grep, Bash" ;;
+  checker)        echo "Read, Grep, Bash" ;;
+  documenter)     echo "Read, Write, Edit, Grep, Bash" ;;
+  designer)       echo "Read, Write, Grep" ;;
   reviewer|lead|critic|security) echo "Read, Grep" ;;
 esac; }
 opencode_tools() { case "$1" in

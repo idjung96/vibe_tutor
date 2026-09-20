@@ -408,6 +408,15 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
 - 로그 형식 — `[HH:MM:SS] [LEVEL] [모듈] 동작 | key=value`, logs/app.log + 표준출력,
   언어 무관(logging-rule이 정본).
 - 역할 경계 — 5역할 공통 + designer(UI 단계 공통) + large 전용 lead·reviewer·critic·security.
+- **Read 를 가진 역할은 Grep 도 갖는다.** Grep 은 Read 이상의 권한을 주지 않는다 — 읽을 수
+  있는 것을 찾을 수 있게 할 뿐이다. 빼 봐야 권한이 줄지 않고 둘 중 하나가 된다: 역할이 제
+  일을 못 하거나(`tester` 는 "기존 테스트를 수정하지 않는다" 를 지켜야 하는데 무엇이 기존인지
+  **찾을 수단이 없었다**. `designer` 도 같았다), **더 큰 권한으로 우회한다**
+  (`coder`·`checker`·`documenter` 는 Grep 없이 Bash 를 가져서 `bash grep` 을 썼다 —
+  작은 도구를 막고 큰 도구를 열어 둔 꼴이다).
+  게다가 이 제한은 **Claude 에만** 걸렸다 — opencode 템플릿은 write/edit/bash 만 적어
+  read·grep 을 제한하지 않고, codex 역할에는 도구 제한이 없다. 같은 역할이 에이전트마다
+  다르게 동작하면 "산출물의 비종속성" 이 깨진다. `verify_parity.py` 가 구조로 고정한다.
 - 단일 작성자 원칙.
 
 ## 절차를 고칠 때 (`tests/test_procedure.py`)

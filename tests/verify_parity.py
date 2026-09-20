@@ -145,6 +145,8 @@ def check_installer_logic(sh, ps):
          re.findall(r"Join-Path \$Target '([\w.\\]+)'\)\)\s*\{\s*\$out \+= '(\w+)' \}", ps)]
     check("에이전트 추론 마커와 순서가 같다", a == b, f"sh={a}\nps={b}")
 
+    sh_tools = re.search(r"claude_tools\(\) \{ case.*?esac; \}", sh, re.S).group(0)
+
     # "버전 차이가 크다" 임계값
     a = re.search(r'\[ "\$\(\( NEWN - OLDN \)\)" -ge (\d+) \]', sh)
     b = re.search(r"\(\$newn - \$oldn\) -ge (\d+)", ps)
@@ -197,6 +199,17 @@ def check_installer_logic(sh, ps):
     check("확장 폴더를 만들고 README 만 install-if-missing (양쪽)",
           "dev-agent-team/guards" in sh and "dev-agent-team\\guards" in ps
           and "guards/README.md" in sh and "guards\\README.md" in ps)
+
+    # Read 를 가진 역할은 Grep 도 가져야 한다. Grep 은 Read 이상의 권한을 주지 않으므로
+    # 빼 봐야 권한이 안 줄고, 역할이 일을 못 하거나(tester·designer 는 탐색 수단이 아예
+    # 없었다) 더 큰 도구로 우회한다(coder·checker·documenter 는 Bash 로 grep 했다).
+    # 표를 눈으로 보다 놓친 누락이라 구조로 고정한다.
+    bad = []
+    for m in re.finditer(r"^\s*([\w|]+)\)\s*echo \"([^\"]+)\"", sh_tools, re.M):
+        tools = [t.strip() for t in m.group(2).split(",")]
+        if "Read" in tools and "Grep" not in tools:
+            bad.append(f"{m.group(1)}: {m.group(2)}")
+    check("Read 를 가진 역할은 Grep 도 갖는다", not bad, bad)
 
     # 헌법 채택이 만드는 파일 접미사
     a = sorted(set(re.findall(r'"\$1\.([\w-]+)"', sh)))

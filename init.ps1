@@ -276,11 +276,13 @@ function Role-Model($r) { switch ($r) {
 } }
 # 추론 강도는 전 역할 high 고정 — 역할별로 낮추지 않는다.
 function Role-Effort($r) { 'high' }
+# Read 를 가진 역할은 Grep 도 갖는다(init.sh 의 claude_tools 주석 참조).
+# Grep 은 Read 이상의 권한을 주지 않는다 — 빼면 역할이 일을 못 하거나 Bash 로 우회한다.
 function Claude-Tools($r) { switch ($r) {
-    'planner' { 'Read, Write, Grep' } 'tester' { 'Read, Write' }
-    'coder'   { 'Read, Write, Edit, Bash' } 'checker' { 'Bash, Read' }
-    'documenter' { 'Read, Write, Edit, Bash' }
-    'designer' { 'Read, Write' }
+    'planner' { 'Read, Write, Grep' } 'tester' { 'Read, Write, Grep' }
+    'coder'   { 'Read, Write, Edit, Grep, Bash' } 'checker' { 'Read, Grep, Bash' }
+    'documenter' { 'Read, Write, Edit, Grep, Bash' }
+    'designer' { 'Read, Write, Grep' }
     'reviewer' { 'Read, Grep' }
     'lead' { 'Read, Grep' }
     'critic' { 'Read, Grep' }

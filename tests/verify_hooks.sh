@@ -140,6 +140,20 @@ for FORM in "$T2" "tests/not_unfrozen_test.py"; do
   [ "$RC" = "2" ] || { echo "    해제 안 된 파일이 통과한다($FORM): rc=$RC"; UF_BAD=1; }
 done
 check "해제 목록이 절대·상대 경로 모두에서 먹는다" 0 $UF_BAD
+
+# 13d. 해제 목록의 **코드블록 안 예시**를 실제 해제로 읽으면 안 된다.
+#      템플릿이 형식 예시로 `- tests/test_payment.py · 근거: ...` 를 담고 있어서,
+#      갓 설치한 프로젝트가 그 경로를 처음부터 풀린 채로 갖게 됐다(실제로 그랬다).
+T3="$SANDBOX/tests/fenced_example_test.py"
+commit_fixture "$T3"
+{ printf '# 해제 목록\n\n형식:\n\n```\n'
+  printf -- '- tests/fenced_example_test.py · 근거: 이건 예시일 뿐이다\n'
+  printf '```\n'
+} > "$SANDBOX/dev-agent-team/TEST_UNFREEZE.md"
+printf '{"tool_input":{"file_path":"%s"}}' "$T3" \
+  | ( cd "$SANDBOX" && bash "$H/protect_tests.sh" ) >/dev/null 2>&1
+check "코드블록 안 예시는 해제로 치지 않는다" 2 $?
+rm -f "$T3" "$SANDBOX/dev-agent-team/TEST_UNFREEZE.md"
 rm -f "$T" "$T2" "$SANDBOX/dev-agent-team/TEST_UNFREEZE.md"
 
 # 14. tests/ 아래 **모든 .py** 가 보호 대상이다 — conftest.py(데이터 게이트)와

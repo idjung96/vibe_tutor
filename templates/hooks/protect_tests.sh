@@ -146,8 +146,14 @@ def relroot(p):
 unfrozen = set()
 if os.path.isfile(UNFREEZE):
     try:
+        fence = False
         for ln in open(UNFREEZE, encoding="utf-8").read().splitlines():
-            if not ln.lstrip().startswith("-") or "근거:" not in ln:
+            # 코드블록 안은 **설명용 예시**다. 실제 해제로 읽으면 템플릿에 적힌
+            # `tests/test_payment.py` 가 갓 설치한 프로젝트에서 처음부터 풀려 있게 된다.
+            if ln.lstrip().startswith("```"):
+                fence = not fence
+                continue
+            if fence or not ln.lstrip().startswith("-") or "근거:" not in ln:
                 continue
             body = ln.lstrip("- ").split("근거:")[0]
             for tok in re.findall(r"[\w./\\-]+", body):

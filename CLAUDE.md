@@ -41,7 +41,7 @@ Stage-Gate 방식으로 자동 개발하는 팀이다.
 
 # 설치 검증 (init.sh가 설치 끝에 자동 실행; 단독 실행도 가능)
 ./tests/verify_install.sh /tmp/t1     # 구성·파일·설정·헌법 동결 + 가드 훅 실동작까지
-./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 30항목(샌드박스를 git 저장소로 만들어 돈다)
+./tests/verify_hooks.sh /tmp/t1       # 가드 훅만: 31항목(샌드박스를 git 저장소로 만들어 돈다)
 
 # init.sh ↔ init.ps1 파리티 검증 (pwsh 없이 코드리뷰를 자동화한 것)
 python3 tests/verify_parity.py            # 매핑·역할목록·스킬·템플릿
@@ -506,6 +506,9 @@ selfcheck를 `common/`에서 `dev-agent-team/`로 v1.9.0).
   **경로 표기를 루트 기준으로 맞춰 비교한다** — 해제 목록은 사람이 써서 상대경로인데
   편집 도구는 보통 절대경로를 넘긴다(Claude Code 의 Edit 이 그렇다). 문자열로 비교하다가
   같은 파일의 표기 셋(절대·상대·`./상대`)이 갈려 **해제 목록이 통째로 안 먹었다.**
+  해제 목록 파서는 **코드블록 안을 건너뛴다** — 템플릿이 형식 예시로
+  `- tests/test_payment.py · 근거: …` 를 담고 있어서, 갓 설치한 프로젝트가 그 경로를
+  처음부터 풀린 채로 갖고 있었다(`--migrate-check` 의 유령 절과 같은 유형이다).
   보호 범위는 `tests?/` 아래 **모든 .py** — `conftest.py`(데이터 게이트)와
   `_contract.py`·`_synthetic.py`(계약·합성 헬퍼)가 조용히 바뀌면 "독립 검증"·"조용한 skip
   차단" 보장이 집행되지 않는다. 훅은 프로젝트 루트를 **자기 위치**로 안다(cwd 가 아니다).

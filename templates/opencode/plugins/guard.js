@@ -102,8 +102,11 @@ export const TeamGuard = async ({ directory }) => {
       );
     }
     const out = new Set();
+    let fence = false;
     for (const ln of txt.split(/\r?\n/)) {
-      if (!ln.trimStart().startsWith("-") || !ln.includes("근거:")) continue;
+      // 코드블록 안은 설명용 예시다(protect_tests.sh 와 동일).
+      if (ln.trimStart().startsWith("```")) { fence = !fence; continue; }
+      if (fence || !ln.trimStart().startsWith("-") || !ln.includes("근거:")) continue;
       const body = ln.replace(/^\s*-\s*/, "").split("근거:")[0];
       for (const tok of body.match(/[\w./\\-]+/g) || []) {
         if (tok.includes("/") || /\.(py|go|rs|dart|js|ts|jsx|tsx)$/.test(tok)) {
